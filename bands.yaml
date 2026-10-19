@@ -1,0 +1,8 @@
+# Stage 6 (Maintain), local only: deterministic detection; Claude is invoked only on breach.
+# Run after evals: scripts/check-bands.sh
+metric: eval_pass_rate          # from evals/results/*/summary.txt
+baseline_runs: 10               # rolling baseline = previous N eval runs
+bands:
+  log: 1                        # >= 1σ below baseline: print only
+  diagnose: 2                   # >= 2σ: claude -p, read-only diagnosis
+  propose: 3                    # >= 3σ: claude writes intent/<date>-eval-regression.md (draft)

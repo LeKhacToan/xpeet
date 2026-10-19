@@ -1,0 +1,9 @@
+{
+  "id": "fix-plural-message",
+  "setup": "sed -i '' 's/tapCount == 1 ? \"\" : \"s\"/tapCount > 0 ? \"s\" : \"\"/' Xpeet/Features/Home/HomeViewModel.swift",
+  "prompt": "Bug: after one tap Home shows 'Tapped 1 times'. Fix it.",
+  "checks": [
+    "grep -q 'Tapped 1 time\")' XpeetTests/HomeViewModelTests.swift",
+    "scripts/test.sh"
+  ]
+}

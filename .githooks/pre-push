@@ -1,0 +1,4 @@
+#!/usr/bin/env bash
+# Local replacement for CI: verify before every push. Enable once: git config core.hooksPath .githooks
+# Skip in an emergency with: git push --no-verify
+exec "$(git rev-parse --show-toplevel)"/scripts/verify.sh

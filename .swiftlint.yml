@@ -1,0 +1,5 @@
+included: [Xpeet, XpeetTests]
+excluded: [Xpeet.xcodeproj]
+disabled_rules: [trailing_comma]
+opt_in_rules: [force_unwrapping, empty_count, first_where]
+line_length: 140

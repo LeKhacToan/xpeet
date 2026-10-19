@@ -22,3 +22,8 @@ Xpeet/
   Resources/   assets
 XpeetTests/    unit tests
 ```
+
+## AI-native SDLC
+
+Development runs through Claude Code locally: intent -> spec -> plan -> build -> verify -> review. See [docs/ai-sdlc.md](docs/ai-sdlc.md).
+One-time: `brew install swiftlint && git config core.hooksPath .githooks`.
