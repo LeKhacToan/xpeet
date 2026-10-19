@@ -6,7 +6,7 @@
 
 ### Screen and navigation
 - **R1** The app launches straight into one speed screen. There is no `TabView`, no navigation stack and no other screen. The Home and Settings features are removed. *(manual: launch the app; build: no `TabView` in `Xpeet/`)*
-- **R2** The screen always uses the dark appearance with a black background, whatever the system setting is. *(manual, preview)*
+- **R2** The screen always uses the dark appearance with a black background, whatever the system setting is. *(manual, preview)* **Superseded** by `specs/speedometer-gauge/spec.md` R4 (dark gradient background).
 - **R3** The app supports portrait, landscape left and landscape right on iPhone. In every orientation the speed number is fully visible and never truncated or clipped, up to 3-digit speeds (e.g. "199"). *(manual: rotate in the simulator; previews in both orientations)*
 
 ### Speed reading
@@ -56,6 +56,8 @@
 
 In landscape the number and unit stay centred. The number scales to the screen height, and the status line stays at the bottom. There are no other buttons, icons, gauges or colours. One accent colour is used only for the "Open Settings" button.
 
+> **Superseded:** the layout and colours are now defined by `specs/speedometer-gauge/spec.md` (arc gauge, unit pill, status chip, brand colour).
+
 | State | Number | Status line | Extra |
 |---|---|---|---|
 | **Acquiring** (loading): no fix yet, fix older than 5 s, or permission just granted | `--` | "Searching for GPS…" | none |
@@ -95,7 +97,7 @@ No network. `APIClient` and `Core/Networking/` are removed because nothing uses 
 
 ## Out of scope
 - Background or locked-screen speed tracking, CarPlay, Live Activities and widgets.
-- Arc or needle gauge, HUD mirror mode, trip statistics (max, average, distance, time).
+- ~~Arc gauge~~ (now in `specs/speedometer-gauge/spec.md`), needle gauge, HUD mirror mode, trip statistics (max, average, distance, time).
 - Speed-limit data, over-speed alerts, speed-based colours or sounds.
 - Privacy-policy link, App Store metadata, privacy nutrition label (not distributed).
 - Settings screen, app version display, onboarding screens.

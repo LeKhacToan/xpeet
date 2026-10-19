@@ -20,6 +20,14 @@ enum SpeedUnit: String {
         }
     }
 
+    /// Speed at which the gauge arc is full.
+    var gaugeMaximum: Int {
+        switch self {
+        case .kmh: 200
+        case .mph: 130
+        }
+    }
+
     var spokenName: String {
         switch self {
         case .kmh: String(localized: "kilometers per hour")
@@ -100,12 +108,27 @@ final class SpeedometerViewModel {
 
     var unitText: String { unit.symbol }
 
+    /// How full the gauge arc is, 0...1. Uses the displayed (rounded) speed so the arc matches the number.
+    var gaugeFraction: Double {
+        guard let speed = displayedSpeed else { return 0 }
+        return min(1, Double(speed) / Double(unit.gaugeMaximum))
+    }
+
     var statusText: String? {
         switch state {
         case .acquiring: String(localized: "Searching for GPS…")
         case .live(let weakSignal): weakSignal ? String(localized: "Weak GPS signal") : nil
         case .unavailable(.denied), .unavailable(.restricted): String(localized: "Location access is off")
         case .unavailable(.servicesOff): String(localized: "Location Services is off")
+        }
+    }
+
+    /// SF Symbol shown next to `statusText`.
+    var statusSymbol: String? {
+        switch state {
+        case .acquiring: "location.magnifyingglass"
+        case .live(let weakSignal): weakSignal ? "exclamationmark.triangle" : nil
+        case .unavailable: "location.slash"
         }
     }
 

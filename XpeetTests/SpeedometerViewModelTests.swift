@@ -460,4 +460,68 @@ final class SpeedometerViewModelTests: XCTestCase {
         viewModel.toggleUnit()
         XCTAssertEqual(viewModel.unitAccessibilityValue, "kilometers per hour")
     }
+
+    // MARK: - Gauge (speedometer-gauge R2, R6)
+
+    func testGaugeFractionIsZeroWithoutReading() {
+        let viewModel = makeViewModel()
+
+        XCTAssertEqual(viewModel.gaugeFraction, 0)
+
+        viewModel.handle(authorization: .denied)
+        XCTAssertEqual(viewModel.gaugeFraction, 0)
+    }
+
+    func testGaugeFractionScalesWithKmhMaximum() {
+        let clock = TestClock()
+        let viewModel = makeViewModel(locale: metric, clock: clock)
+        viewModel.handle(authorization: .authorized)
+
+        viewModel.handle(sample: sample(kmh: 100, at: clock))
+
+        XCTAssertEqual(SpeedUnit.kmh.gaugeMaximum, 200)
+        XCTAssertEqual(viewModel.gaugeFraction, 0.5, accuracy: 0.0001)
+    }
+
+    func testGaugeFractionUsesMphMaximum() {
+        let clock = TestClock()
+        let viewModel = makeViewModel(locale: unitedStates, clock: clock)
+        viewModel.handle(authorization: .authorized)
+
+        viewModel.handle(sample: sample(kmh: 104, at: clock)) // 64.6 mph, displayed as 65
+
+        XCTAssertEqual(SpeedUnit.mph.gaugeMaximum, 130)
+        XCTAssertEqual(viewModel.displayText, "65")
+        XCTAssertEqual(viewModel.gaugeFraction, 0.5, accuracy: 0.0001)
+    }
+
+    func testGaugeFractionClampsAboveMaximum() {
+        let clock = TestClock()
+        let viewModel = makeViewModel(locale: metric, clock: clock)
+        viewModel.handle(authorization: .authorized)
+
+        viewModel.handle(sample: sample(kmh: 250, at: clock))
+
+        XCTAssertEqual(viewModel.displayText, "250")
+        XCTAssertEqual(viewModel.gaugeFraction, 1)
+    }
+
+    func testStatusSymbolPerState() {
+        let clock = TestClock()
+        let viewModel = makeViewModel(clock: clock)
+        XCTAssertEqual(viewModel.statusSymbol, "location.magnifyingglass")
+
+        viewModel.handle(authorization: .authorized)
+        viewModel.handle(sample: sample(kmh: 50, accuracy: 2.5, at: clock))
+        XCTAssertEqual(viewModel.statusSymbol, "exclamationmark.triangle")
+
+        viewModel.handle(sample: sample(kmh: 50, accuracy: 0.5, at: clock))
+        XCTAssertNil(viewModel.statusSymbol)
+
+        viewModel.handle(authorization: .denied)
+        XCTAssertEqual(viewModel.statusSymbol, "location.slash")
+
+        viewModel.handle(authorization: .servicesOff)
+        XCTAssertEqual(viewModel.statusSymbol, "location.slash")
+    }
 }
