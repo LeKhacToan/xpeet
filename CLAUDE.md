@@ -19,10 +19,17 @@ If a test fails, fix the code, not the test. Only change a test when the spec/pl
 
 ## Architecture
 
-- `Xpeet/App/` entry point, `RootView` (TabView), `AppState` (app-wide `@Observable`, injected via `.environment`)
-- `Xpeet/Core/` shared code: `Networking/APIClient` (async/await, generic `get`), `Extensions/`
-- `Xpeet/Features/<Name>/` one folder per feature: `<Name>View.swift` + `<Name>ViewModel.swift`
-- `XpeetTests/` XCTest unit tests, one file per ViewModel: `<Name>ViewModelTests.swift`
+Single-screen speedometer: no tabs, no navigation, no networking (see `specs/speedometer/`).
+
+- `Xpeet/App/XpeetApp.swift` entry point; shows `SpeedometerView` directly.
+- `Xpeet/Core/Location/` the only code that imports CoreLocation:
+  - `SpeedProvider` protocol + `SpeedSample`.
+  - `CoreLocationSpeedProvider` (production).
+  - `FakeSpeedProvider` (`#if DEBUG`, shared by previews and tests).
+- `Xpeet/Features/<Name>/` one folder per feature: `<Name>View.swift` + `<Name>ViewModel.swift`.
+  - The ViewModel is `@Observable @MainActor`. Dependencies (provider, `UserDefaults`, `Locale`, clock) are injected through `init` with production defaults.
+  - Logic lives in synchronous `handle(...)` methods; `run() async` only feeds streams into them.
+- `XpeetTests/` XCTest unit tests, one file per ViewModel: `<Name>ViewModelTests.swift`.
 
 ## Conventions
 

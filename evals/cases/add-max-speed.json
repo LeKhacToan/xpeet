@@ -1,0 +1,11 @@
+{
+  "id": "add-max-speed",
+  "prompt": "Add a session max-speed readout: SpeedometerViewModel exposes `maxSpeedText` (the highest displayed speed since launch, in the selected unit, e.g. 'Max 87'), and SpeedometerView shows it small under the unit label. Include unit tests.",
+  "checks": [
+    "grep -q 'maxSpeedText' Xpeet/Features/Speedometer/SpeedometerViewModel.swift",
+    "grep -q 'maxSpeedText' Xpeet/Features/Speedometer/SpeedometerView.swift",
+    "grep -qi 'maxSpeed' XpeetTests/SpeedometerViewModelTests.swift",
+    "! grep -rq ObservableObject Xpeet",
+    "scripts/verify.sh"
+  ]
+}

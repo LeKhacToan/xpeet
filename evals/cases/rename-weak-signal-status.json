@@ -1,0 +1,9 @@
+{
+  "id": "rename-weak-signal-status",
+  "prompt": "On the speedometer, change the weak-signal status text from 'Weak GPS signal' to 'Low GPS accuracy'. Follow CLAUDE.md and run scripts/verify.sh.",
+  "checks": [
+    "grep -q 'Low GPS accuracy' Xpeet/Features/Speedometer/SpeedometerViewModel.swift",
+    "! grep -rq 'Weak GPS signal' Xpeet XpeetTests",
+    "scripts/verify.sh"
+  ]
+}
