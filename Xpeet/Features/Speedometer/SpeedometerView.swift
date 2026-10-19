@@ -17,7 +17,11 @@ struct SpeedometerView: View {
         }
         .padding(.horizontal)
         .padding(.top, 8)
-        .safeAreaInset(edge: .bottom, spacing: 0) { status }
+        .safeAreaInset(edge: .bottom, spacing: 0) {
+            if viewModel.statusText != nil || viewModel.canOpenSettings {
+                status
+            }
+        }
         .background(Palette.background.ignoresSafeArea())
         .preferredColorScheme(.dark)
         .task(id: scenePhase) {
@@ -41,7 +45,9 @@ struct SpeedometerView: View {
             }
             .overlay(alignment: .bottom) {
                 // Lifts the pill into the gap between the arc's ends.
-                unitButton.offset(y: -diameter * 0.05)
+                unitButton
+                    .frame(maxWidth: diameter * 0.55)
+                    .offset(y: -diameter * 0.05)
             }
     }
 
@@ -59,9 +65,16 @@ struct SpeedometerView: View {
     }
 
     private var unitButton: some View {
-        Button(action: viewModel.toggleUnit) {
+        Button {
+            // The unit switch is instant; only new samples animate.
+            var transaction = Transaction()
+            transaction.disablesAnimations = true
+            withTransaction(transaction) { viewModel.toggleUnit() }
+        } label: {
             Text(viewModel.unitText)
                 .font(.system(.title, design: .rounded, weight: .semibold))
+                .lineLimit(1)
+                .minimumScaleFactor(0.6)
                 .foregroundStyle(Palette.brand)
                 .padding(.horizontal, 20)
                 .padding(.vertical, 6)

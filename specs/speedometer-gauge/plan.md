@@ -34,9 +34,10 @@
   | on | `.identity` | `nil` |
 
   The arc animation is keyed on `gaugeFraction`, so it animates only when a sample changes the value.
+- Unit toggle runs in a `Transaction` with `disablesAnimations`, so switching the unit is instant (spec Unit switch); only samples animate. The pill is capped to `0.55 × diameter` with `minimumScaleFactor(0.6)` so it stays between the arc's ends at large text. The status inset is only added when there is a chip or button, so Live gives the gauge the full height. *(Added after review.)*
 - Haptic: `.sensoryFeedback(.selection, trigger: viewModel.unit)` on the pill. It fires only on a user tap, never on speed.
 - Background: `EllipticalGradient` from `#16231B` (centre) to `#0A0F0C`, ignoring safe areas, with `.preferredColorScheme(.dark)`.
-- App icon: `scripts/generate-app-icon.swift` draws the 1024×1024 PNG with CoreGraphics (macOS AppKit, no dependencies). It renders the same arc style on the same background, and writes `Xpeet/Resources/Assets.xcassets/AppIcon.appiconset/AppIcon.png`. The image is opaque, with no alpha channel.
+- App icon: `scripts/generate-app-icon.swift` draws the 1024×1024 PNG with CoreGraphics and ImageIO (no dependencies). It renders the same arc style on the same background, and writes `Xpeet/Resources/Assets.xcassets/AppIcon.appiconset/AppIcon.png`. The image is opaque, with no alpha channel.
 
 ## Colours and contrast (R13)
 Relative luminance: background centre `#16231B` ≈ 0.0145.
@@ -45,9 +46,9 @@ Relative luminance: background centre `#16231B` ≈ 0.0145.
 |---|---|---|---|---|
 | Number | white | background | 16.3:1 | 7:1 |
 | Placeholder "--" | `Color(white: 0.7)` | background | 7.7:1 | 7:1 |
-| Chip text | `Color(white: 0.75)` | chip fill (white 8% over background, ≈ `#2A352E`) | 6.9:1 | 4.5:1 |
+| Chip text | `Color(white: 0.75)` | chip fill (white 8% over background, ≈ `#29352D`) | 6.9:1 | 4.5:1 |
 | Pill text | brand `#9FE3B5` | pill tint (brand 16% over background, ≈ `#2C4234`) | 7.3:1 | 4.5:1 |
-| "Open Settings" label | background `#0A0F0C` | brand fill | 12.9:1 | 4.5:1 |
+| "Open Settings" label | background `#0A0F0C` | brand fill | 13.0:1 | 4.5:1 |
 
 ## Files that change
 - `Xpeet/Features/Speedometer/SpeedometerViewModel.swift` (modified): `SpeedUnit.gaugeMaximum`, `gaugeFraction`, `statusSymbol`.
@@ -56,6 +57,7 @@ Relative luminance: background centre `#16231B` ≈ 0.0145.
 - `Xpeet/Resources/Assets.xcassets/AccentColor.colorset/Contents.json` (modified): `#9FE3B5`.
 - `Xpeet/Resources/Assets.xcassets/AppIcon.appiconset/Contents.json` (modified) and `AppIcon.png` (new).
 - `scripts/generate-app-icon.swift` (new).
+- `specs/speedometer-gauge/plan.md` (new): this file.
 - `intent/2026-10-19-speedometer-gauge.md` (new) and `specs/speedometer-gauge/spec.md` (new).
 - `specs/speedometer/spec.md` (modified): R2, Layout and Out of scope are marked as superseded.
 
@@ -99,7 +101,7 @@ Relative luminance: background centre `#16231B` ≈ 0.0145.
 | R9 | "Denied" preview |
 | R10 | Manual: Freeway Drive or a `simctl` route |
 | R11 | Manual: Reduce Motion on, nothing animates |
-| R12 | "Above max" landscape preview with 199; landscape screenshot |
+| R12 | "Live, landscape" preview with 199 and the "Above max" preview with 250; landscape render |
 | R13 | Contrast table above |
 | R14 | Existing accessibility tests pass; manual at the largest text size |
 | R15 | Home-screen screenshot; the icon PNG is 1024×1024 with no alpha |

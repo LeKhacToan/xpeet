@@ -523,5 +523,8 @@ final class SpeedometerViewModelTests: XCTestCase {
 
         viewModel.handle(authorization: .servicesOff)
         XCTAssertEqual(viewModel.statusSymbol, "location.slash")
+
+        viewModel.handle(authorization: .restricted)
+        XCTAssertEqual(viewModel.statusSymbol, "location.slash")
     }
 }

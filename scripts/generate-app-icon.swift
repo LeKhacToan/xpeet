@@ -1,6 +1,7 @@
 // Draws the 1024x1024 app icon: a dark green-black tile with a pastel-green 270° arc gauge.
-// Usage: swift scripts/generate-app-icon.swift [output.png]
-// Colours match Palette in Xpeet/Features/Speedometer/SpeedometerView.swift.
+// Usage: swift scripts/generate-app-icon.swift [output.png]  (default output is resolved from the repo root)
+// Colours follow Palette in Xpeet/Features/Speedometer/SpeedometerView.swift; the icon uses a lighter centre
+// and adds a tip knob and hub so it reads at small sizes.
 import CoreGraphics
 import Foundation
 import ImageIO
@@ -9,7 +10,11 @@ import UniformTypeIdentifiers
 let size = 1024
 let output = CommandLine.arguments.count > 1
     ? CommandLine.arguments[1]
-    : "Xpeet/Resources/Assets.xcassets/AppIcon.appiconset/AppIcon.png"
+    : URL(fileURLWithPath: #filePath)
+        .deletingLastPathComponent()
+        .deletingLastPathComponent()
+        .appendingPathComponent("Xpeet/Resources/Assets.xcassets/AppIcon.appiconset/AppIcon.png")
+        .path
 
 func rgb(_ hex: UInt32, alpha: CGFloat = 1) -> CGColor {
     CGColor(

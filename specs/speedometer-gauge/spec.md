@@ -87,7 +87,7 @@ Every other requirement there stays in force, and those are cited below as "spee
 | **Live, weak signal** | speed (white) | filled to speed / max | `exclamationmark.triangle` "Weak GPS signal" | none |
 | **Unavailable** | `--` (grey) | empty | `location.slash` + reason | "Open Settings" when denied |
 
-**Unit switch.** Tap the pill. You feel a selection haptic, and the number, the pill and the arc switch to the other unit's scale at once.
+**Unit switch.** Tap the pill. You feel a selection haptic, and the number, the pill and the arc switch to the other unit's scale at once, without animating.
 
 **Accessibility.**
 - VoiceOver output is unchanged (speedometer R21). The gauge arc is decorative and hidden from VoiceOver, because the number already says the speed.
