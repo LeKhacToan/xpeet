@@ -1,0 +1,10 @@
+{
+  "id": "fix-zero-clamp",
+  "setup": "sed -i '' 's/guard metersPerSecond >= Self.zeroClampMetersPerSecond else/guard metersPerSecond >= 0 else/' Xpeet/Features/Speedometer/SpeedometerViewModel.swift",
+  "prompt": "Bug: when the car is creeping forward below 1 km/h, the speedometer shows 1 instead of 0. Fix it.",
+  "checks": [
+    "grep -q 'func testSpeedBelowOneKmhShowsZero' XpeetTests/SpeedometerViewModelTests.swift",
+    "git diff --quiet \"$(git rev-list -n1 --grep='eval setup' HEAD)\" -- XpeetTests",
+    "scripts/test.sh"
+  ]
+}
