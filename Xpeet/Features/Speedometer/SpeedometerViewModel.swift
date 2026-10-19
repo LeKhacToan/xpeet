@@ -1,0 +1,208 @@
+import Foundation
+import Observation
+import UIKit
+
+enum SpeedUnit: String {
+    case kmh
+    case mph
+
+    var unitSpeed: UnitSpeed {
+        switch self {
+        case .kmh: .kilometersPerHour
+        case .mph: .milesPerHour
+        }
+    }
+
+    var symbol: String {
+        switch self {
+        case .kmh: "km/h"
+        case .mph: "mph"
+        }
+    }
+
+    var spokenName: String {
+        switch self {
+        case .kmh: String(localized: "kilometers per hour")
+        case .mph: String(localized: "miles per hour")
+        }
+    }
+
+    /// Road speeds are in mph in the US and UK, km/h elsewhere.
+    static func defaultUnit(for locale: Locale) -> SpeedUnit {
+        switch locale.measurementSystem {
+        case .us, .uk: .mph
+        default: .kmh
+        }
+    }
+}
+
+enum SpeedometerState: Equatable {
+    enum UnavailableReason: Equatable {
+        case denied
+        case restricted
+        case servicesOff
+    }
+
+    case acquiring
+    case live(weakSignal: Bool)
+    case unavailable(UnavailableReason)
+}
+
+@Observable
+@MainActor
+final class SpeedometerViewModel {
+    static let smoothingFactor = 0.6
+    static let staleInterval: TimeInterval = 5
+    static let zeroClampMetersPerSecond = 1 / 3.6
+    static let weakAccuracyMetersPerSecond = 2.0
+    static let unitDefaultsKey = "speedUnit"
+
+    private(set) var state: SpeedometerState = .acquiring
+    private(set) var unit: SpeedUnit
+    private var smoothedMetersPerSecond: Double?
+    private var lastSample: SpeedSample?
+
+    private let provider: SpeedProvider
+    private let defaults: UserDefaults
+    private let locale: Locale
+    private let now: () -> Date
+    private let setIdleTimerDisabled: @MainActor (Bool) -> Void
+
+    init(
+        provider: SpeedProvider? = nil,
+        defaults: UserDefaults = .standard,
+        locale: Locale = .current,
+        now: @escaping () -> Date = Date.init,
+        setIdleTimerDisabled: @escaping @MainActor (Bool) -> Void = { UIApplication.shared.isIdleTimerDisabled = $0 }
+    ) {
+        self.provider = provider ?? CoreLocationSpeedProvider()
+        self.defaults = defaults
+        self.locale = locale
+        self.now = now
+        self.setIdleTimerDisabled = setIdleTimerDisabled
+        self.unit = defaults.string(forKey: Self.unitDefaultsKey).flatMap(SpeedUnit.init(rawValue:))
+            ?? SpeedUnit.defaultUnit(for: locale)
+    }
+
+    // MARK: - Output
+
+    /// Speed in the selected unit, or nil when there is no live reading.
+    var displayedSpeed: Int? {
+        guard case .live = state, let metersPerSecond = smoothedMetersPerSecond else { return nil }
+        guard metersPerSecond >= Self.zeroClampMetersPerSecond else { return 0 }
+        let value = Measurement(value: metersPerSecond, unit: UnitSpeed.metersPerSecond).converted(to: unit.unitSpeed).value
+        return max(0, Int(value.rounded()))
+    }
+
+    var displayText: String {
+        displayedSpeed.map(String.init) ?? "--"
+    }
+
+    var unitText: String { unit.symbol }
+
+    var statusText: String? {
+        switch state {
+        case .acquiring: String(localized: "Searching for GPS…")
+        case .live(let weakSignal): weakSignal ? String(localized: "Weak GPS signal") : nil
+        case .unavailable(.denied), .unavailable(.restricted): String(localized: "Location access is off")
+        case .unavailable(.servicesOff): String(localized: "Location Services is off")
+        }
+    }
+
+    var canOpenSettings: Bool { state == .unavailable(.denied) }
+
+    var accessibilityLabel: String {
+        guard let speed = displayedSpeed else { return String(localized: "No GPS signal") }
+        return Measurement(value: Double(speed), unit: unit.unitSpeed)
+            .formatted(.measurement(width: .wide, usage: .asProvided).locale(locale))
+    }
+
+    var unitAccessibilityValue: String { unit.spokenName }
+
+    // MARK: - Input
+
+    /// Streams provider updates into the handlers until cancelled. Keeps the screen awake meanwhile.
+    func run() async {
+        setIdleTimerDisabled(true)
+        defer { setIdleTimerDisabled(false) }
+        resetFilter()
+
+        let authorizations = provider.authorizationUpdates()
+        let samples = provider.speedUpdates()
+        await withTaskGroup(of: Void.self) { group in
+            group.addTask {
+                for await authorization in authorizations { await self.handle(authorization: authorization) }
+            }
+            group.addTask {
+                for await sample in samples { await self.handle(sample: sample) }
+            }
+            group.addTask {
+                while !Task.isCancelled {
+                    try? await Task.sleep(for: .seconds(1))
+                    await self.tick()
+                }
+            }
+        }
+    }
+
+    func handle(authorization: LocationAuthorization) {
+        switch authorization {
+        case .notDetermined:
+            state = .acquiring
+            provider.requestAuthorization()
+        case .authorized:
+            if case .unavailable = state { state = .acquiring }
+        case .denied:
+            becomeUnavailable(.denied)
+        case .restricted:
+            becomeUnavailable(.restricted)
+        case .servicesOff:
+            becomeUnavailable(.servicesOff)
+        }
+    }
+
+    func handle(sample: SpeedSample) {
+        guard sample.metersPerSecond >= 0, sample.accuracy >= 0 else { return }
+        if case .unavailable = state { return }
+
+        if let last = lastSample, sample.timestamp.timeIntervalSince(last.timestamp) > Self.staleInterval {
+            resetFilter()
+        }
+        if sample.isStationary {
+            smoothedMetersPerSecond = 0
+        } else if let previous = smoothedMetersPerSecond {
+            smoothedMetersPerSecond = previous + Self.smoothingFactor * (sample.metersPerSecond - previous)
+        } else {
+            smoothedMetersPerSecond = sample.metersPerSecond
+        }
+        lastSample = sample
+        state = .live(weakSignal: sample.accuracy > Self.weakAccuracyMetersPerSecond)
+    }
+
+    /// Falls back to Acquiring when the last fix is too old. iOS pauses updates while stationary, so a
+    /// stationary fix never goes stale.
+    func tick() {
+        guard case .live = state, let last = lastSample, !last.isStationary else { return }
+        if now().timeIntervalSince(last.timestamp) > Self.staleInterval {
+            resetFilter()
+            state = .acquiring
+        }
+    }
+
+    func toggleUnit() {
+        unit = unit == .kmh ? .mph : .kmh
+        defaults.set(unit.rawValue, forKey: Self.unitDefaultsKey)
+    }
+
+    // MARK: - Private
+
+    private func becomeUnavailable(_ reason: SpeedometerState.UnavailableReason) {
+        resetFilter()
+        state = .unavailable(reason)
+    }
+
+    private func resetFilter() {
+        smoothedMetersPerSecond = nil
+        lastSample = nil
+    }
+}
