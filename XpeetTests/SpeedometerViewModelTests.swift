@@ -79,6 +79,20 @@ final class SpeedometerViewModelTests: XCTestCase {
         await task.value
     }
 
+    func testRunRestartsInAcquiringAfterLive() async {
+        let clock = TestClock()
+        let viewModel = makeViewModel(clock: clock)
+        viewModel.handle(authorization: .authorized)
+        viewModel.handle(sample: sample(kmh: 50, at: clock))
+
+        let task = Task { await viewModel.run() }
+        await waitUntil { viewModel.state == .acquiring }
+        XCTAssertEqual(viewModel.statusText, "Searching for GPS…")
+
+        task.cancel()
+        await task.value
+    }
+
     // MARK: - R5
 
     func testNegativeSpeedIsIgnored() {
@@ -138,6 +152,29 @@ final class SpeedometerViewModelTests: XCTestCase {
 
         clock.advance(by: 60)
         viewModel.tick()
+
+        XCTAssertEqual(viewModel.displayText, "0")
+    }
+
+    func testIgnoresMovingSampleOlderThanFiveSecondsOnArrival() {
+        let clock = TestClock()
+        let viewModel = makeViewModel(clock: clock)
+        viewModel.handle(authorization: .authorized)
+
+        viewModel.handle(sample: SpeedSample(
+            metersPerSecond: 87 / 3.6, accuracy: 0.5, isStationary: false, timestamp: clock.now - 6
+        ))
+
+        XCTAssertEqual(viewModel.state, .acquiring)
+        XCTAssertEqual(viewModel.displayText, "--")
+    }
+
+    func testShowsZeroForOldStationarySample() {
+        let clock = TestClock()
+        let viewModel = makeViewModel(clock: clock)
+        viewModel.handle(authorization: .authorized)
+
+        viewModel.handle(sample: SpeedSample(metersPerSecond: 0, accuracy: 0.5, isStationary: true, timestamp: clock.now - 600))
 
         XCTAssertEqual(viewModel.displayText, "0")
     }

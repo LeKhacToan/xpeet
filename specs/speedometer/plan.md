@@ -32,13 +32,13 @@
   - `requestAuthorization()`
 - `Xpeet/Core/Location/CoreLocationSpeedProvider.swift` (new): `@MainActor`.
   - `speedUpdates()` wraps `CLLocationUpdate.liveUpdates(.automotiveNavigation)`. It skips updates with a nil location and maps the rest to `SpeedSample` (speed, speedAccuracy, isStationary, timestamp).
-  - It owns one `CLLocationManager` for `requestWhenInUseAuthorization()` and status.
+  - It owns one `CLLocationManager`, created lazily on first use, for `requestWhenInUseAuthorization()` and status.
   - `locationManagerDidChangeAuthorization` is bridged into the authorization `AsyncStream`. This is the only delegate in the app, and it is confined to Core.
   - `CLLocationManager.locationServicesEnabled()` is called off the main actor.
 - `Xpeet/Core/Location/FakeSpeedProvider.swift` (new, `#if DEBUG`): it is backed by `AsyncStream.makeStream()` and records `requestAuthorization()` calls. Previews and tests share it.
 - `Xpeet/Features/Speedometer/SpeedometerViewModel.swift` (new):
   - The `SpeedUnit` enum (`kmh` / `mph`, persisted raw value).
-  - The `state` enum: `acquiring`, `live(weakSignal: Bool)`, `unavailable(reason, canOpenSettings)`.
+  - The `state` enum: `acquiring`, `live(weakSignal: Bool)`, `unavailable(UnavailableReason)`, with `canOpenSettings` computed (true only for `.denied`).
   - The values the View reads: `displayText`, `unitText`, `statusText`, `accessibilityLabel`, `unitAccessibilityValue`.
 - `Xpeet/Features/Speedometer/SpeedometerView.swift` (new):
   - Black background, `.preferredColorScheme(.dark)`.
@@ -97,11 +97,13 @@ Each step ends with `xcodegen generate` (when files were added or removed) and `
 
 ## Risks
 - **iOS 17 permission flow**: on iOS 17, `liveUpdates` does not prompt by itself. This is a researcher inference based on WWDC23/24, so the provider always calls `requestWhenInUseAuthorization()` explicitly when the status is `.notDetermined`. The owner accepted that there is no iOS 17 device or simulator to test on; it is tested on iOS 27.1 only.
-- **Choice of location API** (researcher option A1 over A2): `CLLocationUpdate.liveUpdates` fits async/await and needs no delegate for samples. The trade-off is a small delegate bridge kept only for authorization, because iOS 17 lacks the `CLServiceSession` and diagnostic properties, which are iOS 18+. No `#available(iOS 18)` branches are added, to keep one code path.
+- **Choice of location API** (researcher option A1 over A2): `CLLocationUpdate.liveUpdates` fits async/await and needs no delegate for samples. The trade-off is a small delegate bridge kept only for authorization, because iOS 17 lacks the `CLServiceSession` and diagnostic properties, which are iOS 18+. No other `#available(iOS 18)` branches are added besides the stationary shim below, to keep one code path.
 - **Threading**:
   - `CLLocationManager` must be created on a thread with a run loop, so the provider is `@MainActor`.
   - `locationServicesEnabled()` blocks and triggers a main-thread warning, so it runs in a detached task.
   - Swift 5 language mode: expect a few Sendable warnings around `AsyncStream` continuations. They must not become errors, and lint must stay OK.
+- **Cached first fix**: the first `liveUpdates` item is often the last known location, possibly hours old. A moving sample older than 5 s on arrival is ignored, so it never shows as Live (`testIgnoresMovingSampleOlderThanFiveSecondsOnArrival`). A stationary one is kept, because the stationary flag is current even when the location is old (`testShowsZeroForOldStationarySample`).
+- **Live updates ending**: if `liveUpdates` throws or finishes, the provider restarts it after 1 s until cancelled. The screen shows Acquiring in between.
 - **The real provider is untested**: `CoreLocationSpeedProvider` is a thin mapping layer with no unit tests, because CoreLocation can't be faked without another abstraction. The simulator Freeway Drive check covers it.
 - **GPS limits**: speed arrives at about 1 Hz and is noisy at low speed, and there is no API to raise the rate beyond `.automotiveNavigation`. The perceived smoothness comes from the EMA plus the digit animation. α may be tuned during manual checks as long as the R10 tests still pass; any change to α is written back into this plan and the spec.
 - **Stationary API split**: `CLLocationUpdate.isStationary` is deprecated as of 17.0, and its replacement `stationary` is iOS 18+. The provider reads `stationary` under `#available(iOS 18)` and `isStationary` through a private protocol on iOS 17, which avoids the deprecation warning.
@@ -124,12 +126,12 @@ Unit tests are in `XpeetTests/SpeedometerViewModelTests.swift`, written against 
 | R3 | Manual: rotate to portrait, landscape left and landscape right with "199" shown (Freeway Drive or a preview with a fake value); no clipping. Landscape `#Preview` |
 | R4 | `testRunFeedsSamplesFromProvider`. `! grep -rq "import CoreLocation" Xpeet/Features` |
 | R5 | `testNegativeSpeedIsIgnored`, `testNegativeAccuracyIsIgnored` |
-| R6 | `testShowsDashesBeforeFirstFix`, `testBecomesAcquiringWhenFixOlderThanFiveSeconds`, `testStaysAtZeroWhenStationaryUpdatesPause` |
+| R6 | `testShowsDashesBeforeFirstFix`, `testBecomesAcquiringWhenFixOlderThanFiveSeconds`, `testStaysAtZeroWhenStationaryUpdatesPause`, `testIgnoresMovingSampleOlderThanFiveSecondsOnArrival`, `testShowsZeroForOldStationarySample` |
 | R7 | `testStationaryShowsZero`, `testSpeedBelowOneKmhShowsZero` |
 | R8 | `testDisplayRoundsToWholeUnit`, `testDisplayIsNeverNegative` |
 | R9 | `testSmoothingMatchesExponentialMovingAverage` |
 | R10 | `testStepUpIsWithinFivePercentByFourthSample`, `testHardBrakeIsWithinFivePercentByFourthSample` |
-| R11 | `testFilterResetsAfterAcquiring` |
+| R11 | `testFilterResetsAfterAcquiring`, `testFilterResetsWhenSampleArrivesAfterGap`, `testRunRestartsInAcquiringAfterLive` |
 | R12 | Manual: Freeway Drive, digits roll and the layout does not shift |
 | R13 | `testDefaultUnitIsMphForUSAndUK`, `testDefaultUnitIsKmhForMetric` |
 | R14 | `testToggleUnitConvertsWithoutResettingFilter`. Manual: tap target ≥ 44 pt (Accessibility Inspector) |

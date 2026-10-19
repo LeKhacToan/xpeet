@@ -3,13 +3,13 @@ import CoreLocation
 /// Production `SpeedProvider`: live location updates for driving, plus a manager used only for authorization.
 @MainActor
 final class CoreLocationSpeedProvider: NSObject, SpeedProvider {
-    private let manager = CLLocationManager()
-    private var authorizationContinuations: [UUID: AsyncStream<LocationAuthorization>.Continuation] = [:]
-
-    override init() {
-        super.init()
+    /// Created on first use, so a provider that is built but never run costs nothing.
+    private lazy var manager: CLLocationManager = {
+        let manager = CLLocationManager()
         manager.delegate = self
-    }
+        return manager
+    }()
+    private var authorizationContinuations: [UUID: AsyncStream<LocationAuthorization>.Continuation] = [:]
 
     func authorizationUpdates() -> AsyncStream<LocationAuthorization> {
         let (stream, continuation) = AsyncStream.makeStream(of: LocationAuthorization.self)
@@ -25,18 +25,22 @@ final class CoreLocationSpeedProvider: NSObject, SpeedProvider {
     func speedUpdates() -> AsyncStream<SpeedSample> {
         AsyncStream { continuation in
             let task = Task {
-                do {
-                    for try await update in CLLocationUpdate.liveUpdates(.automotiveNavigation) {
-                        guard let location = update.location else { continue }
-                        continuation.yield(SpeedSample(
-                            metersPerSecond: location.speed,
-                            accuracy: location.speedAccuracy,
-                            isStationary: update.isDeviceStationary,
-                            timestamp: location.timestamp
-                        ))
+                // Restart the sequence if it ends or throws, so a transient error doesn't stop updates until relaunch.
+                while !Task.isCancelled {
+                    do {
+                        for try await update in CLLocationUpdate.liveUpdates(.automotiveNavigation) {
+                            guard let location = update.location else { continue }
+                            continuation.yield(SpeedSample(
+                                metersPerSecond: location.speed,
+                                accuracy: location.speedAccuracy,
+                                isStationary: update.isDeviceStationary,
+                                timestamp: location.timestamp
+                            ))
+                        }
+                    } catch {
+                        // Meanwhile the ViewModel falls back to Acquiring once the last fix goes stale.
                     }
-                } catch {
-                    // The sequence ends on error; the ViewModel falls back to Acquiring when samples go stale.
+                    try? await Task.sleep(for: .seconds(1))
                 }
                 continuation.finish()
             }

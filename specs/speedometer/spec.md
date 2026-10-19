@@ -12,7 +12,7 @@
 ### Speed reading
 - **R4** Speed comes from device location updates configured for automotive navigation, at the highest rate the system provides. The ViewModel reads speed only through a `SpeedProvider` abstraction, never CoreLocation types directly. *(unit: ViewModel tests use a fake provider)*
 - **R5** A sample whose speed or speed accuracy is negative counts as invalid. Invalid samples never change the displayed number. *(unit)*
-- **R6** If there is no valid sample yet, or the last valid sample is more than 5 seconds old, the screen shows "--" and the "Searching for GPS…" status (state **Acquiring**). Exception: if the last valid sample was stationary, the screen keeps showing 0, because iOS pauses updates while the device is not moving. *(unit, with an injected clock)*
+- **R6** If there is no valid sample yet, or the last valid sample is more than 5 seconds old, the screen shows "--" and the "Searching for GPS…" status (state **Acquiring**). Exception: if the last valid sample was stationary, the screen keeps showing 0, because iOS pauses updates while the device is not moving. A moving sample that is already more than 5 seconds old when it arrives (e.g. a cached fix at launch) is ignored. *(unit, with an injected clock)*
 - **R7** If the provider reports the device as stationary, or the filtered speed is below 1 km/h (0.28 m/s), the displayed speed is exactly 0. *(unit)*
 - **R8** The displayed value is the filtered speed rounded to the nearest whole unit (km/h or mph). It is never negative. *(unit)*
 
@@ -50,7 +50,7 @@
 **Launch.** The app opens on the speed screen. On first launch iOS shows the When In Use prompt above the screen, which is in the Acquiring state.
 
 **Layout.** Black background with three elements:
-1. **Speed number** at the centre. SF Rounded, heavy weight, as large as fits (about 60% of the shorter screen side), white, monospaced digits.
+1. **Speed number** at the centre. SF Rounded, heavy weight, as large as fits (about 50% of the shorter screen side), white, monospaced digits.
 2. **Unit label** ("km/h" / "mph") directly below the number in a smaller rounded font and a secondary grey. It is the unit toggle.
 3. **Status line**, small and secondary, at the bottom edge. It shows only when there is something to say.
 
@@ -76,7 +76,7 @@ No network. `APIClient` and `Core/Networking/` are removed because nothing uses 
 - **`SpeedSample`** (value type in `Core/Location`): `metersPerSecond: Double`, `accuracy: Double` (m/s, negative = invalid), `isStationary: Bool`, `timestamp: Date`.
 - **`SpeedProvider`** (protocol in `Core/Location`): an async stream of samples, the current authorization state (`notDetermined`, `authorized`, `denied`, `restricted`, `servicesOff`) with changes over time, and `requestAuthorization()`.
 - **`CoreLocationSpeedProvider`**: the production implementation. It wraps `CLLocationUpdate.liveUpdates(.automotiveNavigation)` and maps each update to `SpeedSample`. It owns a `CLLocationManager` only for the When In Use request and authorization status.
-- **`SpeedometerViewModel`** (`@Observable`, `@MainActor`): its init takes the provider, `UserDefaults`, `Locale` and a clock (`() -> Date`), all with production defaults. It exposes `state`, `displayText`, `unit`, `toggleUnit()` and `func start() async`. `start()` is called from the View's `.task` and cancelled automatically when the view disappears or the app backgrounds.
+- **`SpeedometerViewModel`** (`@Observable`, `@MainActor`): its init takes the provider, `UserDefaults`, `Locale` and a clock (`() -> Date`), all with production defaults. It exposes `state`, `displayText`, `unit`, `toggleUnit()` and `func run() async`. `run()` is called from the View's `.task` and cancelled automatically when the view disappears or the app backgrounds.
 - **Persistence:** one `UserDefaults` key, `speedUnit` (`"kmh"` / `"mph"`). Nothing else is stored.
 - **Conversion:** use `Measurement<UnitSpeed>` from `.metersPerSecond` to `.kilometersPerHour` or `.milesPerHour`.
 - **Offline:** fully offline by design. GPS needs no network.

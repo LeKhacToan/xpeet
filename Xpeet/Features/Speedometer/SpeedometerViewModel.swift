@@ -126,6 +126,7 @@ final class SpeedometerViewModel {
         setIdleTimerDisabled(true)
         defer { setIdleTimerDisabled(false) }
         resetFilter()
+        if case .live = state { state = .acquiring }
 
         let authorizations = provider.authorizationUpdates()
         let samples = provider.speedUpdates()
@@ -164,6 +165,9 @@ final class SpeedometerViewModel {
     func handle(sample: SpeedSample) {
         guard sample.metersPerSecond >= 0, sample.accuracy >= 0 else { return }
         if case .unavailable = state { return }
+        // The first update is often a cached fix. A moving fix that old is not the current speed; a stationary
+        // one still is, because iOS reports stationary with the last known location while updates are paused.
+        if !sample.isStationary, now().timeIntervalSince(sample.timestamp) > Self.staleInterval { return }
 
         if let last = lastSample, sample.timestamp.timeIntervalSince(last.timestamp) > Self.staleInterval {
             resetFilter()
