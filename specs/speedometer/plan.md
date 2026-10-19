@@ -75,9 +75,9 @@
 Each step ends with `xcodegen generate` (when files were added or removed) and `scripts/verify.sh` green.
 
 1. Commit `plan.md`.
-2. **Core/Location types**: add `SpeedProvider.swift` and `FakeSpeedProvider.swift`. Build green; existing Home tests still pass.
+2. **Core/Location**: add `SpeedProvider.swift`, `FakeSpeedProvider.swift` and `CoreLocationSpeedProvider.swift`. Build green; existing Home tests still pass. The real provider has no unit tests (see Risks). *(Deviation: the real provider moved ahead of the ViewModel, because the ViewModel's default init needs it.)*
 3. **ViewModel, test-first**: write `SpeedometerViewModelTests.swift` against the fake, then `SpeedometerViewModel.swift`, until every test in Proof passes. No UI yet.
-4. **CoreLocationSpeedProvider**: add the real provider. Build green; this file has no unit tests (see Risks).
+4. *(merged into step 2)*
 5. **View and app wiring**:
    - Add `SpeedometerView.swift` with previews and point `XpeetApp` at it.
    - Delete Home, Settings, RootView, AppState, APIClient, Bundle+Version and HomeViewModelTests.
@@ -104,6 +104,8 @@ Each step ends with `xcodegen generate` (when files were added or removed) and `
   - Swift 5 language mode: expect a few Sendable warnings around `AsyncStream` continuations. They must not become errors, and lint must stay OK.
 - **The real provider is untested**: `CoreLocationSpeedProvider` is a thin mapping layer with no unit tests, because CoreLocation can't be faked without another abstraction. The simulator Freeway Drive check covers it.
 - **GPS limits**: speed arrives at about 1 Hz and is noisy at low speed, and there is no API to raise the rate beyond `.automotiveNavigation`. The perceived smoothness comes from the EMA plus the digit animation. α may be tuned during manual checks as long as the R10 tests still pass; any change to α is written back into this plan and the spec.
+- **Stationary API split**: `CLLocationUpdate.isStationary` is deprecated as of 17.0, and its replacement `stationary` is iOS 18+. The provider reads `stationary` under `#available(iOS 18)` and `isStationary` through a private protocol on iOS 17, which avoids the deprecation warning.
+- **Updates pause when parked**: while the device is stationary, CoreLocation may stop delivering updates. A plain 5 s stale rule would then show "--" at every red light. So the ViewModel does not go stale while the last valid sample was stationary; it keeps showing 0. Spec R6 is updated with this exception, tested by `testStaysAtZeroWhenStationaryUpdatesPause`.
 - **Simulator caveat**: a fixed custom location reports speed −1, which shows as Acquiring. Only the Freeway Drive / City Run presets produce speed.
 - **Deleting template code**: the three old eval cases break as soon as step 5 lands and are replaced in step 7, in the same PR. `scripts/verify.sh` does not run evals, so CI is not affected in between.
 - **Eval cost and bands**:
@@ -122,7 +124,7 @@ Unit tests are in `XpeetTests/SpeedometerViewModelTests.swift`, written against 
 | R3 | Manual: rotate to portrait, landscape left and landscape right with "199" shown (Freeway Drive or a preview with a fake value); no clipping. Landscape `#Preview` |
 | R4 | `testRunFeedsSamplesFromProvider`. `! grep -rq "import CoreLocation" Xpeet/Features` |
 | R5 | `testNegativeSpeedIsIgnored`, `testNegativeAccuracyIsIgnored` |
-| R6 | `testShowsDashesBeforeFirstFix`, `testBecomesAcquiringWhenFixOlderThanFiveSeconds` |
+| R6 | `testShowsDashesBeforeFirstFix`, `testBecomesAcquiringWhenFixOlderThanFiveSeconds`, `testStaysAtZeroWhenStationaryUpdatesPause` |
 | R7 | `testStationaryShowsZero`, `testSpeedBelowOneKmhShowsZero` |
 | R8 | `testDisplayRoundsToWholeUnit`, `testDisplayIsNeverNegative` |
 | R9 | `testSmoothingMatchesExponentialMovingAverage` |

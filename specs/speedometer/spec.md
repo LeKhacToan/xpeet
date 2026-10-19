@@ -12,7 +12,7 @@
 ### Speed reading
 - **R4** Speed comes from device location updates configured for automotive navigation, at the highest rate the system provides. The ViewModel reads speed only through a `SpeedProvider` abstraction, never CoreLocation types directly. *(unit: ViewModel tests use a fake provider)*
 - **R5** A sample whose speed or speed accuracy is negative counts as invalid. Invalid samples never change the displayed number. *(unit)*
-- **R6** If there is no valid sample yet, or the last valid sample is more than 5 seconds old, the screen shows "--" and the "Searching for GPS…" status (state **Acquiring**). *(unit, with an injected clock)*
+- **R6** If there is no valid sample yet, or the last valid sample is more than 5 seconds old, the screen shows "--" and the "Searching for GPS…" status (state **Acquiring**). Exception: if the last valid sample was stationary, the screen keeps showing 0, because iOS pauses updates while the device is not moving. *(unit, with an injected clock)*
 - **R7** If the provider reports the device as stationary, or the filtered speed is below 1 km/h (0.28 m/s), the displayed speed is exactly 0. *(unit)*
 - **R8** The displayed value is the filtered speed rounded to the nearest whole unit (km/h or mph). It is never negative. *(unit)*
 
