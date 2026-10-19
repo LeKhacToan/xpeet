@@ -1,6 +1,6 @@
 # Spec: Selectable gauge faces and themes
 
-**Intent:** intent/2026-10-20-gauge-themes.md  **Status:** draft
+**Intent:** intent/2026-10-20-gauge-themes.md  **Status:** approved
 
 This spec lets the user choose among four gauge faces. Each face has its own fixed palette and type style.
 

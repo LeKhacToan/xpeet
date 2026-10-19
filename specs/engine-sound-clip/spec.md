@@ -1,6 +1,6 @@
 # Spec: Play a fun sound when the engine starts
 
-**Intent:** intent/2026-10-20-engine-sound-clip.md  **Status:** draft
+**Intent:** intent/2026-10-20-engine-sound-clip.md  **Status:** approved
 
 This spec adds on-device engine-sound detection through the microphone, and plays a short bundled sound file while the vehicle is stopped.
 

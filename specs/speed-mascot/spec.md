@@ -1,6 +1,6 @@
 # Spec: Speed-reactive mascot on the speed screen
 
-**Intent:** intent/2026-10-20-speed-mascot.md  **Status:** draft
+**Intent:** intent/2026-10-20-speed-mascot.md  **Status:** approved
 **Depends on:** `specs/gauge-themes/spec.md` (the mascot takes its colours from the active face's theme). Build it after that spec.
 
 This spec adds a small, original kawaii face to the speed screen. Its expression follows the speed. It replaces these parts of the earlier specs:
