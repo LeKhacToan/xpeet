@@ -1,0 +1,12 @@
+{
+  "id": "new-feature-with-tests",
+  "prompt": "Add a 'Profile' tab with a ProfileView and ProfileViewModel that shows a placeholder display name 'Guest'. Include unit tests.",
+  "checks": [
+    "test -f Xpeet/Features/Profile/ProfileView.swift",
+    "test -f Xpeet/Features/Profile/ProfileViewModel.swift",
+    "ls XpeetTests | grep -q ProfileViewModelTests",
+    "grep -q 'case profile' Xpeet/App/AppState.swift",
+    "! grep -rq ObservableObject Xpeet",
+    "scripts/verify.sh"
+  ]
+}
