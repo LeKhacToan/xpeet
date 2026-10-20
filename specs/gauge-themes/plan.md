@@ -76,7 +76,7 @@ These are a starting point. Tune them until the R8 test passes.
 |---|---|
 | R1 | `GaugeFaceTests.testAllCasesOrderAndRawValues`, `testDisplayNamesNonEmptyAndUnique` |
 | R2 | manual: Minimal ring preview vs `main` |
-| R3 | `GaugeGeometryTests.testNeedleAngle{Zero,Half,Full,AboveMax}`, `testNeedleAngleWithoutReadingIsZero`, `testKmhTicks`, `testMphTicksEndAt130`; manual: previews |
+| R3 | `GaugeGeometryTests.testNeedleAngle{Zero,Half,Full}`, `testNeedleAngleAboveMaxIsClamped`, `testNeedleAngleWithoutReadingIsZero`, `testKmhTicks`, `testMphTicksEndAt130`; manual: previews |
 | R4 | `GaugeGeometryTests.testLitSegments{Zero,Half,NearFull,Full,NoReading}`; manual: previews |
 | R5 | manual: Retro preview under system light and dark; `GaugeFaceTests.testRetroIsLightOthersDark` |
 | R6 | review; previews (chip and button in each face) |
