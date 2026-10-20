@@ -607,7 +607,38 @@ final class SpeedometerViewModelTests: XCTestCase {
         XCTAssertEqual(viewModel.mood, .searching)
 
         viewModel.handle(authorization: .denied)
+        XCTAssertEqual(viewModel.mood, .sad, "ui-redesign R4")
+    }
+
+    // MARK: - ui-redesign R4
+
+    func testDeniedShowsSadMascot() {
+        let clock = TestClock()
+        let viewModel = makeViewModel(clock: clock)
+        viewModel.handle(authorization: .authorized)
+        viewModel.handle(sample: sample(kmh: 50, at: clock))
+        viewModel.handle(authorization: .denied)
+        XCTAssertEqual(viewModel.mood, .sad)
+        viewModel.handle(authorization: .restricted)
+        XCTAssertEqual(viewModel.mood, .sad)
+    }
+
+    func testServicesOffShowsSadMascot() {
+        let viewModel = makeViewModel()
+        viewModel.handle(authorization: .servicesOff)
+        XCTAssertEqual(viewModel.mood, .sad)
+    }
+
+    func testAuthorizedAfterDeniedShowsSearching() {
+        let clock = TestClock()
+        let viewModel = makeViewModel(clock: clock)
+        viewModel.handle(authorization: .denied)
+        XCTAssertEqual(viewModel.mood, .sad)
+        viewModel.handle(authorization: .authorized)
+        XCTAssertEqual(viewModel.state, .acquiring)
         XCTAssertEqual(viewModel.mood, .searching)
+        viewModel.handle(sample: sample(kmh: 50, at: clock))
+        XCTAssertEqual(viewModel.mood, .happy)
     }
 
     func testMoodUsesFilteredSpeed() {

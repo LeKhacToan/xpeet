@@ -1,11 +1,11 @@
 import Foundation
 
-/// Where the mascot goes next to the gauge (specs/speed-mascot R12). Pure geometry, unit-tested.
+/// Where the mascot goes next to the gauge (specs/speed-mascot R12, sized by specs/ui-redesign R5). Pure geometry, unit-tested.
 /// The gauge is a `min(width, height)` square centred in the container; the mascot takes the leftover space.
 enum MascotPlacement {
     /// Mascot size as a share of the gauge diameter, clamped to `sizeRange`.
-    static let sizeFraction = 0.18
-    static let sizeRange: ClosedRange<CGFloat> = 44...84
+    static let sizeFraction = 0.22
+    static let sizeRange: ClosedRange<CGFloat> = 44...96
     /// Gap between the mascot and the gauge.
     static let gap: CGFloat = 8
 

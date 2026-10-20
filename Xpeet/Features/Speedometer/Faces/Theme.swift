@@ -22,17 +22,6 @@ struct Theme: Equatable {
         case number, secondary
     }
 
-    /// Colours the mascot derives from the theme (specs/visual-polish R7).
-    struct MascotPalette: Equatable {
-        var face: UInt32
-        var highlight: UInt32
-        var ink: UInt32
-        var eyeWhite: UInt32
-        var iris: UInt32
-        var hair: UInt32
-        var blush: Overlay
-    }
-
     var backgroundCenter: UInt32
     var backgroundEdge: UInt32
     var number: UInt32
@@ -93,22 +82,6 @@ struct Theme: Equatable {
     /// Scales with Dynamic Type relative to `textStyle`, for pills, chips and picker text.
     func font(role: Role, textStyle: Font.TextStyle, size: CGFloat) -> Font {
         Font.custom(name(for: role), size: size, relativeTo: textStyle)
-    }
-
-    // MARK: Mascot
-
-    /// A skin-toned face with hair and irises in the face's accent, so the character reads as anime on every theme.
-    var mascot: MascotPalette {
-        let skin: UInt32 = colorScheme == .light ? 0xF6DCC8 : 0xFFE4D2
-        return MascotPalette(
-            face: skin,
-            highlight: Self.blend(0xFFFFFF, over: skin, opacity: 0.6),
-            ink: 0x2A1E1A,
-            eyeWhite: 0xFFFFFF,
-            iris: colorScheme == .light ? accent : accentDeep,
-            hair: colorScheme == .light ? accent : accentDeep,
-            blush: Overlay(hex: 0xFF7F9A, opacity: 0.45)
-        )
     }
 }
 

@@ -61,17 +61,6 @@ final class GaugeFaceTests: XCTestCase {
         }
     }
 
-    // MARK: - speed-mascot R8
-
-    func testMascotFeatureContrastPerFace() {
-        for face in GaugeFace.allCases {
-            let mascot = face.theme.mascot
-            XCTAssertGreaterThanOrEqual(Theme.contrastRatio(mascot.ink, mascot.face), 3, "\(face) ink on face")
-            XCTAssertGreaterThanOrEqual(Theme.contrastRatio(mascot.ink, mascot.highlight), 3, "\(face) ink on highlight")
-            XCTAssertGreaterThanOrEqual(Theme.contrastRatio(mascot.ink, mascot.eyeWhite), 3, "\(face) pupil on eye white")
-        }
-    }
-
     // MARK: - R16
 
     func testAccessibilityStrings() {

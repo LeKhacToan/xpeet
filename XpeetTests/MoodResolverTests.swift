@@ -17,7 +17,7 @@ final class MoodResolverTests: XCTestCase {
     // MARK: - R1
 
     func testMoodCases() {
-        XCTAssertEqual(Mood.allCases, [.searching, .sleepy, .calm, .happy, .worried, .startled])
+        XCTAssertEqual(Mood.allCases, [.searching, .sleepy, .calm, .happy, .worried, .startled, .sad])
     }
 
     // MARK: - R2
@@ -186,6 +186,28 @@ final class MoodResolverTests: XCTestCase {
         drive([60, 60, 48])
         XCTAssertEqual(resolver.lost(), .searching)
         XCTAssertEqual(resolver.tick(at: time.addingTimeInterval(0.5)), .searching)
+    }
+
+    // MARK: - ui-redesign R4
+
+    func testUnavailableIsSad() {
+        drive([50, 50])
+        XCTAssertEqual(resolver.unavailable(), .sad)
+        XCTAssertEqual(resolver.mood, .sad)
+        XCTAssertEqual(resolver.tick(at: time.addingTimeInterval(30)), .sad, "time passing changes nothing")
+        XCTAssertEqual(resolver.lost(), .searching, "acquiring again shows searching")
+    }
+
+    func testUnavailableOverridesStartled() {
+        drive([60, 60, 48])
+        XCTAssertEqual(resolver.mood, .startled)
+        XCTAssertEqual(resolver.unavailable(), .sad)
+        XCTAssertEqual(resolver.tick(at: time.addingTimeInterval(0.5)), .sad)
+    }
+
+    func testFirstMoodAfterUnavailableIsImmediate() {
+        _ = resolver.unavailable()
+        XCTAssertEqual(drive([50]).last, .happy)
     }
 
     func testHardAccelerationNoReaction() {
