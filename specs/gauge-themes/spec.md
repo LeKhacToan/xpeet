@@ -36,7 +36,7 @@ Every other requirement in both specs stays in force. They are cited below as "s
 - **R3** **Analog sport** is a round dial on a dark background. It has three layers:
   - Tick marks and scale labels along the same 270° sweep as the ring, with the opening at the bottom.
   - A needle that rotates from the lower-left end (0) to the lower-right end (maximum). The needle angle is `-135° + 270° × fraction`, where fraction is gauge R2's `gaugeFraction`: clamped, and 0 without a live reading.
-  - The speed number and the unit pill, below the needle hub, inside the dial.
+  - The speed number in a centre disc (half the dial diameter), and the unit pill in the dial opening. The needle is a pointer that runs from the disc's edge to the rim, so it never crosses the number. *(Amended 2026-10-20, owner-approved, after review found a 3-digit number colliding with the needle and the end-of-scale label.)*
 
   The tick scale per unit:
 
@@ -143,7 +143,7 @@ Every other requirement in both specs stays in force. They are cited below as "s
 | Face | Centre | Bottom of gauge area |
 |---|---|---|
 | Minimal ring | number | unit pill in the arc opening (unchanged) |
-| Analog sport / Retro | needle hub; number below the hub | unit pill in the dial opening |
+| Analog sport / Retro | number in the centre disc; needle from disc to rim | unit pill in the dial opening |
 | Digital HUD | number | unit pill, then the 20-segment bar |
 
 **States, on every face.**
@@ -209,7 +209,7 @@ On the next launch the same face is shown.
 - **Driving safety (App Review 1.4.4/1.4.5, not binding):**
   - The owner chose not to lock face changes while moving (R11). A tap target and a sheet while driving is a distraction risk. It is accepted for a personal build.
   - Faces stay safe because colour never depends on speed (R7).
-- **Readability on dial faces:** on Analog sport and Retro the number sits below the needle hub, so it is smaller than on Minimal ring (estimate: about 25% of the dial instead of 37%). The owner should confirm it reads well at arm's length. If not, the plan may move the number to the centre and draw the needle hub smaller.
+- **Readability on dial faces:** on Analog sport and Retro the number sits in the centre disc at a font of 20% of the dial (Minimal ring: 40%). Resolved in build by moving it to the centre with no needle hub (owner-approved amendment to R3). The owner should still confirm it reads well at arm's length on a device.
 - **Light theme at night:** Retro is bright in a dark car. It is the owner's deliberate choice (intent), and it is always light by design.
 - **Supersedes approved requirements:** speedometer R1 and gauge R1/R4/R5/R13 change. Both earlier specs should get a "Superseded by `specs/gauge-themes/spec.md`" note in the same commit as the implementation.
 - **CLAUDE.md Architecture:** if the plan adds a `Faces/` subfolder under `Features/Speedometer/`, CLAUDE.md's "one folder per feature" description needs a one-line update. That needs owner approval and an eval re-run (docs/ai-sdlc.md).
