@@ -90,7 +90,7 @@ No network. `APIClient` and `Core/Networking/` are removed because nothing uses 
   - No ATT, no analytics, no third-party code.
 - **Performance:**
   - Show the first Live value within one sample of the first valid fix. There is no extra warm-up delay beyond R9's filter.
-  - The view does nothing per frame. It redraws only on a new sample.
+  - The view does nothing per frame. It redraws only on a new sample. **Exception** (`specs/speed-mascot/spec.md` R9): the mascot blinks every 3–6 s.
   - Battery cost is that of foreground GPS. Updates stop in the background (R20).
 - **Localization:** English UI strings for v1, written in a String Catalog-friendly form (`String(localized:)`/`Text("…")`). Number formatting uses the current locale.
 - **Orientation:** `project.yml` adds `UIInterfaceOrientationLandscapeLeft` and `UIInterfaceOrientationLandscapeRight` to the iPhone orientations.
@@ -98,7 +98,7 @@ No network. `APIClient` and `Core/Networking/` are removed because nothing uses 
 ## Out of scope
 - Background or locked-screen speed tracking, CarPlay, Live Activities and widgets.
 - ~~Arc gauge~~ (now in `specs/speedometer-gauge/spec.md`), ~~needle gauge~~ (now in `specs/gauge-themes/spec.md`), HUD mirror mode, trip statistics (max, average, distance, time).
-- Speed-limit data, over-speed alerts, speed-based colours or sounds.
+- Speed-limit data, over-speed alerts, speed-based colours or sounds. **Exception** (`specs/speed-mascot/spec.md`): the mascot's expression follows speed; gauge colours still never do.
 - Privacy-policy link, App Store metadata, privacy nutrition label (not distributed).
 - Settings screen (except the face picker sheet in `specs/gauge-themes/spec.md`), app version display, onboarding screens.
 - Units other than km/h and mph (e.g. knots, m/s).

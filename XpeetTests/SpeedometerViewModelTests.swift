@@ -582,4 +582,82 @@ final class SpeedometerViewModelTests: XCTestCase {
         viewModel.handle(sample: sample(kmh: 50, at: clock))
         XCTAssertEqual(viewModel.displayText, "70")
     }
+
+    // MARK: - speed-mascot R2, R5
+
+    func testMoodFollowsState() {
+        let clock = TestClock()
+        let viewModel = makeViewModel(clock: clock)
+        XCTAssertEqual(viewModel.mood, .searching)
+
+        viewModel.handle(authorization: .authorized)
+        viewModel.handle(sample: sample(kmh: 50, at: clock))
+        XCTAssertEqual(viewModel.mood, .happy, "first mood after searching is immediate")
+
+        clock.advance(by: 6)
+        viewModel.tick()
+        XCTAssertEqual(viewModel.state, .acquiring)
+        XCTAssertEqual(viewModel.mood, .searching)
+
+        viewModel.handle(authorization: .denied)
+        XCTAssertEqual(viewModel.mood, .searching)
+    }
+
+    func testMoodUsesFilteredSpeed() {
+        let clock = TestClock()
+        let viewModel = makeViewModel(clock: clock)
+        viewModel.handle(authorization: .authorized)
+        viewModel.handle(sample: sample(kmh: 0, at: clock))
+        // Raw 60 km/h, but the EMA shows 36: still a happy candidate, needs a second sample.
+        clock.advance(by: 1)
+        viewModel.handle(sample: sample(kmh: 60, at: clock))
+        XCTAssertEqual(viewModel.displayText, "36")
+        XCTAssertEqual(viewModel.mood, .calm)
+        clock.advance(by: 1)
+        viewModel.handle(sample: sample(kmh: 60, at: clock))
+        XCTAssertEqual(viewModel.mood, .happy)
+    }
+
+    func testStationaryTickBecomesSleepy() {
+        let clock = TestClock()
+        let viewModel = makeViewModel(clock: clock)
+        viewModel.handle(authorization: .authorized)
+        viewModel.handle(sample: sample(kmh: 0, stationary: true, at: clock))
+        XCTAssertEqual(viewModel.mood, .calm)
+
+        clock.advance(by: 10)
+        viewModel.tick()
+        XCTAssertEqual(viewModel.mood, .sleepy)
+        XCTAssertEqual(viewModel.displayText, "0", "a stationary fix never goes stale")
+    }
+
+    func testHardBrakingStartlesThenRecovers() {
+        let clock = TestClock()
+        let viewModel = makeViewModel(clock: clock)
+        viewModel.handle(authorization: .authorized)
+        viewModel.handle(sample: sample(kmh: 60, at: clock))
+        clock.advance(by: 1)
+        viewModel.handle(sample: sample(kmh: 60, at: clock))
+        // Filtered 60 -> 36 km/h in 1 s: 6.7 m/s².
+        clock.advance(by: 1)
+        viewModel.handle(sample: sample(kmh: 20, at: clock))
+        XCTAssertEqual(viewModel.mood, .startled)
+
+        clock.advance(by: 2)
+        viewModel.tick()
+        XCTAssertNotEqual(viewModel.mood, .startled)
+    }
+
+    func testRunResetsMoodToSearching() async {
+        let clock = TestClock()
+        let viewModel = makeViewModel(clock: clock)
+        viewModel.handle(authorization: .authorized)
+        viewModel.handle(sample: sample(kmh: 50, at: clock))
+        XCTAssertEqual(viewModel.mood, .happy)
+
+        let task = Task { await viewModel.run() }
+        await waitUntil { viewModel.mood == .searching }
+        task.cancel()
+        await task.value
+    }
 }

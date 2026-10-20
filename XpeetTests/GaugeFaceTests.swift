@@ -61,6 +61,18 @@ final class GaugeFaceTests: XCTestCase {
         }
     }
 
+    // MARK: - speed-mascot R8
+
+    func testMascotFeatureContrastPerFace() {
+        for face in GaugeFace.allCases {
+            let theme = face.theme
+            let worst = [theme.backgroundCenter, theme.backgroundEdge].map { background in
+                Theme.contrastRatio(theme.number, Theme.blend(theme.accent, over: background, opacity: MascotView.fillOpacity))
+            }.min() ?? 0
+            XCTAssertGreaterThanOrEqual(worst, 3, "\(face) mascot features on face fill")
+        }
+    }
+
     // MARK: - R16
 
     func testAccessibilityStrings() {

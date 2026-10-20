@@ -118,7 +118,7 @@ Every other requirement in both specs stays in force. They are cited below as "s
 - **R15** Motion is the same on every face:
   - By default, the number keeps its numeric transition, and the arc, the needle or the lit segments animate to a new sample with the same smooth animation (about 0.6 s).
   - With Reduce Motion on, everything changes instantly (gauge R10, R11).
-  - Nothing animates between samples.
+  - Nothing animates between samples, except the mascot's periodic blink (`specs/speed-mascot/spec.md` R9).
 
   *(manual: Freeway Drive, with Reduce Motion on and off)*
 
