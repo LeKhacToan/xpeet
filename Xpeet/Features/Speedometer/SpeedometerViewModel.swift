@@ -178,7 +178,11 @@ final class SpeedometerViewModel {
         defer { setIdleTimerDisabled(false) }
         resetFilter()
         if case .live = state { state = .acquiring }
-        mood = moodResolver.lost()
+        if case .unavailable = state {
+            mood = moodResolver.unavailable()
+        } else {
+            mood = moodResolver.lost()
+        }
 
         let authorizations = provider.authorizationUpdates()
         let samples = provider.speedUpdates()
@@ -208,10 +212,14 @@ final class SpeedometerViewModel {
     func handle(authorization: LocationAuthorization) {
         switch authorization {
         case .notDetermined:
+            if case .unavailable = state { mood = moodResolver.lost() }
             state = .acquiring
             provider.requestAuthorization()
         case .authorized:
-            if case .unavailable = state { state = .acquiring }
+            if case .unavailable = state {
+                state = .acquiring
+                mood = moodResolver.lost()
+            }
         case .denied:
             becomeUnavailable(.denied)
         case .restricted:
@@ -276,7 +284,7 @@ final class SpeedometerViewModel {
     private func becomeUnavailable(_ reason: SpeedometerState.UnavailableReason) {
         resetFilter()
         state = .unavailable(reason)
-        mood = moodResolver.lost()
+        mood = moodResolver.unavailable()
     }
 
     private func resetFilter() {

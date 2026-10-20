@@ -31,7 +31,7 @@ Every other requirement in both specs stays in force. They are cited below as "s
 
   Each face has a localized display name. *(unit: `allCases` order, raw values, non-empty unique names)*
 
-- **R2** **Minimal ring** looks exactly as it does today. It keeps gauge R1–R11 and today's palette (`#9FE3B5` brand, `#16231B`→`#0A0F0C` background). *(manual: compare with the `main` previews)*
+- **R2** *(Superseded by `specs/ui-redesign/spec.md` R9: Minimal ring uses the Nocturne Precision palette.)* **Minimal ring** looks exactly as it does today. It keeps gauge R1–R11 and today's palette (`#9FE3B5` brand, `#16231B`→`#0A0F0C` background). *(manual: compare with the `main` previews)*
 
 - **R3** **Analog sport** is a round dial on a dark background. It has three layers:
   - Tick marks and scale labels along the same 270° sweep as the ring, with the opening at the bottom.
@@ -138,7 +138,7 @@ Every other requirement in both specs stays in force. They are cited below as "s
 
 ## User flows & UI
 
-**Layout per face.** The status chip and "Open Settings" stay at the bottom edge on every face (gauge layout). The face button is always top-trailing.
+**Layout per face.** *(Superseded by `specs/ui-redesign/spec.md` R7: in portrait the chip sits in a reserved top row; landscape keeps it at the bottom.)* The status chip and "Open Settings" stay at the bottom edge on every face (gauge layout). The face button is always top-trailing.
 
 | Face | Centre | Bottom of gauge area |
 |---|---|---|

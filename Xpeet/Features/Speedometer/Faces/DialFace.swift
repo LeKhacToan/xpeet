@@ -6,7 +6,21 @@ struct DialFace: View {
     static let discDiameter = 0.5
     /// Needle span, as fractions of the diameter from the centre.
     private static let needleInner = 0.25
-    private static let needleOuter = 0.46
+
+    /// Radius of the tick ring as a share of the diameter, kept clear of the rim (thicker on light faces).
+    fileprivate static func scaleRadius(_ theme: Theme) -> Double {
+        0.5 - ChromeRim.widthFraction(theme.colorScheme) - 0.005
+    }
+
+    /// Radius of the progress and red-zone arcs: just inside the tick ring.
+    fileprivate static func progressRadius(_ theme: Theme) -> Double {
+        scaleRadius(theme) - 0.022
+    }
+
+    /// The needle ends just inside the tick ring.
+    private static func needleOuter(_ theme: Theme) -> Double {
+        scaleRadius(theme) - 0.017
+    }
 
     let fraction: Double
     let unit: SpeedUnit
@@ -20,16 +34,23 @@ struct DialFace: View {
                 DialPlate(theme: theme)
                 DialScale(unit: unit, theme: theme)
                     .equatable()
+                if theme.dialProgress {
+                    // Progress along the ticks, besides the needle (specs/ui-redesign R11).
+                    DialArc(from: 0, to: fraction, radiusFraction: Self.progressRadius(theme))
+                        .stroke(theme.arcGradient, style: StrokeStyle(lineWidth: diameter * 0.022, lineCap: .round))
+                        .shadow(color: Color(hex: theme.accent).opacity(Theme.glowOpacity), radius: diameter * 0.02)
+                        .animation(animation, value: fraction)
+                }
                 Needle()
                     .fill(Color(hex: theme.accent))
-                    .frame(width: diameter * 0.035, height: diameter * (Self.needleOuter - Self.needleInner))
+                    .frame(width: diameter * 0.035, height: diameter * (Self.needleOuter(theme) - Self.needleInner))
                     .shadow(
                         color: .black.opacity(theme.colorScheme == .dark ? 0.5 : 0.3),
                         radius: diameter * 0.01, x: diameter * 0.006, y: diameter * 0.01
                     )
                     .shadow(color: Color(hex: theme.accent).opacity(theme.colorScheme == .dark ? Theme.glowOpacity : 0), radius: 6)
                     // The needle points up and runs between the centre disc and the rim; rotating about the dial centre.
-                    .offset(y: -diameter * (Self.needleOuter + Self.needleInner) / 2)
+                    .offset(y: -diameter * (Self.needleOuter(theme) + Self.needleInner) / 2)
                     .rotationEffect(.degrees(GaugeGeometry.needleAngle(fraction: fraction)))
                     .animation(animation, value: fraction)
                 // The number sits on this disc, so neither the needle nor the scale labels ever cross it.
@@ -102,7 +123,7 @@ private struct DialScale: View, Equatable {
         Canvas { context, size in
             let diameter = min(size.width, size.height)
             let center = CGPoint(x: size.width / 2, y: size.height / 2)
-            let radius = diameter / 2 - diameter * 0.02
+            let radius = diameter * DialFace.scaleRadius(theme)
             let maximum = unit.gaugeMaximum
 
             var rim = Path()
@@ -115,13 +136,24 @@ private struct DialScale: View, Equatable {
             )
             context.stroke(rim, with: .color(theme.color(theme.track)), lineWidth: diameter * 0.006)
 
+            // Static red zone at the top of the scale (specs/ui-redesign R11, R13); never depends on the speed.
+            let redStart = GaugeGeometry.redZoneStart(for: unit)
+            if let redZone = theme.redZone {
+                let zone = DialArc(
+                    from: GaugeGeometry.redZoneStartFraction(for: unit), to: 1, radiusFraction: DialFace.progressRadius(theme)
+                )
+                    .path(in: CGRect(origin: .zero, size: size))
+                context.stroke(zone, with: .color(Color(hex: redZone).opacity(0.85)), lineWidth: diameter * 0.012)
+            }
+
             for tick in GaugeGeometry.ticks(for: unit) {
                 let angle = Angle.degrees(GaugeGeometry.angle(for: tick.value, maximum: maximum))
                 let length = diameter * (tick.isMajor ? 0.07 : 0.04)
                 var line = Path()
                 line.move(to: point(center, radius, angle))
                 line.addLine(to: point(center, radius - length, angle))
-                let color = tick.isMajor ? Color(hex: theme.scaleLabel) : theme.color(theme.track)
+                let red = theme.redZone.flatMap { tick.value >= redStart ? Color(hex: $0) : nil }
+                let color = red ?? (tick.isMajor ? Color(hex: theme.scaleLabel) : theme.color(theme.track))
                 let width = diameter * (tick.isMajor ? 0.012 : 0.007)
                 if tick.isMajor {
                     // A lighter edge beside each major tick reads as a bevel.
@@ -134,7 +166,7 @@ private struct DialScale: View, Equatable {
                     let text = Text(label)
                         .font(theme.font(role: .secondary, size: diameter * 0.065))
                         .kerning(theme.colorScheme == .light ? diameter * 0.003 : 0)
-                        .foregroundColor(Color(hex: theme.scaleLabel))
+                        .foregroundColor(red ?? Color(hex: theme.scaleLabel))
                     context.draw(context.resolve(text), at: point(center, radius - diameter * 0.14, angle))
                 }
             }
@@ -144,6 +176,34 @@ private struct DialScale: View, Equatable {
     /// Point on the dial for an angle measured clockwise from 12 o'clock.
     private func point(_ center: CGPoint, _ radius: CGFloat, _ angle: Angle) -> CGPoint {
         CGPoint(x: center.x + radius * sin(angle.radians), y: center.y - radius * cos(angle.radians))
+    }
+}
+
+/// Part of the dial's 270° sweep, from one gauge fraction to another, centred in its rect.
+private struct DialArc: Shape {
+    var from: Double
+    var to: Double
+    let radiusFraction: Double
+
+    var animatableData: Double {
+        get { to }
+        set { to = newValue }
+    }
+
+    func path(in rect: CGRect) -> Path {
+        let diameter = min(rect.width, rect.height)
+        let clamped = (min(max(from, 0), 1), min(max(to, 0), 1))
+        guard clamped.1 > clamped.0 else { return Path() }
+        var path = Path()
+        // `addArc` measures from 3 o'clock; the dial's angles run clockwise from 12 o'clock.
+        path.addArc(
+            center: CGPoint(x: rect.midX, y: rect.midY),
+            radius: diameter * radiusFraction,
+            startAngle: .degrees(GaugeGeometry.needleAngle(fraction: clamped.0) - 90),
+            endAngle: .degrees(GaugeGeometry.needleAngle(fraction: clamped.1) - 90),
+            clockwise: false
+        )
+        return path
     }
 }
 

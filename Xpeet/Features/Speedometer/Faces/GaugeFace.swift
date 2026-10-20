@@ -31,19 +31,20 @@ enum GaugeFace: String, CaseIterable, Identifiable {
 }
 
 extension Theme {
-    /// The original look: pastel green `#9FE3B5` (the `AccentColor` asset) on a green-tinted near-black.
+    /// Nocturne Precision from the Stitch design: electric cyan on deep space blue (specs/ui-redesign R9).
     static let minimalRing = Theme(
-        backgroundCenter: 0x16231B,
-        backgroundEdge: 0x0A0F0C,
-        number: 0xFFFFFF,
-        placeholder: 0xB3B3B3,
-        accent: 0x9FE3B5,
-        accentDeep: 0x6CCB97,
+        backgroundCenter: 0x0D121D,
+        backgroundEdge: 0x080B11,
+        number: 0xF5F8FC,
+        placeholder: 0xA7B2C2,
+        accent: 0x00F2FE,
+        accentDeep: 0x4FACFE,
         track: Overlay(hex: 0xFFFFFF, opacity: 0.1),
         chipFill: Overlay(hex: 0xFFFFFF, opacity: 0.08),
-        chipText: 0xBFBFBF,
-        buttonLabel: 0x0A0F0C,
-        scaleLabel: 0xFFFFFF,
+        chipText: 0xC9D3E0,
+        buttonLabel: 0x080B11,
+        scaleLabel: 0xF5F8FC,
+        secondaryText: 0x8E9BAE,
         typeface: Typeface(number: "Nunito-Black", secondary: "Nunito-SemiBold"),
         colorScheme: .dark
     )
@@ -60,8 +61,11 @@ extension Theme {
         chipText: 0xBFBFBF,
         buttonLabel: 0x08090B,
         scaleLabel: 0xD9DDE3,
+        secondaryText: 0x9AA3AE,
         typeface: Typeface(number: "BarlowCondensed-Black", secondary: "BarlowCondensed-SemiBold"),
-        colorScheme: .dark
+        colorScheme: .dark,
+        redZone: 0xFF5A4F,
+        dialProgress: true
     )
 
     static let digitalHUD = Theme(
@@ -76,6 +80,7 @@ extension Theme {
         chipText: 0xBFEFFA,
         buttonLabel: 0x020605,
         scaleLabel: 0xBFEFFA,
+        secondaryText: 0x8FB0B6,
         typeface: Typeface(number: "OxaniumRoman-ExtraBold", secondary: "OxaniumRoman-SemiBold"),
         colorScheme: .dark
     )
@@ -93,7 +98,9 @@ extension Theme {
         chipText: 0x3D3128,
         buttonLabel: 0xFFF8E7,
         scaleLabel: 0x3D3128,
+        secondaryText: 0x5A4C40,
         typeface: Typeface(number: "BodoniModa-Regular_Black", secondary: "BodoniModa-Regular_SemiBold"),
-        colorScheme: .light
+        colorScheme: .light,
+        redZone: 0x7A281B
     )
 }

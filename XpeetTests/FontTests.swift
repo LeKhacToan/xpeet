@@ -9,6 +9,7 @@ final class FontTests: XCTestCase {
         ("BarlowCondensed-OFL", ["BarlowCondensed-SemiBold", "BarlowCondensed-Bold", "BarlowCondensed-Black"]),
         ("Oxanium-OFL", ["Oxanium[wght]"]),
         ("BodoniModa-OFL", ["BodoniModa[opsz,wght]"]),
+        ("SpaceGrotesk-OFL", ["SpaceGrotesk[wght]"]),
     ]
 
     private var bundle: Bundle { Bundle(for: SpeedometerViewModel.self) }
@@ -22,7 +23,8 @@ final class FontTests: XCTestCase {
             XCTAssertTrue(text.contains("SIL OPEN FONT LICENSE Version 1.1"), family.licence)
             // A reserved name would appear in the copyright header ("with Reserved Font Name ...").
             // The licence body always defines the term, so only the header is checked.
-            let header = text.prefix(while: { $0 != "\n" })
+            // `isNewline`, not "\n": a CRLF licence (Space Grotesk) has "\r\n" as one Character.
+            let header = text.prefix(while: { !$0.isNewline })
             XCTAssertTrue(header.hasPrefix("Copyright"), family.licence)
             XCTAssertFalse(header.contains("Reserved Font Name"), "\(family.licence) must not reserve a name")
             for file in family.files {
@@ -51,6 +53,13 @@ final class FontTests: XCTestCase {
                 XCTAssertEqual(font?.fontName, name, "\(face): resolved a different font")
             }
         }
+    }
+
+    func testCaptionFontResolves() {
+        // specs/ui-redesign R14.
+        let font = UIFont(name: Theme.captionTypeface, size: 13)
+        XCTAssertNotNil(font)
+        XCTAssertEqual(font?.fontName, Theme.captionTypeface)
     }
 
     // MARK: - R3

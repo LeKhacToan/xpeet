@@ -89,6 +89,13 @@ struct MoodResolver {
         return mood
     }
 
+    /// Location is unavailable. Like `lost()`, but the face is sad until a reading is acquired again.
+    mutating func unavailable() -> Mood {
+        self = MoodResolver()
+        mood = .sad
+        return mood
+    }
+
     // MARK: Private
 
     private static func target(from band: Band, speed: Double) -> Band {

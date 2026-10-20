@@ -22,17 +22,6 @@ struct Theme: Equatable {
         case number, secondary
     }
 
-    /// Colours the mascot derives from the theme (specs/visual-polish R7).
-    struct MascotPalette: Equatable {
-        var face: UInt32
-        var highlight: UInt32
-        var ink: UInt32
-        var eyeWhite: UInt32
-        var iris: UInt32
-        var hair: UInt32
-        var blush: Overlay
-    }
-
     var backgroundCenter: UInt32
     var backgroundEdge: UInt32
     var number: UInt32
@@ -49,8 +38,18 @@ struct Theme: Equatable {
     var buttonLabel: UInt32
     /// Dial scale labels and major ticks.
     var scaleLabel: UInt32
+    /// Secondary lines such as the Open Settings hint (specs/ui-redesign R17).
+    var secondaryText: UInt32
     var typeface: Typeface
     var colorScheme: ColorScheme
+    /// Static red zone at the top of a dial's scale; nil for faces without one (specs/ui-redesign R11, R13).
+    var redZone: UInt32? = nil
+    /// Whether a dial draws a progress arc along its ticks besides the needle (specs/ui-redesign R11).
+    var dialProgress = false
+
+    /// Small captions shared by every face: "SPEED", unit pill, status chip, hints (specs/ui-redesign R14).
+    /// Space Grotesk ships Light…Bold instances only; its instance names carry the default instance's prefix.
+    static let captionTypeface = "SpaceGrotesk-Light_Bold"
 
     static let pillTintOpacity = 0.16
     static let glowOpacity = 0.45
@@ -90,25 +89,14 @@ struct Theme: Equatable {
         Font(UIFont.tabular(name: name(for: role), size: size))
     }
 
+    /// Space Grotesk for captions, scaling with Dynamic Type relative to `textStyle`.
+    static func captionFont(textStyle: Font.TextStyle, size: CGFloat) -> Font {
+        Font.custom(captionTypeface, size: size, relativeTo: textStyle)
+    }
+
     /// Scales with Dynamic Type relative to `textStyle`, for pills, chips and picker text.
     func font(role: Role, textStyle: Font.TextStyle, size: CGFloat) -> Font {
         Font.custom(name(for: role), size: size, relativeTo: textStyle)
-    }
-
-    // MARK: Mascot
-
-    /// A skin-toned face with hair and irises in the face's accent, so the character reads as anime on every theme.
-    var mascot: MascotPalette {
-        let skin: UInt32 = colorScheme == .light ? 0xF6DCC8 : 0xFFE4D2
-        return MascotPalette(
-            face: skin,
-            highlight: Self.blend(0xFFFFFF, over: skin, opacity: 0.6),
-            ink: 0x2A1E1A,
-            eyeWhite: 0xFFFFFF,
-            iris: colorScheme == .light ? accent : accentDeep,
-            hair: colorScheme == .light ? accent : accentDeep,
-            blush: Overlay(hex: 0xFF7F9A, opacity: 0.45)
-        )
     }
 }
 

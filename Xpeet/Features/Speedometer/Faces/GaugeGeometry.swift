@@ -33,6 +33,19 @@ enum GaugeGeometry {
         }
     }
 
+    /// First value of a dial's static red zone: 160 km/h or 100 mph (specs/ui-redesign R11, R13).
+    static func redZoneStart(for unit: SpeedUnit) -> Int {
+        switch unit {
+        case .kmh: 160
+        case .mph: 100
+        }
+    }
+
+    /// Where the red zone starts along the sweep, 0...1.
+    static func redZoneStartFraction(for unit: SpeedUnit) -> Double {
+        Double(redZoneStart(for: unit)) / Double(unit.gaugeMaximum)
+    }
+
     /// How many of `count` segments are lit for a gauge fraction.
     static func litSegments(fraction: Double, count: Int = segmentCount) -> Int {
         Int((min(max(fraction, 0), 1) * Double(count)).rounded())

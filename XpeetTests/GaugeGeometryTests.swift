@@ -81,4 +81,13 @@ final class GaugeGeometryTests: XCTestCase {
         XCTAssertNil(viewModel.displayedSpeed)
         XCTAssertEqual(GaugeGeometry.litSegments(fraction: viewModel.gaugeFraction), 0)
     }
+
+    // MARK: - ui-redesign R11, R13
+
+    func testRedZoneStartPerUnit() {
+        XCTAssertEqual(GaugeGeometry.redZoneStart(for: .kmh), 160)
+        XCTAssertEqual(GaugeGeometry.redZoneStart(for: .mph), 100)
+        XCTAssertEqual(GaugeGeometry.redZoneStartFraction(for: .kmh), 0.8, accuracy: 0.0001)
+        XCTAssertEqual(GaugeGeometry.redZoneStartFraction(for: .mph), 100.0 / 130, accuracy: 0.0001)
+    }
 }

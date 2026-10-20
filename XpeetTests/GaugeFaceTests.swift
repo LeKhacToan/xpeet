@@ -19,11 +19,23 @@ final class GaugeFaceTests: XCTestCase {
 
     // MARK: - R2, R5
 
-    func testMinimalRingKeepsOriginalPalette() {
+    func testMinimalRingUsesNocturnePalette() {
+        // specs/ui-redesign R9.
         let theme = GaugeFace.minimalRing.theme
-        XCTAssertEqual(theme.accent, 0x9FE3B5)
-        XCTAssertEqual(theme.backgroundCenter, 0x16231B)
-        XCTAssertEqual(theme.backgroundEdge, 0x0A0F0C)
+        XCTAssertEqual(theme.backgroundCenter, 0x0D121D)
+        XCTAssertEqual(theme.backgroundEdge, 0x080B11)
+        XCTAssertEqual(theme.number, 0xF5F8FC)
+        XCTAssertEqual(theme.accent, 0x00F2FE)
+        XCTAssertEqual(theme.accentDeep, 0x4FACFE)
+    }
+
+    func testRedZoneAndProgressPerFace() {
+        // specs/ui-redesign R11, R13: dial faces only; the progress arc on Analog sport only.
+        XCTAssertNil(GaugeFace.minimalRing.theme.redZone)
+        XCTAssertNil(GaugeFace.digitalHUD.theme.redZone)
+        XCTAssertEqual(GaugeFace.analogSport.theme.redZone, 0xFF5A4F)
+        XCTAssertEqual(GaugeFace.retro.theme.redZone, GaugeFace.retro.theme.accent)
+        XCTAssertEqual(GaugeFace.allCases.filter { $0.theme.dialProgress }, [.analogSport])
     }
 
     func testRetroIsLightOthersDark() {
@@ -58,17 +70,11 @@ final class GaugeFaceTests: XCTestCase {
             XCTAssertGreaterThanOrEqual(worst(theme.accent, on: pillTint), 4.5, "\(face) unit pill")
             XCTAssertGreaterThanOrEqual(Theme.contrastRatio(theme.buttonLabel, theme.accent), 4.5, "\(face) Open Settings")
             XCTAssertGreaterThanOrEqual(worst(theme.scaleLabel), 4.5, "\(face) scale labels")
-        }
-    }
-
-    // MARK: - speed-mascot R8
-
-    func testMascotFeatureContrastPerFace() {
-        for face in GaugeFace.allCases {
-            let mascot = face.theme.mascot
-            XCTAssertGreaterThanOrEqual(Theme.contrastRatio(mascot.ink, mascot.face), 3, "\(face) ink on face")
-            XCTAssertGreaterThanOrEqual(Theme.contrastRatio(mascot.ink, mascot.highlight), 3, "\(face) ink on highlight")
-            XCTAssertGreaterThanOrEqual(Theme.contrastRatio(mascot.ink, mascot.eyeWhite), 3, "\(face) pupil on eye white")
+            // specs/ui-redesign R16.
+            XCTAssertGreaterThanOrEqual(worst(theme.secondaryText), 4.5, "\(face) hint text")
+            if let redZone = theme.redZone {
+                XCTAssertGreaterThanOrEqual(worst(redZone), 3, "\(face) red zone")
+            }
         }
     }
 
