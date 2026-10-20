@@ -16,20 +16,13 @@ struct SpeedometerView: View {
     private var theme: Theme { viewModel.face.theme }
 
     var body: some View {
-        GeometryReader { proxy in
-            GaugeDisplay(face: viewModel.face, reading: reading, accessibilityLabel: viewModel.accessibilityLabel) {
-                unitButton
-            }
-            .overlay { mascot(in: proxy.size) }
-        }
-        .padding(.horizontal)
-        .padding(.top, 8)
-        .safeAreaInset(edge: .bottom, spacing: 0) {
-            if viewModel.statusText != nil || viewModel.canOpenSettings {
-                status
+        GeometryReader { root in
+            if root.size.height >= root.size.width {
+                portrait
+            } else {
+                landscape
             }
         }
-        .overlay(alignment: .topTrailing) { faceButton }
         .background(theme.backgroundGradient.ignoresSafeArea())
         .preferredColorScheme(theme.colorScheme)
         .sheet(isPresented: $showsFacePicker) {
@@ -42,6 +35,55 @@ struct SpeedometerView: View {
                 await viewModel.run()
             }
         }
+    }
+
+    /// The top row is always reserved, so the gauge never changes size when the chip comes or goes (specs/ui-redesign R7).
+    private var portrait: some View {
+        VStack(spacing: 0) {
+            ZStack {
+                if let chip = statusChip {
+                    // Clear of the face button on either side, so the chip stays centred.
+                    chip.padding(.horizontal, Self.topRowButtonSpace)
+                }
+            }
+            .frame(maxWidth: .infinity, minHeight: Self.topRowHeight)
+            .overlay(alignment: .trailing) { faceButton }
+            gauge
+        }
+        .safeAreaInset(edge: .bottom, spacing: 0) {
+            if viewModel.canOpenSettings {
+                openSettings
+            }
+        }
+    }
+
+    /// Landscape keeps the status at the bottom edge (specs/ui-redesign R7).
+    private var landscape: some View {
+        gauge
+            .safeAreaInset(edge: .bottom, spacing: 0) {
+                if viewModel.statusText != nil || viewModel.canOpenSettings {
+                    VStack(spacing: 12) {
+                        statusChip
+                        if viewModel.canOpenSettings { openSettings }
+                    }
+                }
+            }
+            .overlay(alignment: .topTrailing) { faceButton }
+    }
+
+    private static let topRowHeight: CGFloat = 52
+    /// Width kept free beside the chip for the face button and its padding.
+    private static let topRowButtonSpace: CGFloat = 64
+
+    private var gauge: some View {
+        GeometryReader { proxy in
+            GaugeDisplay(face: viewModel.face, reading: reading, accessibilityLabel: viewModel.accessibilityLabel) {
+                unitButton
+            }
+            .overlay { mascot(in: proxy.size) }
+        }
+        .padding(.horizontal)
+        .padding(.top, 8)
     }
 
     private var reading: GaugeReading {
@@ -92,7 +134,7 @@ struct SpeedometerView: View {
                 .font(.title3.weight(.semibold))
                 .foregroundStyle(Color(hex: theme.accent))
                 .frame(width: 44, height: 44)
-                .background(theme.color(theme.chipFill), in: Circle())
+                .background { GlassBackground(shape: Circle(), tint: theme.color(theme.chipFill), colorScheme: theme.colorScheme) }
                 .contentShape(Circle())
         }
         .buttonStyle(.plain)
@@ -103,43 +145,73 @@ struct SpeedometerView: View {
         .accessibilityHint(Self.faceButtonHint)
     }
 
-    private var status: some View {
-        VStack(spacing: 12) {
-            if let statusText = viewModel.statusText {
-                Label {
-                    Text(statusText)
-                } icon: {
-                    if let symbol = viewModel.statusSymbol {
-                        Image(systemName: symbol)
-                            .foregroundStyle(Color(hex: theme.accent))
-                            .accessibilityHidden(true)
-                    }
+    /// Frosted-glass status chip: accent dot, icon and wrapping text (specs/ui-redesign R7).
+    private var statusChip: StatusChip? {
+        viewModel.statusText.map { StatusChip(text: $0, symbol: viewModel.statusSymbol, theme: theme) }
+    }
+
+    /// Denied only: a full-width button and a one-line hint (specs/ui-redesign R17).
+    private var openSettings: some View {
+        VStack(spacing: 8) {
+            Button {
+                if let url = URL(string: UIApplication.openSettingsURLString) {
+                    openURL(url)
                 }
-                .font(.callout.weight(.medium))
-                .foregroundStyle(Color(hex: theme.chipText))
+            } label: {
+                Label("Open Settings", systemImage: "gearshape.fill")
+                    .font(.body.weight(.semibold))
+                    .foregroundStyle(Color(hex: theme.buttonLabel))
+                    .frame(maxWidth: 360, minHeight: 50)
+                    .background(Color(hex: theme.accent), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+                    .contentShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+            }
+            .buttonStyle(.plain)
+            Text("Enable Location in Settings to see your speed")
+                .font(Theme.captionFont(textStyle: .footnote, size: 13))
+                .foregroundStyle(Color(hex: theme.secondaryText))
                 .multilineTextAlignment(.center)
-                .padding(.horizontal, 16)
-                .padding(.vertical, 10)
-                .background(theme.color(theme.chipFill), in: Capsule())
-            }
-            if viewModel.canOpenSettings {
-                Button {
-                    if let url = URL(string: UIApplication.openSettingsURLString) {
-                        openURL(url)
-                    }
-                } label: {
-                    Text("Open Settings")
-                        .fontWeight(.semibold)
-                        .foregroundStyle(Color(hex: theme.buttonLabel))
-                }
-                .buttonStyle(.borderedProminent)
-                .tint(Color(hex: theme.accent))
-            }
         }
         .frame(maxWidth: .infinity)
-        .padding(.horizontal)
+        .padding(.horizontal, 24)
         .padding(.top, 12)
         .padding(.bottom, 16)
+    }
+}
+
+private struct StatusChip: View {
+    let text: String
+    let symbol: String?
+    let theme: Theme
+
+    var body: some View {
+        HStack(spacing: 8) {
+            Circle()
+                .fill(Color(hex: theme.accent))
+                .frame(width: 6, height: 6)
+                .shadow(color: Color(hex: theme.accent).opacity(0.8), radius: 3)
+                .accessibilityHidden(true)
+            if let symbol {
+                Image(systemName: symbol)
+                    .foregroundStyle(Color(hex: theme.accent))
+                    .accessibilityHidden(true)
+            }
+            Text(text)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .font(Theme.captionFont(textStyle: .subheadline, size: 14))
+        .foregroundStyle(Color(hex: theme.chipText))
+        .multilineTextAlignment(.leading)
+        .dynamicTypeSize(...DynamicTypeSize.accessibility2)
+        .padding(.horizontal, 14)
+        .padding(.vertical, 9)
+        .background {
+            GlassBackground(
+                shape: RoundedRectangle(cornerRadius: 18, style: .continuous),
+                tint: theme.color(theme.chipFill),
+                colorScheme: theme.colorScheme
+            )
+        }
+        .accessibilityElement(children: .combine)
     }
 }
 
@@ -224,5 +296,17 @@ private extension SpeedometerViewModel {
 
 #Preview("Mic off") {
     SpeedometerView(viewModel: .preview(mic: .denied, kmh: 42))
+}
+
+#Preview("Mic off, HUD") {
+    SpeedometerView(viewModel: .preview(face: .digitalHUD, mic: .denied, kmh: 0))
+}
+
+#Preview("Searching, retro") {
+    SpeedometerView(viewModel: .preview(face: .retro))
+}
+
+#Preview("Denied, landscape", traits: .landscapeLeft) {
+    SpeedometerView(viewModel: .preview(face: .analogSport, authorization: .denied))
 }
 #endif

@@ -23,7 +23,7 @@ Research (researcher agent, 2026-10-20): font licences, tabular digits and the r
 
 - **R2** Every PostScript name in R1 resolves to a font at runtime (the variable fonts expose their named instances). *(unit: `UIFont(name:size:)` is non-nil for each name)*
 
-- **R3** The speed number, scale labels and unit pill use the active face's family. Roles: number = the heavy name, secondary (pill, scale labels, picker name) = the semibold name. The number uses tabular figures, so "111" and "000" have the same width. *(unit: the ten digits have equal advance widths in each number font; manual: previews)*
+- **R3** *(Superseded by `specs/ui-redesign/spec.md` R14: the unit pill and captions use Space Grotesk.)* The speed number, scale labels and unit pill use the active face's family. Roles: number = the heavy name, secondary (pill, scale labels, picker name) = the semibold name. The number uses tabular figures, so "111" and "000" have the same width. *(unit: the ten digits have equal advance widths in each number font; manual: previews)*
 
 - **R4** Dynamic Type still applies where it did: the unit pill, chip and picker text scale with the user's text size (custom fonts sized relative to their text style). The number stays sized by the gauge diameter. *(manual: largest size)*
 
@@ -42,7 +42,7 @@ Research (researcher agent, 2026-10-20): font licences, tabular digits and the r
 - **R6** The number stays the largest element and keeps its position and frame on every face (gauge-themes R3/R4 layout). Nothing covers it: decoration is behind the number and below the pill. *(manual: "199" previews)*
 
 ### Mascot
-- **R7** The mascot is redrawn in a "2.5D" kawaii anime style, still from shapes only:
+- **R7** *(Superseded by `specs/ui-redesign/spec.md` R1–R2: rendered artwork replaces the drawing.)* The mascot is redrawn in a "2.5D" kawaii anime style, still from shapes only:
   - head: a circle with a vertical shading gradient (lighter top) and a soft drop shadow beneath
   - hair: a bangs shape over the top third, tinted from the theme accent, with a lighter highlight streak
   - eyes: large ovals with an iris radial gradient, a dark pupil, a big upper highlight and a small lower highlight, and an upper lash line; eyebrows change per mood
@@ -51,9 +51,9 @@ Research (researcher agent, 2026-10-20): font licences, tabular digits and the r
 
   Colours derive from the theme: ink = `number`, tint = `accent`, fill = accent at low opacity over the background. *(manual: "Moods × faces" preview)*
 
-- **R8** Mood expressions keep their meaning (speed-mascot R1–R3): `happy` is the peak, `worried` shows concern. The blink closes the eyes (lids in the head colour) for 0.15 s; the crossfade and Reduce Motion rules are unchanged. *(manual)*
+- **R8** *(Superseded by `specs/ui-redesign/spec.md` R3: the blink swaps to a closed-eyes frame.)* Mood expressions keep their meaning (speed-mascot R1–R3): `happy` is the peak, `worried` shows concern. The blink closes the eyes (lids in the head colour) for 0.15 s; the crossfade and Reduce Motion rules are unchanged. *(manual)*
 
-- **R9** Size ceiling becomes 84 pt (floor 44 pt, 18% of the diameter). Placement rules are unchanged. *(unit: `MascotPlacementTests` updated)*
+- **R9** *(Superseded by `specs/ui-redesign/spec.md` R5: 22% of the diameter, 44–96 pt.)* Size ceiling becomes 84 pt (floor 44 pt, 18% of the diameter). Placement rules are unchanged. *(unit: `MascotPlacementTests` updated)*
 
 - **R10** Contrast: eyes, mouth and accessories keep ≥ 3:1 against the face fill; number/placeholder/secondary contrast tests from gauge-themes R8 still pass unchanged. *(unit: existing tests)*
 
@@ -77,7 +77,7 @@ No new flows. The picker thumbnails render the new styling because they share `G
 - **Localization:** no new strings.
 
 ## Out of scope
-- Image assets, Lottie/Rive, Metal shaders, 3D (SceneKit/RealityKit).
+- Image assets *(now in scope for the mascot: `specs/ui-redesign/spec.md` R1)*, Lottie/Rive, Metal shaders, 3D (SceneKit/RealityKit).
 - A mascot body, arms or idle motion beyond the blink.
 - Orbitron / Playfair Display (no tabular digits; would need per-digit layout).
 - Alternate app icons, theme-specific icons.

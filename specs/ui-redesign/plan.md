@@ -130,6 +130,9 @@ Each step ends with `xcodegen generate` (when files were added) and a green `scr
   - Space Grotesk's variable font has Light, Regular, Medium and Bold named instances only, with no SemiBold. Their PostScript names carry the default instance's prefix (`SpaceGrotesk-Light_Bold`). Captions use `SpaceGrotesk-Light_Bold`; `FontTests.testCaptionFontResolves` is the gate.
   - The licence ships as `SpaceGrotesk-OFL.txt`, following the bundle's `<Family>-OFL.txt` convention, unmodified. It has CRLF line endings, so the licence-header check in `FontTests` now splits on `isNewline`.
   - Minimal ring's placeholder is `#A7B2C2`, not R9's `#8E9BAE`, because the placeholder needs 7:1 (gauge-themes R8). `#8E9BAE` is the hint colour (`secondaryText`).
+- **R11, R13 (implementation):** both dial faces draw the red zone the same way: red ticks and labels plus a thin red arc, as in the Stitch frames for both faces. The spec described ticks for Analog sport and an arc for Retro.
+- **R10 (implementation):** to fit the ticks outside the ring, the Minimal ring track is drawn 4.5% inside the face's frame on each side. The number's frame and size are unchanged.
+- **Picker card glass** follows the sheet's colour scheme (dark faces dark, Retro light).
 - **R1:** each mascot image is a 288×288 single-scale JPEG of the badge's bounding square, clipped to a circle in code, rather than a PNG with transparency outside the circle. Reason: the size budget (see Risks). The spec's R1 text is updated.
 
 ## Proof

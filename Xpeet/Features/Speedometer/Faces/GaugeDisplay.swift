@@ -50,11 +50,15 @@ struct GaugeDisplay<UnitControl: View>: View {
     private func gauge(diameter: CGFloat) -> some View {
         switch face {
         case .minimalRing:
-            MinimalRingFace(fraction: reading.fraction, theme: theme, animation: motion)
+            MinimalRingFace(fraction: reading.fraction, unit: reading.unit, theme: theme, animation: motion)
                 .frame(width: diameter, height: diameter)
                 .overlay {
                     speed(fontSize: diameter * 0.4)
                         .frame(width: diameter * 0.72)
+                }
+                .overlay(alignment: .top) {
+                    SpeedCaption(theme: theme, size: diameter * 0.045)
+                        .padding(.top, diameter * 0.26)
                 }
                 .overlay(alignment: .bottom) { bottomPill(diameter: diameter) }
         case .analogSport, .retro:
@@ -65,11 +69,18 @@ struct GaugeDisplay<UnitControl: View>: View {
                     speed(fontSize: diameter * 0.2)
                         .frame(width: diameter * 0.4)
                 }
+                .overlay {
+                    if face == .analogSport {
+                        // Above the number, still inside the centre disc.
+                        SpeedCaption(theme: theme, size: diameter * 0.032)
+                            .offset(y: -diameter * 0.165)
+                    }
+                }
                 .overlay(alignment: .bottom) { bottomPill(diameter: diameter) }
         case .digitalHUD:
-            VStack(spacing: diameter * 0.04) {
-                speed(fontSize: diameter * 0.4)
-                    .frame(width: diameter * 0.9)
+            VStack(spacing: diameter * 0.035) {
+                speed(fontSize: diameter * 0.36)
+                    .frame(width: diameter * 0.8)
                     .background {
                         // Soft glow behind the readout.
                         Ellipse()
@@ -80,12 +91,14 @@ struct GaugeDisplay<UnitControl: View>: View {
                             .frame(width: diameter * 1.1, height: diameter * 0.6)
                     }
                 unitControl
-                    .frame(maxWidth: diameter * 0.55)
+                    .frame(maxWidth: diameter * 0.5)
+                // Inside the frame's circle (specs/ui-redesign R12).
                 SegmentBar(fraction: reading.fraction, theme: theme, animation: motion)
-                    .frame(width: diameter * 0.86, height: diameter * 0.07)
+                    .frame(width: diameter * 0.62, height: diameter * 0.05)
             }
             .frame(width: diameter, height: diameter)
-            .background { Scanlines(theme: theme).equatable() }
+            .background { HUDFrame(theme: theme).equatable() }
+            .background { Scanlines(theme: theme).equatable().clipShape(Circle()) }
         }
     }
 
@@ -120,24 +133,66 @@ private extension View {
     }
 }
 
-/// The unit label as a tinted capsule. Wrapped in a Button on the speed screen.
+/// The unit as a frosted-glass pill with a swap glyph (specs/ui-redesign R15). Wrapped in a Button on the speed screen.
 struct UnitPill: View {
     let text: String
     let theme: Theme
-    /// Small, fixed-size variant for picker thumbnails.
+    /// Small, fixed-size variant for picker thumbnails: no glass, no glyph.
     var compact = false
 
     var body: some View {
-        Text(text)
-            .font(compact ? theme.font(role: .secondary, size: 11) : theme.font(role: .secondary, textStyle: .title, size: 26))
+        if compact {
+            Text(text.uppercased())
+                .font(.custom(Theme.captionTypeface, fixedSize: 10))
+                .lineLimit(1)
+                .foregroundStyle(Color(hex: theme.accent))
+                .padding(.horizontal, 8)
+                .padding(.vertical, 2)
+                .background(Color(hex: theme.accent).opacity(Theme.pillTintOpacity), in: Capsule())
+        } else {
+            HStack(spacing: 8) {
+                Text(text.uppercased())
+                    .kerning(1.2)
+                Image(systemName: "arrow.up.arrow.down")
+                    .imageScale(.small)
+                    .accessibilityHidden(true)
+            }
+            .font(Theme.captionFont(textStyle: .title3, size: 18))
             .lineLimit(1)
             .minimumScaleFactor(0.6)
             .foregroundStyle(Color(hex: theme.accent))
-            .padding(.horizontal, compact ? 8 : 20)
-            .padding(.vertical, compact ? 2 : 6)
-            .frame(minWidth: compact ? 0 : 88, minHeight: compact ? 0 : 44)
-            .background(Color(hex: theme.accent).opacity(Theme.pillTintOpacity), in: Capsule())
+            .padding(.horizontal, 20)
+            .padding(.vertical, 8)
+            .frame(minWidth: 96, minHeight: 44)
+            .background {
+                GlassBackground(
+                    shape: Capsule(),
+                    tint: Color(hex: theme.accent).opacity(Theme.pillTintOpacity),
+                    colorScheme: theme.colorScheme
+                )
+            }
             .contentShape(Capsule())
+        }
+    }
+}
+
+/// "SPEED" with a trend glyph, above the number (specs/ui-redesign R10, R11). Sized by the gauge, decorative.
+struct SpeedCaption: View {
+    let theme: Theme
+    let size: CGFloat
+
+    var body: some View {
+        HStack(spacing: size * 0.35) {
+            Image(systemName: "arrow.up.right")
+                .font(.system(size: size * 0.85, weight: .bold))
+                .foregroundStyle(Color(hex: theme.accent))
+            Text("SPEED")
+                .font(.custom(Theme.captionTypeface, fixedSize: size))
+                .kerning(size * 0.12)
+                .foregroundStyle(Color(hex: theme.secondaryText))
+        }
+        .lineLimit(1)
+        .accessibilityHidden(true)
     }
 }
 
