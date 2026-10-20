@@ -55,7 +55,13 @@ struct ChromeRim: View {
     }
 
     private func width(_ diameter: CGFloat) -> CGFloat {
-        diameter * (theme.colorScheme == .dark ? 0.018 : 0.04)
+        diameter * Self.widthFraction(theme.colorScheme)
+    }
+
+    /// Rim width as a share of the diameter; light faces get the thicker polished bezel (specs/ui-redesign R13).
+    /// `DialFace` keeps its scale inside this.
+    static func widthFraction(_ colorScheme: ColorScheme) -> Double {
+        colorScheme == .dark ? 0.018 : 0.04
     }
 }
 

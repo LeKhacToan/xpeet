@@ -15,17 +15,22 @@ enum MascotPlacement {
 
     /// The mascot's frame in the container, or nil when there is no room (the gauge never shrinks for it).
     /// Portrait: centred above the gauge. Landscape: on the leading side, vertically centred.
+    /// A badge that doesn't fit shrinks to the free space, down to the 44 pt floor, before it hides (specs/ui-redesign R5).
     static func frame(in container: CGSize) -> CGRect? {
         let diameter = min(container.width, container.height)
-        let size = size(gaugeDiameter: diameter)
         if container.height >= container.width {
             let spaceAbove = (container.height - diameter) / 2
-            guard spaceAbove >= size + gap else { return nil }
+            guard let size = fitted(size(gaugeDiameter: diameter), in: spaceAbove) else { return nil }
             return CGRect(x: (container.width - size) / 2, y: spaceAbove - gap - size, width: size, height: size)
         } else {
             let spaceLeading = (container.width - diameter) / 2
-            guard spaceLeading >= size + gap else { return nil }
+            guard let size = fitted(size(gaugeDiameter: diameter), in: spaceLeading) else { return nil }
             return CGRect(x: spaceLeading - gap - size, y: (container.height - size) / 2, width: size, height: size)
         }
+    }
+
+    private static func fitted(_ size: CGFloat, in space: CGFloat) -> CGFloat? {
+        let fitted = min(size, space - gap)
+        return fitted >= sizeRange.lowerBound ? fitted : nil
     }
 }

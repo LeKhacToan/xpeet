@@ -62,8 +62,11 @@ struct SpeedometerView: View {
         gauge
             .safeAreaInset(edge: .bottom, spacing: 0) {
                 if viewModel.statusText != nil || viewModel.canOpenSettings {
-                    VStack(spacing: 12) {
+                    VStack(spacing: 0) {
                         statusChip
+                            .padding(.horizontal)
+                            .padding(.top, 12)
+                            .padding(.bottom, viewModel.canOpenSettings ? 0 : 16)
                         if viewModel.canOpenSettings { openSettings }
                     }
                 }
@@ -71,7 +74,8 @@ struct SpeedometerView: View {
             .overlay(alignment: .topTrailing) { faceButton }
     }
 
-    private static let topRowHeight: CGFloat = 52
+    /// Fits a three-line chip at the default text size (the mic chip wraps to three lines on 375–393 pt phones).
+    private static let topRowHeight: CGFloat = 76
     /// Width kept free beside the chip for the face button and its padding.
     private static let topRowButtonSpace: CGFloat = 64
 
@@ -172,6 +176,7 @@ struct SpeedometerView: View {
                 .multilineTextAlignment(.center)
         }
         .frame(maxWidth: .infinity)
+        .dynamicTypeSize(...DynamicTypeSize.accessibility2)
         .padding(.horizontal, 24)
         .padding(.top, 12)
         .padding(.bottom, 16)
@@ -222,9 +227,10 @@ private extension SpeedometerViewModel {
         face: GaugeFace = .minimalRing,
         authorization: LocationAuthorization = .authorized,
         mic: MicAuthorization = .authorized,
-        kmh: Double? = nil
+        kmh: Double? = nil,
+        accuracy: Double = 0.5
     ) -> SpeedometerViewModel {
-        let samples = kmh.map { [SpeedSample(metersPerSecond: $0 / 3.6, accuracy: 0.5, isStationary: false, timestamp: .now)] } ?? []
+        let samples = kmh.map { [SpeedSample(metersPerSecond: $0 / 3.6, accuracy: accuracy, isStationary: false, timestamp: .now)] } ?? []
         let viewModel = SpeedometerViewModel(
             provider: FakeSpeedProvider(authorization: authorization, samples: samples),
             defaults: UserDefaults(suiteName: "SpeedometerPreview-\(face.rawValue)") ?? .standard,
@@ -296,6 +302,10 @@ private extension SpeedometerViewModel {
 
 #Preview("Mic off") {
     SpeedometerView(viewModel: .preview(mic: .denied, kmh: 42))
+}
+
+#Preview("Weak signal") {
+    SpeedometerView(viewModel: .preview(face: .analogSport, kmh: 64, accuracy: 9))
 }
 
 #Preview("Mic off, HUD") {

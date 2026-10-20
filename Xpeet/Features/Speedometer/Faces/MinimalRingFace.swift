@@ -71,7 +71,7 @@ struct MinimalRingFace: View {
     }
 }
 
-/// Faint marks at every other major scale value, just outside the ring. Static: redrawn on unit change only.
+/// Faint marks at every other major scale value (0, 40, 80, …), just outside the ring. Static: redrawn on unit change only.
 private struct RingTicks: View, Equatable {
     let unit: SpeedUnit
     let theme: Theme
@@ -84,7 +84,7 @@ private struct RingTicks: View, Equatable {
             let inner = outer - diameter * 0.03
             let majors = GaugeGeometry.ticks(for: unit).filter(\.isMajor)
             var path = Path()
-            for (index, tick) in majors.enumerated() where index.isMultiple(of: 2) || tick.value == unit.gaugeMaximum {
+            for (index, tick) in majors.enumerated() where index.isMultiple(of: 2) {
                 let angle = Angle.degrees(GaugeGeometry.angle(for: tick.value, maximum: unit.gaugeMaximum))
                 path.move(to: CGPoint(x: center.x + outer * sin(angle.radians), y: center.y - outer * cos(angle.radians)))
                 path.addLine(to: CGPoint(x: center.x + inner * sin(angle.radians), y: center.y - inner * cos(angle.radians)))

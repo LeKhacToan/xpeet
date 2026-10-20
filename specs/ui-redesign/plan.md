@@ -56,7 +56,7 @@ No new types parallel to existing ones: the mascot stays `Mood` + `MoodResolver`
 
 **Screen**
 - `Xpeet/Features/Speedometer/SpeedometerView.swift` (modified):
-  - Portrait: a `VStack` with a reserved top row (`StatusChip` centred and the face button trailing, 52 pt high), then the gauge area with the mascot overlay, then the bottom inset for Open Settings and its hint only.
+  - Portrait: a `VStack` with a reserved top row (`StatusChip` centred and the face button trailing, 76 pt minimum height; see Deviations), then the gauge area with the mascot overlay, then the bottom inset for Open Settings and its hint only.
   - Landscape (width > height): the current layout, with the chip and Open Settings at the bottom.
   - `StatusChip`: a private view with the glass capsule, accent dot, icon, wrapping text and caption font.
   - Previews: existing ones kept, plus "Weak signal", "Searching, retro", "Mic off, HUD" and "Denied, landscape".
@@ -76,7 +76,7 @@ No new types parallel to existing ones: the mascot stays `Mood` + `MoodResolver`
   - `testMascotFeatureContrastPerFace` is removed (no palette);
   - `testContrastMeetsMinimumsForEveryFace` adds the hint text (4.5:1) and red-zone (3:1) checks.
 - `XpeetTests/GaugeGeometryTests.swift` (modified): `testRedZoneStartPerUnit`.
-- `XpeetTests/FontTests.swift` (modified): the Space Grotesk file, licence and PostScript name are added to the existing tables; the payload cap is raised by the font's size.
+- `XpeetTests/FontTests.swift` (modified): the Space Grotesk file, licence and PostScript name are added to the existing tables; the 1.5 MB payload cap is unchanged (fonts total about 0.95 MB).
 
 **Docs**
 - `specs/speed-mascot/spec.md`, `specs/visual-polish/spec.md`, `specs/gauge-themes/spec.md`: one "Superseded by `specs/ui-redesign`" note per affected requirement.
@@ -121,7 +121,7 @@ Each step ends with `xcodegen generate` (when files were added) and a green `scr
 - **Asset catalog namespace:** XcodeGen copies `.xcassets` as-is. The `Mascot` folder needs `"properties": {"provides-namespace": true}` in its `Contents.json`, or `Image("Mascot/calm")` will not resolve. `MascotArtworkTests` is the gate.
 - **Space Grotesk PostScript name:** expected `SpaceGrotesk-SemiBold` for the variable font's named instance. If `UIFont(name:)` returns nil, use the name `FontTests` prints from `UIFont.fontNames(forFamilyName:)` (same approach as Bodoni in visual-polish).
 - **Glass contrast:** system materials have no fixed colour, so the contrast tests use the theme's `chipFill` overlay over `backgroundCenter` as a stand-in, as gauge-themes does. The real material is a little more opaque, so actual contrast is equal or higher. Retro (light) gets a manual check.
-- **Portrait top row:** reserving 52 pt reduces the space above the gauge. On iPhone SE portrait (about 343×547 pt of container) the space above is about 102 pt, which fits a 75 pt badge plus its gap. `testSmallPortraitStillFits` is updated to that container.
+- **Portrait top row:** reserving 76 pt reduces the space above the gauge. On iPhone SE portrait the gauge area is about 343×563 pt (667 − 20 status bar − 76 row − 8 padding), leaving about 110 pt above the gauge for a 75 pt badge plus its gap. `testSmallPortraitStillFits` uses that container. In the Denied state the Open Settings inset leaves about 58 pt, so the badge shrinks to 50 pt (`testShrinksToFitBeforeHiding`).
 - **Licensing:** Stitch-generated artwork is used for a personal build only (spec Flagged concerns). Space Grotesk is OFL; `OFL.txt` ships unmodified.
 - **Performance:** materials blur once per layout. `HUDFrame`, the bezel and the red zone are static `Equatable` views or `Canvas`. Per sample, only the existing arc, needle, segments and number change, plus the new progress arc on Analog sport, which is the same trimmed-arc animation the Minimal ring already uses.
 
@@ -132,6 +132,15 @@ Each step ends with `xcodegen generate` (when files were added) and a green `scr
   - Minimal ring's placeholder is `#A7B2C2`, not R9's `#8E9BAE`, because the placeholder needs 7:1 (gauge-themes R8). `#8E9BAE` is the hint colour (`secondaryText`).
 - **R11, R13 (implementation):** both dial faces draw the red zone the same way: red ticks and labels plus a thin red arc, as in the Stitch frames for both faces. The spec described ticks for Analog sport and an arc for Retro.
 - **R10 (implementation):** to fit the ticks outside the ring, the Minimal ring track is drawn 4.5% inside the face's frame on each side. The number's frame and size are unchanged.
+- **R7 (review):**
+  - The top row is 76 pt, not 52, so the mic chip fits at the default text size; it wraps to three lines on 375–393 pt phones (seen in renders). At large Dynamic Type a longer chip still grows the row; the gauge keeps its diameter but moves down. This is accepted.
+  - The chip is an 18 pt rounded rectangle, not a capsule, so wrapped lines read well.
+  - In landscape, the chip has its own padding above the bottom edge.
+- **R5 (review):** a badge that doesn't fit shrinks to the free space, down to the 44 pt floor, before hiding. Without this, the sad face never showed on iPhone SE in the Denied state. Covered by `MascotPlacementTests.testShrinksToFitBeforeHiding`.
+- **R4 wiring:** besides `becomeUnavailable`, `run()` starts from `unavailable()` while the state is Unavailable, so a restart doesn't flash searching. Leaving Unavailable through `.authorized` or `.notDetermined` calls `lost()` (searching). Covered by `testRunWhileUnavailableKeepsSad`, `testNotDeterminedAfterDeniedShowsSearching` and `testAuthorizedAfterDeniedShowsSearching`.
+- **R10:** ticks mark every other major value (0, 40, 80, …), not every major. Every major was too busy at small sizes.
+- **R13 (review):** the dial's tick ring, needle and arcs sit inside the rim. The rim is thicker on light faces, so `DialFace.scaleRadius` is derived from `ChromeRim.widthFraction` and the chrome isn't painted over.
+- Open Settings and its hint are capped at accessibility2 Dynamic Type, like the chip and pill.
 - **Picker card glass** follows the sheet's colour scheme (dark faces dark, Retro light).
 - **R1:** each mascot image is a 288×288 single-scale JPEG of the badge's bounding square, clipped to a circle in code, rather than a PNG with transparency outside the circle. Reason: the size budget (see Risks). The spec's R1 text is updated.
 
@@ -141,8 +150,8 @@ Each step ends with `xcodegen generate` (when files were added) and a green `scr
 | R1 | `MascotArtworkTests.testEveryMoodHasArtwork`, `.testBlinkArtworkExists`, `.testArtworkPayloadUnderCap`; `MASCOT-SOURCE.txt` in review |
 | R2 | review; previews "Moods × faces" |
 | R3 | manual: on device, calm blinks every 3–6 s; other moods and Reduce Motion do not blink |
-| R4 | `MoodResolverTests.testUnavailableIsSad`, `.testUnavailableOverridesStartled`, `.testFirstMoodAfterUnavailableIsImmediate`; `SpeedometerViewModelTests.testDeniedShowsSadMascot`, `.testServicesOffShowsSadMascot`, `.testAuthorizedAfterDeniedShowsSearching` |
-| R5 | `MascotPlacementTests.testSizeIsTwentyTwoPercentClamped`, `.testSmallPortraitStillFits`, `.testMascotNeverOverlapsGauge`; manual crossfade |
+| R4 | `MoodResolverTests.testUnavailableIsSad`, `.testUnavailableOverridesStartled`, `.testFirstMoodAfterUnavailableIsImmediate`; `SpeedometerViewModelTests.testDeniedShowsSadMascot`, `.testServicesOffShowsSadMascot`, `.testAuthorizedAfterDeniedShowsSearching`, `.testNotDeterminedAfterDeniedShowsSearching`, `.testRunWhileUnavailableKeepsSad` |
+| R5 | `MascotPlacementTests.testSizeIsTwentyTwoPercentClamped`, `.testSmallPortraitStillFits`, `.testShrinksToFitBeforeHiding`, `.testMascotNeverOverlapsGauge`; manual crossfade |
 | R6 | manual: Accessibility Inspector, badge not focusable |
 | R7 | manual: previews "Acquiring", "Weak signal", "Mic off, HUD", "Denied"; gauge size equal with and without a chip (portrait) |
 | R8 | manual: previews; 44 pt hit target |

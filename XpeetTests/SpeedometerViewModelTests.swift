@@ -629,6 +629,27 @@ final class SpeedometerViewModelTests: XCTestCase {
         XCTAssertEqual(viewModel.mood, .sad)
     }
 
+    func testNotDeterminedAfterDeniedShowsSearching() {
+        let viewModel = makeViewModel()
+        viewModel.handle(authorization: .denied)
+        viewModel.handle(authorization: .notDetermined)
+        XCTAssertEqual(viewModel.state, .acquiring)
+        XCTAssertEqual(viewModel.mood, .searching)
+    }
+
+    func testRunWhileUnavailableKeepsSad() async {
+        let viewModel = makeViewModel(provider: FakeSpeedProvider(authorization: .denied))
+        viewModel.handle(authorization: .denied)
+        XCTAssertEqual(viewModel.mood, .sad)
+        // The scene becomes active again: a new run starts while location is still off.
+        let task = Task { await viewModel.run() }
+        await Task.yield()
+        XCTAssertEqual(viewModel.mood, .sad, "run() does not flash searching while unavailable")
+        task.cancel()
+        await task.value
+        XCTAssertEqual(viewModel.mood, .sad)
+    }
+
     func testAuthorizedAfterDeniedShowsSearching() {
         let clock = TestClock()
         let viewModel = makeViewModel(clock: clock)

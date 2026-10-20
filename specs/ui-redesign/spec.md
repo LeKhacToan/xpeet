@@ -62,7 +62,7 @@ It supersedes these approved requirements (each earlier spec gets a note in the 
 
 - **R5** The badge is 22% of the gauge diameter, clamped to 44–96 pt. The placement rules are unchanged:
   - portrait above the gauge, landscape on the leading side;
-  - hidden if there is no room;
+  - if it doesn't fit, it shrinks to the free space down to 44 pt, and hides only below that (amended in build: otherwise the sad face never showed on iPhone SE when location is denied);
   - never shrinks the gauge.
 
   A mood change crossfades over 0.3 s, or is instant with Reduce Motion. The badge has a soft accent glow ring as in the frames, static and not animated. *(unit: `MascotPlacementTests` updated; manual)*
@@ -75,7 +75,7 @@ It supersedes these approved requirements (each earlier spec gets a note in the 
     - Portrait: top centre, in a top row it shares with the face button.
     - Landscape: at the bottom edge, as today.
     - The portrait top row is always reserved, so the gauge never changes size when the chip appears or goes away.
-  - Look: a frosted-glass capsule (system material tinted with the theme's chip fill, with a 1 pt hairline that is brighter at the top). It holds a small accent status dot, the SF Symbol icon and the text.
+  - Look: a frosted-glass rounded rectangle, 18 pt radius, so wrapped text reads well (amended in build; was "capsule") (system material tinted with the theme's chip fill, with a 1 pt hairline that is brighter at the top). It holds a small accent status dot, the SF Symbol icon and the text.
   - The text wraps to as many lines as it needs and is never truncated. The chip never overlaps the face button.
 
   *(manual: frames "searching", "weak-signal", "mic-off", "retro-location-off")*
@@ -90,7 +90,7 @@ It supersedes these approved requirements (each earlier spec gets a note in the 
   | background edge | `#080B11` |
   | number | `#F5F8FC` |
   | placeholder | `#A7B2C2` (amended: 7:1 needed) |
-| secondary text (hint) | `#8E9BAE` |
+  | secondary text (hint) | `#8E9BAE` |
   | accent | `#00F2FE` |
   | accent deep | `#4FACFE` |
   | chip text | `#C9D3E0` |
@@ -126,7 +126,7 @@ It supersedes these approved requirements (each earlier spec gets a note in the 
   The serif number stays in its centre disc, clear of the needle hub. *(manual: frames "retro", "retro-location-off")*
 
 ### Typography and controls
-- **R14** **Space Grotesk** (SIL OFL 1.1) is bundled, unmodified from google/fonts, with its `OFL.txt`. Its semibold instance is used for:
+- **R14** **Space Grotesk** (SIL OFL 1.1) is bundled, unmodified from google/fonts, with its `OFL.txt` (shipped as `SpaceGrotesk-OFL.txt`). Its Bold instance is used, because the font has no SemiBold instance (amended in build), for:
   - the "SPEED" caption
   - the unit pill text
   - the status chip text
@@ -189,7 +189,7 @@ Accessibility: R6, R14, R15, R16 and R18. Dynamic Type applies to chip, pill, hi
 - **`Theme.mascot`** and `MascotPalette` are removed.
 - **`Theme`** gains:
   - `redZone: UInt32?` (Analog sport and Retro);
-  - a shared caption typeface: Space Grotesk semibold, whose PostScript name is confirmed by test at build time.
+  - a shared caption typeface: Space Grotesk Bold (`SpaceGrotesk-Light_Bold`), whose PostScript name is confirmed by test.
 - **`GaugeGeometry`** gains `redZoneStartFraction(for: SpeedUnit)`: 160/200 for km/h, 100/130 for mph.
 - **Assets:**
   - `Xpeet/Resources/Assets.xcassets/Mascot/` (folder with "Provides Namespace") with eight image sets;
@@ -243,4 +243,4 @@ Carried from the intent, all answered by the owner on 2026-10-20:
 Raised by this spec:
 - Badge size 22%, 44–96 pt (R5). **Approved** by the owner (2026-10-20); to be checked on device.
 - Blink only in `calm` (R3). **Approved.** Other moods would need their own closed-eye frames.
-- The portrait top row is always reserved for the chip (R7), so the gauge never jumps. The portrait gauge is width-bound, so it keeps its size. The row takes about 52 pt from the space above the gauge, which still fits a 75 pt badge on iPhone SE. **Approved.**
+- The portrait top row is always reserved for the chip (R7), so the gauge never jumps. The portrait gauge is width-bound, so it keeps its size. The row takes about 52 pt from the space above the gauge, which still fits a 75 pt badge on iPhone SE. **Approved.** (Built at 76 pt so the mic chip, which wraps to three lines, fits at the default text size. At large Dynamic Type a longer chip still grows the row and shifts the gauge down, which is accepted.)

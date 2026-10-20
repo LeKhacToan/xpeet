@@ -34,11 +34,21 @@ final class MascotPlacementTests: XCTestCase {
     }
 
     func testSmallPortraitStillFits() {
-        // Gauge areas below the reserved 52 pt top row (ui-redesign R7).
-        // iPhone SE (2nd/3rd gen): 343 x 587 leaves 122 pt above a 343 pt gauge for a 75 pt badge.
-        XCTAssertNotNil(MascotPlacement.frame(in: CGSize(width: 343, height: 587)))
-        // iPhone SE (1st gen): 288 x 468 leaves 90 pt above a 288 pt gauge for a 63 pt badge.
-        XCTAssertNotNil(MascotPlacement.frame(in: CGSize(width: 288, height: 468)))
+        // Gauge areas below the reserved 76 pt top row (ui-redesign R7).
+        // iPhone SE (2nd/3rd gen): 343 x 563 leaves 110 pt above a 343 pt gauge for a 75 pt badge.
+        let seFrame = MascotPlacement.frame(in: CGSize(width: 343, height: 563))
+        XCTAssertEqual(seFrame?.width ?? 0, 343 * 0.22, accuracy: 0.001)
+        // iPhone SE (1st gen): 288 x 444 leaves 78 pt above a 288 pt gauge for a 63 pt badge.
+        XCTAssertNotNil(MascotPlacement.frame(in: CGSize(width: 288, height: 444)))
+    }
+
+    func testShrinksToFitBeforeHiding() {
+        // iPhone SE, Denied: the Open Settings inset leaves about 58 pt above the gauge.
+        let frame = MascotPlacement.frame(in: CGSize(width: 343, height: 459))
+        XCTAssertEqual(frame?.width ?? 0, 58 - MascotPlacement.gap, accuracy: 0.001, "shrunk from 75 pt to the free space")
+        XCTAssertEqual(frame?.minY ?? -1, 0, accuracy: 0.001)
+        // Below the 44 pt floor it hides.
+        XCTAssertNil(MascotPlacement.frame(in: CGSize(width: 343, height: 343 + 2 * 51)))
     }
 
     func testHiddenWhenNoRoom() {
@@ -47,7 +57,7 @@ final class MascotPlacementTests: XCTestCase {
     }
 
     func testMascotNeverOverlapsGauge() {
-        for size in [CGSize(width: 361, height: 690), CGSize(width: 770, height: 330), CGSize(width: 343, height: 587), CGSize(width: 288, height: 468)] {
+        for size in [CGSize(width: 361, height: 690), CGSize(width: 770, height: 330), CGSize(width: 343, height: 563), CGSize(width: 288, height: 444), CGSize(width: 343, height: 459)] {
             guard let frame = MascotPlacement.frame(in: size) else { continue }
             let diameter = min(size.width, size.height)
             let gauge = CGRect(x: (size.width - diameter) / 2, y: (size.height - diameter) / 2, width: diameter, height: diameter)
