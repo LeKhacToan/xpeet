@@ -67,7 +67,7 @@ Every other requirement stays in force.
 - **R7** Braking detection uses only GPS samples: no CoreMotion and no new permission. The 3 m/s² threshold is a named constant, to be tuned on a real drive. *(review)*
 
 ### Look and motion
-- **R8** The face is drawn in code with simple shapes: a round face, eyes, a mouth, blush and small accessories. There are no image assets and no third-party code. It is original and not based on any existing character. Its colours come from the active gauge face's theme:
+- **R8** *(Drawing restyled by `specs/visual-polish/spec.md` R7; the colour rules below are superseded by `Theme.mascot`.)* The face is drawn in code with simple shapes: a round face, eyes, a mouth, blush and small accessories. There are no image assets and no third-party code. It is original and not based on any existing character. Its colours come from the active gauge face's theme:
   - face fill: the theme's accent at low opacity, over the background
   - eyes, mouth and accessories: the theme's number colour
 
@@ -84,7 +84,7 @@ Every other requirement stays in force.
 - **R11** With Reduce Motion on, there is no blink, and mood changes are instant. *(manual)*
 
 ### Placement
-- **R12** The mascot size is about 18% of the gauge diameter, clamped to 44–72 pt. Placement by orientation:
+- **R12** The mascot size is about 18% of the gauge diameter, clamped to 44–72 pt (**amended** to 44–84 pt by `specs/visual-polish/spec.md` R9). Placement by orientation:
   - **Portrait:** centred above the gauge.
   - **Landscape:** to the leading side of the gauge, vertically centred.
 

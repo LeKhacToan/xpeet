@@ -27,6 +27,17 @@ targets:
         ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME: AccentColor
         TARGETED_DEVICE_FAMILY: "1"
         ENABLE_PREVIEWS: YES
+    # Bundled OFL fonts (specs/visual-polish). XcodeGen writes this Info.plist on every generate; it is gitignored.
+    info:
+      path: Xpeet/Resources/Info.plist
+      properties:
+        UIAppFonts:
+          - "Nunito[wght].ttf"
+          - BarlowCondensed-SemiBold.ttf
+          - BarlowCondensed-Bold.ttf
+          - BarlowCondensed-Black.ttf
+          - "Oxanium[wght].ttf"
+          - "BodoniModa[opsz,wght].ttf"
   XpeetTests:
     type: bundle.unit-test
     platform: iOS

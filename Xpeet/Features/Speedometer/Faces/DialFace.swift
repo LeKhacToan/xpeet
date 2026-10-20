@@ -17,11 +17,13 @@ struct DialFace: View {
         GeometryReader { proxy in
             let diameter = min(proxy.size.width, proxy.size.height)
             ZStack {
+                DialPlate(theme: theme)
                 DialScale(unit: unit, theme: theme)
                     .equatable()
                 Needle()
                     .fill(Color(hex: theme.accent))
                     .frame(width: diameter * 0.035, height: diameter * (Self.needleOuter - Self.needleInner))
+                    .shadow(color: .black.opacity(theme.colorScheme == .dark ? 0.5 : 0.3), radius: diameter * 0.01, x: diameter * 0.006, y: diameter * 0.01)
                     .shadow(color: Color(hex: theme.accent).opacity(theme.colorScheme == .dark ? Theme.glowOpacity : 0), radius: 6)
                     // The needle points up and runs between the centre disc and the rim; rotating about the dial centre.
                     .offset(y: -diameter * (Self.needleOuter + Self.needleInner) / 2)
@@ -30,13 +32,54 @@ struct DialFace: View {
                 // The number sits on this disc, so neither the needle nor the scale labels ever cross it.
                 Circle()
                     .fill(Color(hex: theme.backgroundCenter))
-                    .overlay { Circle().strokeBorder(theme.color(theme.track), lineWidth: diameter * 0.006) }
+                    .overlay {
+                        Circle().strokeBorder(
+                            LinearGradient(
+                                colors: [Color.black.opacity(theme.colorScheme == .dark ? 0.5 : 0.18), Color.white.opacity(theme.colorScheme == .dark ? 0.12 : 0.6)],
+                                startPoint: .top, endPoint: .bottom
+                            ),
+                            lineWidth: diameter * 0.01
+                        )
+                    }
+                    .shadow(color: .black.opacity(theme.colorScheme == .dark ? 0.45 : 0.15), radius: diameter * 0.02, y: diameter * 0.008)
                     .frame(width: diameter * Self.discDiameter)
+                Vignette(theme: theme)
             }
             .frame(width: proxy.size.width, height: proxy.size.height)
         }
         .aspectRatio(1, contentMode: .fit)
         .accessibilityHidden(true)
+    }
+}
+
+/// The dial plate under the scale: a brushed radial gradient, a bevelled or chrome rim, and paper grain on light faces.
+private struct DialPlate: View {
+    let theme: Theme
+
+    var body: some View {
+        GeometryReader { proxy in
+            let diameter = min(proxy.size.width, proxy.size.height)
+            let isDark = theme.colorScheme == .dark
+            ZStack {
+                Circle()
+                    .fill(RadialGradient(
+                        colors: [Color(hex: theme.backgroundCenter), Color(hex: theme.backgroundEdge)],
+                        center: UnitPoint(x: 0.5, y: 0.42), startRadius: 0, endRadius: diameter * 0.6
+                    ))
+                // Brushed-metal sheen: faint angular bands.
+                Circle()
+                    .fill(AngularGradient(
+                        colors: [.white.opacity(isDark ? 0.05 : 0.18), .clear, .white.opacity(isDark ? 0.035 : 0.12), .clear, .white.opacity(isDark ? 0.05 : 0.18)],
+                        center: .center
+                    ))
+                if !isDark {
+                    PaperGrain(theme: theme).equatable().clipShape(Circle())
+                }
+                ChromeRim(theme: theme)
+            }
+            .frame(width: diameter, height: diameter)
+            .frame(width: proxy.size.width, height: proxy.size.height)
+        }
     }
 }
 
@@ -70,12 +113,17 @@ private struct DialScale: View, Equatable {
                 line.addLine(to: point(center, radius - length, angle))
                 let color = tick.isMajor ? Color(hex: theme.scaleLabel) : theme.color(theme.track)
                 let width = diameter * (tick.isMajor ? 0.012 : 0.007)
+                if tick.isMajor {
+                    // A lighter edge beside each major tick reads as a bevel.
+                    let edge = theme.colorScheme == .dark ? Color.white.opacity(0.22) : Color.white.opacity(0.7)
+                    context.stroke(line.offsetBy(dx: diameter * 0.004, dy: diameter * 0.004), with: .color(edge), lineWidth: width * 0.6)
+                }
                 context.stroke(line, with: .color(color), style: StrokeStyle(lineWidth: width, lineCap: .round))
 
                 if let label = tick.label {
                     let text = Text(label)
-                        .font(.system(size: diameter * 0.06, weight: .semibold, design: theme.design.font))
-                        .monospacedDigit()
+                        .font(theme.font(role: .secondary, size: diameter * 0.065))
+                        .kerning(theme.colorScheme == .light ? diameter * 0.003 : 0)
                         .foregroundColor(Color(hex: theme.scaleLabel))
                     context.draw(context.resolve(text), at: point(center, radius - diameter * 0.14, angle))
                 }

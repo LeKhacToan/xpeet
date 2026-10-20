@@ -7,7 +7,8 @@ final class MascotPlacementTests: XCTestCase {
     func testSizeIsEighteenPercentClamped() {
         XCTAssertEqual(MascotPlacement.size(gaugeDiameter: 200), 44, "floor")
         XCTAssertEqual(MascotPlacement.size(gaugeDiameter: 300), 54)
-        XCTAssertEqual(MascotPlacement.size(gaugeDiameter: 500), 72, "ceiling")
+        XCTAssertEqual(MascotPlacement.size(gaugeDiameter: 450), 81)
+        XCTAssertEqual(MascotPlacement.size(gaugeDiameter: 500), 84, "ceiling")
     }
 
     // MARK: - R12 placement

@@ -1,6 +1,7 @@
+import CoreText
 import SwiftUI
 
-/// A face's fixed palette and type style. Colours are hex so contrast can be unit-tested.
+/// A face's fixed palette and typography. Colours are hex so contrast can be unit-tested.
 /// No colour here ever depends on speed.
 struct Theme: Equatable {
     /// A colour drawn with transparency over the background.
@@ -9,16 +10,27 @@ struct Theme: Equatable {
         var opacity: Double
     }
 
-    enum Design: Equatable {
-        case rounded, monospaced, serif
+    /// PostScript names of the bundled fonts (specs/visual-polish R1).
+    struct Typeface: Equatable {
+        /// The speed number and the mascot's accessory glyphs.
+        var number: String
+        /// Unit pill, scale labels, picker names.
+        var secondary: String
+    }
 
-        var font: Font.Design {
-            switch self {
-            case .rounded: .rounded
-            case .monospaced: .monospaced
-            case .serif: .serif
-            }
-        }
+    enum Role {
+        case number, secondary
+    }
+
+    /// Colours the mascot derives from the theme (specs/visual-polish R7).
+    struct MascotPalette: Equatable {
+        var face: UInt32
+        var highlight: UInt32
+        var ink: UInt32
+        var eyeWhite: UInt32
+        var iris: UInt32
+        var hair: UInt32
+        var blush: Overlay
     }
 
     var backgroundCenter: UInt32
@@ -37,7 +49,7 @@ struct Theme: Equatable {
     var buttonLabel: UInt32
     /// Dial scale labels and major ticks.
     var scaleLabel: UInt32
-    var design: Design
+    var typeface: Typeface
     var colorScheme: ColorScheme
 
     static let pillTintOpacity = 0.16
@@ -62,6 +74,41 @@ struct Theme: Equatable {
 
     func color(_ overlay: Overlay) -> Color {
         Color(hex: overlay.hex).opacity(overlay.opacity)
+    }
+
+    // MARK: Fonts
+
+    func name(for role: Role) -> String {
+        switch role {
+        case .number: typeface.number
+        case .secondary: typeface.secondary
+        }
+    }
+
+    /// Fixed size with tabular digits, for text sized by the gauge diameter.
+    func font(role: Role, size: CGFloat) -> Font {
+        Font(UIFont.tabular(name: name(for: role), size: size))
+    }
+
+    /// Scales with Dynamic Type relative to `textStyle`, for pills, chips and picker text.
+    func font(role: Role, textStyle: Font.TextStyle, size: CGFloat) -> Font {
+        Font.custom(name(for: role), size: size, relativeTo: textStyle)
+    }
+
+    // MARK: Mascot
+
+    /// A skin-toned face with hair and irises in the face's accent, so the character reads as anime on every theme.
+    var mascot: MascotPalette {
+        let skin: UInt32 = colorScheme == .light ? 0xF6DCC8 : 0xFFE4D2
+        return MascotPalette(
+            face: skin,
+            highlight: Self.blend(0xFFFFFF, over: skin, opacity: 0.6),
+            ink: 0x2A1E1A,
+            eyeWhite: 0xFFFFFF,
+            iris: colorScheme == .light ? accent : accentDeep,
+            hair: colorScheme == .light ? accent : accentDeep,
+            blush: Overlay(hex: 0xFF7F9A, opacity: 0.45)
+        )
     }
 }
 
@@ -100,5 +147,18 @@ extension Color {
             green: Double((hex >> 8) & 0xFF) / 255,
             blue: Double(hex & 0xFF) / 255
         )
+    }
+}
+
+extension UIFont {
+    /// The named bundled font with monospaced (tabular) digits, so a changing number never shifts.
+    static func tabular(name: String, size: CGFloat) -> UIFont {
+        let descriptor = UIFontDescriptor(name: name, size: size).addingAttributes([
+            .featureSettings: [[
+                UIFontDescriptor.FeatureKey.type: kNumberSpacingType,
+                UIFontDescriptor.FeatureKey.selector: kMonospacedNumbersSelector
+            ]]
+        ])
+        return UIFont(descriptor: descriptor, size: size)
     }
 }

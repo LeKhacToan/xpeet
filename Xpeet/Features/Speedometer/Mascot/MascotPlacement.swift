@@ -5,7 +5,7 @@ import Foundation
 enum MascotPlacement {
     /// Mascot size as a share of the gauge diameter, clamped to `sizeRange`.
     static let sizeFraction = 0.18
-    static let sizeRange: ClosedRange<CGFloat> = 44...72
+    static let sizeRange: ClosedRange<CGFloat> = 44...84
     /// Gap between the mascot and the gauge.
     static let gap: CGFloat = 8
 

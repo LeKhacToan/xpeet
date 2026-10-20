@@ -201,7 +201,7 @@ On the next launch the same face is shown.
 - Choosing a palette separately from a face, and user-defined colours.
 - Retro following the system appearance, and light variants of the other faces.
 - Per-face or user-set gauge maximum. It stays 200 km/h / 130 mph.
-- Custom fonts (e.g. 7-segment), alternate app icons per theme, `MeshGradient`, Metal shaders, Liquid Glass.
+- ~~Custom fonts (e.g. 7-segment)~~ (bundled OFL fonts are now in scope: `specs/visual-polish/spec.md`), alternate app icons per theme, `MeshGradient`, Metal shaders, Liquid Glass.
 - Swipe-to-change faces, `TabView` paging.
 - Mascot and engine-sound settings in the sheet (their own specs).
 
