@@ -10,7 +10,7 @@ final class MoodResolverTests: XCTestCase {
     private func drive(_ kmh: [Double], every seconds: TimeInterval = 1) -> [Mood] {
         kmh.map { speed in
             time += seconds
-            return resolver.sample(metersPerSecond: speed / 3.6, at: time)
+            return resolver.sample(metersPerSecond: speed / 3.6, timestamp: time, now: time)
         }
     }
 
@@ -144,6 +144,22 @@ final class MoodResolverTests: XCTestCase {
     }
 
     // MARK: - R6
+
+    func testStartledRunsOnTheClockNotTheFixTimestamp() {
+        drive([60, 60])
+        // The braking fix is stamped 0.8 s before it arrives: startled still lasts 2 s from arrival.
+        time += 1
+        XCTAssertEqual(resolver.sample(metersPerSecond: 48 / 3.6, timestamp: time - 0.8, now: time), .startled)
+        XCTAssertEqual(resolver.tick(at: time.addingTimeInterval(1.9)), .startled)
+        XCTAssertEqual(resolver.tick(at: time.addingTimeInterval(2)), .happy)
+    }
+
+    func testSleepyRunsOnTheClockNotTheFixTimestamp() {
+        // iOS replays a stationary fix with an old timestamp; the 10 s still count from when it arrived.
+        XCTAssertEqual(resolver.sample(metersPerSecond: 0, timestamp: time - 30, now: time), .calm)
+        XCTAssertEqual(resolver.tick(at: time.addingTimeInterval(9.9)), .calm)
+        XCTAssertEqual(resolver.tick(at: time.addingTimeInterval(10)), .sleepy)
+    }
 
     func testStartledExpiresAfterTwoSeconds() {
         drive([60, 60, 48])

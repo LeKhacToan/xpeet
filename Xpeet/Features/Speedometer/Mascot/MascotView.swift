@@ -144,7 +144,7 @@ struct MascotView: View {
             }
             .offset(y: 8 * unit)
         case .sleepy:
-            Text("z")
+            Text(verbatim: "z")
                 .font(.system(size: 22 * unit, weight: .heavy, design: .rounded))
                 .foregroundStyle(ink)
                 .offset(x: 34 * unit, y: -34 * unit)
@@ -152,7 +152,7 @@ struct MascotView: View {
             // Sweat drop.
             Drop().fill(ink.opacity(0.8)).frame(width: 9 * unit, height: 14 * unit).offset(x: 36 * unit, y: -22 * unit)
         case .startled:
-            Text("!")
+            Text(verbatim: "!")
                 .font(.system(size: 26 * unit, weight: .black, design: .rounded))
                 .foregroundStyle(ink)
                 .offset(x: 40 * unit, y: -34 * unit)
@@ -192,8 +192,14 @@ private struct Wave: Shape {
         var path = Path()
         let quarter = rect.width / 4
         path.move(to: CGPoint(x: rect.minX, y: rect.midY))
-        path.addQuadCurve(to: CGPoint(x: rect.minX + 2 * quarter, y: rect.midY), control: CGPoint(x: rect.minX + quarter, y: rect.minY - rect.height / 2))
-        path.addQuadCurve(to: CGPoint(x: rect.maxX, y: rect.midY), control: CGPoint(x: rect.minX + 3 * quarter, y: rect.maxY + rect.height / 2))
+        path.addQuadCurve(
+            to: CGPoint(x: rect.minX + 2 * quarter, y: rect.midY),
+            control: CGPoint(x: rect.minX + quarter, y: rect.minY - rect.height / 2)
+        )
+        path.addQuadCurve(
+            to: CGPoint(x: rect.maxX, y: rect.midY),
+            control: CGPoint(x: rect.minX + 3 * quarter, y: rect.maxY + rect.height / 2)
+        )
         return path
     }
 }

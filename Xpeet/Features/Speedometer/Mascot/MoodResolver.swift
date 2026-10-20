@@ -2,7 +2,7 @@ import Foundation
 
 /// Maps the filtered speed to a `Mood`. Pure value type: no SwiftUI, no CoreLocation.
 /// Speeds are m/s so the result is unit-independent. Hysteresis and a two-sample debounce stop flicker.
-struct MoodResolver: Equatable {
+struct MoodResolver {
     // MARK: Thresholds (specs/speed-mascot R3, R5, R6)
 
     /// calm -> happy at 30 km/h; happy -> calm below 25 km/h.
@@ -40,21 +40,23 @@ struct MoodResolver: Equatable {
     private var candidateCount = 0
     private var stoppedSince: Date?
     private var startledUntil: Date?
-    private var last: (speed: Double, at: Date)?
+    /// Last sample's speed and GPS timestamp, for the braking comparison.
+    private var last: (speed: Double, timestamp: Date)?
 
     // MARK: Input
 
-    /// A new filtered speed. `at` is the sample's timestamp, which braking detection compares.
-    mutating func sample(metersPerSecond speed: Double, at time: Date) -> Mood {
-        if let last, case let interval = time.timeIntervalSince(last.at), interval > 0, interval <= Self.brakeMaxInterval,
-           (last.speed - speed) / interval >= Self.brakeThreshold {
-            startledUntil = time.addingTimeInterval(Self.startledDuration)
+    /// A new filtered speed. Braking compares GPS `timestamp`s (R5); every duration runs on the clock `now`,
+    /// so a lagging fix never shortens startled or sleepy.
+    mutating func sample(metersPerSecond speed: Double, timestamp: Date, now: Date) -> Mood {
+        if let last, case let interval = timestamp.timeIntervalSince(last.timestamp), interval > 0,
+           interval <= Self.brakeMaxInterval, (last.speed - speed) / interval >= Self.brakeThreshold {
+            startledUntil = now.addingTimeInterval(Self.startledDuration)
         }
         let wasSearching = last == nil
-        last = (speed, time)
+        last = (speed, timestamp)
 
         if speed < Self.stoppedBelowMetersPerSecond {
-            stoppedSince = stoppedSince ?? time
+            stoppedSince = stoppedSince ?? now
         } else {
             stoppedSince = nil
         }
@@ -73,7 +75,7 @@ struct MoodResolver: Equatable {
                 candidate = nil
             }
         }
-        return resolve(at: time)
+        return resolve(at: now)
     }
 
     /// Time passes without a sample: sleepy may start and startled may end.
@@ -121,9 +123,5 @@ struct MoodResolver: Equatable {
             mood = band.mood
         }
         return mood
-    }
-
-    static func == (lhs: MoodResolver, rhs: MoodResolver) -> Bool {
-        lhs.mood == rhs.mood && lhs.band == rhs.band && lhs.stoppedSince == rhs.stoppedSince && lhs.startledUntil == rhs.startledUntil
     }
 }
