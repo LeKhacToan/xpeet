@@ -3,7 +3,7 @@
 **Spec:** specs/engine-sound-clip/spec.md
 <!-- Produced in Claude Code plan mode. Update in the same commit when implementation diverges. -->
 
-This is PR 3 of 3. Work on branch `feat/engine-sound-clip`, cut from the mascot branch, or from `main` once the earlier PRs are merged.
+This is PR 4 (after gauge themes, mascot and visual polish). Work on branch `feat/engine-sound-clip`, cut from the mascot branch, or from `main` once the earlier PRs are merged.
 
 ## Files that change
 
@@ -74,6 +74,18 @@ This becomes the only folder that imports AVFoundation or SoundAnalysis.
 5. Wire it into `SpeedometerViewModel`, its tests and the previews.
 6. The CLAUDE.md line, `scripts/verify.sh` and the evals. Then the manual checks on a device via `scripts/install-device.sh`.
 
+## Deviations
+- The sound licence note is `Xpeet/Resources/Sounds/SOUNDS-LICENSE.txt`, bundled like the fonts' OFL files, instead of a `LICENSE.md` excluded in `project.yml`. No `excludes` entry is needed.
+- `EngineSoundViewModel.handleListeningStarted()` is a handler of its own, so the event rules are unit-tested synchronously without `run()`.
+- `SNTimeDurationConstraint` is a Swift enum: the 1.5 s window is applied only when it falls inside `.durationRange`; otherwise the classifier keeps its default window.
+- `FakeSoundPlayer` lives in `FakeSoundTriggerDetector.swift`, not a file of its own.
+- `project.yml` sources stay `[Xpeet]`: with the licence note bundled as a `.txt`, no `excludes` entry is needed.
+- `XpeetTests/GaugeGeometryTests.swift` injects fake audio into its two view models, so no test can build the real detector.
+- `specs/speedometer/spec.md` Out of scope now points to this spec for the sound.
+- Review fixes: a sound cut off by the screen going away still starts the cooldown; the end of an older `run()` (and the detector's teardown) cannot reset a newer one; analyzer callbacks are matched to the live request instead of a flag; configuration changes are filtered to this engine; an enumerated window constraint picks the duration nearest 1.5 s.
+- The `SpeedometerView` preview helper and previews are wrapped in `#if DEBUG` (they use DEBUG-only fakes), so a Release build compiles.
+- Three lines over 140 characters in `DialFace.swift` (from the visual-polish PR) are wrapped here so SwiftLint `--strict` passes.
+
 ## Risks
 - **Labels on iOS are unverified.** The `.version1` labels were only checked on macOS. If a label is missing on iOS, its confidence is 0 and the feature never fires. Check on a device.
 - **The simulator cannot test detection.** The simulator mic is the Mac's mic, so detection thresholds can only be tuned in a real vehicle.
@@ -84,17 +96,17 @@ This becomes the only folder that imports AVFoundation or SoundAnalysis.
 ## Proof
 | Req | Proof |
 |---|---|
-| R1 | `EngineSoundViewModelTests.testRunSubscribesToEventsWhenAuthorized`, `testCancellingRunStopsEvents`, `testRunDoesNotListenWhenDenied`; `SpeedometerViewModelTests.testRunStartsEngineSoundListening`; build: no `UIBackgroundModes` |
-| R2 | `EngineSoundViewModelTests.testDoesNotRequestMicWhileLocationNotDetermined`, `testRequestsMicOnceAfterLocationResolved`, `testNeverRequestsMicWhenAlreadyAnswered`; `SpeedometerViewModelTests.testMicRequestedOnlyAfterLocationAnswered` |
-| R3 | `EngineSoundViewModelTests.testTwoConsecutiveQualifyingWindowsFire`, `testSingleQualifyingWindowDoesNotFire`, `testLowConfidenceWindowBreaksStreak`, `testNonTriggerLabelDoesNotQualify`, `testGapBetweenWindowsBreaksStreak` |
+| R1 | `EngineSoundViewModelTests.testRunSubscribesToEventsWhenAuthorized`, `testCancellingRunStopsEvents`, `testRunDoesNotListenWhenDenied`, `testRunListensAfterAuthorizationGranted`; `SpeedometerViewModelTests.testRunStartsEngineSoundListening`; build: no `UIBackgroundModes` |
+| R2 | `EngineSoundViewModelTests.testDoesNotRequestMicWhileLocationNotDetermined`, `testRequestsMicOnceAfterLocationResolved`, `testRequestsMicWhenLocationResolvedBeforeMicStatusArrives`, `testNeverRequestsMicWhenAlreadyAnswered`; `SpeedometerViewModelTests.testMicRequestedOnlyAfterLocationAnswered` |
+| R3 | `EngineSoundViewModelTests.testTwoConsecutiveQualifyingWindowsFire`, `testSingleQualifyingWindowDoesNotFire`, `testLowConfidenceWindowBreaksStreak`, `testConfidenceExactlyThresholdQualifies`, `testEveryTriggerLabelQualifies`, `testNonTriggerLabelDoesNotQualify`, `testGapBetweenWindowsBreaksStreak`, `testConstants` |
 | R4 | review: no file, log or network in `Core/Audio` |
-| R5 | `EngineSoundViewModelTests.testRandomLowPicksOhayo`, `testRandomHighPicksVroom`, `testBundledSoundsExistAndAreAtMostThreeSeconds` |
+| R5 | `EngineSoundViewModelTests.testRandomLowPicksOhayo`, `testRandomHighPicksVroom`, `testRandomOneIsClamped`, `testBundledSoundsExistAndAreAtMostThreeSeconds` |
 | R6 | `EngineSoundViewModelTests.testEventWhileMovingIsDropped`, `testEventWhenStoppedPlays`, `testDroppedWhileMovingIsNotQueued`; `SpeedometerViewModelTests.testEngineSoundSeesMovingFromDisplayedSpeed` |
-| R7 | `EngineSoundViewModelTests.testEventsDuringCooldownAreDropped`, `testPlaysAgainAfterSixtySeconds`, `testFailedPlaybackStartsNoCooldown` |
-| R8 | `EngineSoundViewModelTests.testEventsWhilePlayingAreDropped`, `testEventsWithinHalfSecondAfterEndAreDropped`, `testPausesDetectorWhilePlayingAndResumesAfter` |
+| R7 | `EngineSoundViewModelTests.testEventsDuringCooldownAreDropped`, `testPlaysAgainAfterSixtySeconds`, `testFailedPlaybackStartsNoCooldown`, `testCancelledPlaybackStartsCooldown` |
+| R8 | `EngineSoundViewModelTests.testEventsWhilePlayingAreDropped`, `testEventsWithinHalfSecondAfterEndAreDropped`, `testEventAfterTailPlays`, `testPausesDetectorWhilePlayingAndResumesAfter`, `testRunPlaysThroughPlayerAndReturnsToListening` |
 | R9, R10 | manual on device: music keeps playing, with and without Bluetooth; a call or Siri interrupts |
-| R11 | `EngineSoundViewModelTests.testDeniedShowsMicChip`; `SpeedometerViewModelTests.testMicChipShownWhenNoLocationStatus`, `testLocationChipTakesPriorityOverMicChip` |
-| R12 | `EngineSoundViewModelTests.testFailingDetectorSetsFailedSilently`, `testStreamEndingMidRunSetsFailed`, `testFailedRunRetriesOnNextRun` |
+| R11 | `EngineSoundViewModelTests.testDeniedShowsMicChip`, `testAuthorizedAndNotDeterminedShowNoChip`; `SpeedometerViewModelTests.testMicChipShownWhenNoLocationStatus`, `testLocationChipTakesPriorityOverMicChip` |
+| R12 | `EngineSoundViewModelTests.testFailingDetectorSetsFailedSilently`, `testStreamEndingMidRunSetsFailed`, `testFailedRunRetriesOnNextRun`, `testOldRunEndingDoesNotResetNewRun` |
 | R13 | manual: Accessibility Inspector |
 
 Run `scripts/verify.sh` after every step.

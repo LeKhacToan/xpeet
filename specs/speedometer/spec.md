@@ -98,7 +98,7 @@ No network. `APIClient` and `Core/Networking/` are removed because nothing uses 
 ## Out of scope
 - Background or locked-screen speed tracking, CarPlay, Live Activities and widgets.
 - ~~Arc gauge~~ (now in `specs/speedometer-gauge/spec.md`), ~~needle gauge~~ (now in `specs/gauge-themes/spec.md`), HUD mirror mode, trip statistics (max, average, distance, time).
-- Speed-limit data, over-speed alerts, speed-based colours or sounds. **Exception** (`specs/speed-mascot/spec.md`): the mascot's expression follows speed; gauge colours still never do.
+- Speed-limit data, over-speed alerts, speed-based colours or sounds (the engine-start sound in `specs/engine-sound-clip/spec.md` is not speed-based: it only plays while stopped). **Exception** (`specs/speed-mascot/spec.md`): the mascot's expression follows speed; gauge colours still never do.
 - Privacy-policy link, App Store metadata, privacy nutrition label (not distributed).
 - Settings screen (except the face picker sheet in `specs/gauge-themes/spec.md`), app version display, onboarding screens.
 - Units other than km/h and mph (e.g. knots, m/s).

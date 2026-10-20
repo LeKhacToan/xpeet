@@ -131,7 +131,7 @@ There is no in-app "listening" indicator beyond the system mic indicator.
   - R11 chip
 
   Its inputs are injected (detector, player, clock, random source), all with production defaults. It reads "moving" from `SpeedometerViewModel.displayedSpeed`. The plan decides whether this is a new `Features/EngineSound/EngineSoundViewModel` fed by the speedometer, or part of `SpeedometerViewModel`.
-- **Resources:** `Xpeet/Resources/Sounds/ohayo.m4a`, `vroom.m4a`, plus `Xpeet/Resources/Sounds/LICENSE.md`. The licence file records the provenance (macOS `say` text-to-speech, voices Flo ja-JP / Boing, generated 2026-10-20, placeholder for a personal build only).
+- **Resources:** `Xpeet/Resources/Sounds/ohayo.m4a`, `vroom.m4a`, plus `Xpeet/Resources/Sounds/SOUNDS-LICENSE.txt`. The licence file records the provenance (macOS `say` text-to-speech, voices Flo ja-JP / Boing, generated 2026-10-20, placeholder for a personal build only).
 - **Info.plist:** add `INFOPLIST_KEY_NSMicrophoneUsageDescription` in `project.yml` (target settings, next to the location string): "Xpeet listens for engine sounds to play a fun clip. Audio is analysed on your device and never recorded or sent anywhere."
 - **Persistence:** none.
 
@@ -162,7 +162,7 @@ There is no in-app "listening" indicator beyond the system mic indicator.
   - The prompt is shown automatically at first launch rather than on a user action (R2). That goes against App Review 5.1.1's "request in context" guidance. It is accepted for a personal sideloaded build, but must be revisited before any distribution, with an opt-in toggle.
   - If the app is distributed, the privacy nutrition label is "Data Not Collected" for audio (on-device only).
 - **IP and licensing:**
-  - The two sound files are generated with macOS text-to-speech. Apple's licence terms for redistributing system voices in an app are unclear, so they are placeholders for a personal build only (recorded in `LICENSE.md`).
+  - The two sound files are generated with macOS text-to-speech. Apple's licence terms for redistributing system voices in an app are unclear, so they are placeholders for a personal build only (recorded in `SOUNDS-LICENSE.txt`).
   - Replace them with your own recordings, or verified CC0 files, before distribution.
   - No meme audio.
 - **Driving safety (App Review 1.4.4/1.4.5, not binding):**

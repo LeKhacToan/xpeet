@@ -23,7 +23,10 @@ struct DialFace: View {
                 Needle()
                     .fill(Color(hex: theme.accent))
                     .frame(width: diameter * 0.035, height: diameter * (Self.needleOuter - Self.needleInner))
-                    .shadow(color: .black.opacity(theme.colorScheme == .dark ? 0.5 : 0.3), radius: diameter * 0.01, x: diameter * 0.006, y: diameter * 0.01)
+                    .shadow(
+                        color: .black.opacity(theme.colorScheme == .dark ? 0.5 : 0.3),
+                        radius: diameter * 0.01, x: diameter * 0.006, y: diameter * 0.01
+                    )
                     .shadow(color: Color(hex: theme.accent).opacity(theme.colorScheme == .dark ? Theme.glowOpacity : 0), radius: 6)
                     // The needle points up and runs between the centre disc and the rim; rotating about the dial centre.
                     .offset(y: -diameter * (Self.needleOuter + Self.needleInner) / 2)
@@ -35,7 +38,10 @@ struct DialFace: View {
                     .overlay {
                         Circle().strokeBorder(
                             LinearGradient(
-                                colors: [Color.black.opacity(theme.colorScheme == .dark ? 0.5 : 0.18), Color.white.opacity(theme.colorScheme == .dark ? 0.12 : 0.6)],
+                                colors: [
+                                    Color.black.opacity(theme.colorScheme == .dark ? 0.5 : 0.18),
+                                    Color.white.opacity(theme.colorScheme == .dark ? 0.12 : 0.6)
+                                ],
                                 startPoint: .top, endPoint: .bottom
                             ),
                             lineWidth: diameter * 0.01
@@ -69,7 +75,11 @@ private struct DialPlate: View {
                 // Brushed-metal sheen: faint angular bands.
                 Circle()
                     .fill(AngularGradient(
-                        colors: [.white.opacity(isDark ? 0.05 : 0.18), .clear, .white.opacity(isDark ? 0.035 : 0.12), .clear, .white.opacity(isDark ? 0.05 : 0.18)],
+                        colors: [
+                            .white.opacity(isDark ? 0.05 : 0.18), .clear,
+                            .white.opacity(isDark ? 0.035 : 0.12), .clear,
+                            .white.opacity(isDark ? 0.05 : 0.18)
+                        ],
                         center: .center
                     ))
                 if !isDark {

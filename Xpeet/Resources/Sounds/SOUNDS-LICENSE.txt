@@ -1,0 +1,10 @@
+Xpeet placeholder sounds (specs/engine-sound-clip R5)
+
+ohayo.m4a  "おはよう、おにいちゃん！"  macOS `say`, voice "Flo (Japanese)", rate 210, 1.6 s
+vroom.m4a  "Vroom vroom! Let's go!"   macOS `say`, voice "Boing", 2.7 s
+
+Generated on 2026-10-20 with macOS text-to-speech, converted with `afconvert -f m4af -d aac`.
+Original text; no third-party or meme audio.
+
+These are placeholders for a personal, sideloaded build only. Apple's terms for redistributing system
+voices are unclear: replace both files with your own recordings or verified CC0 audio before any distribution.
