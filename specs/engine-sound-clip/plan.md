@@ -74,6 +74,12 @@ This becomes the only folder that imports AVFoundation or SoundAnalysis.
 5. Wire it into `SpeedometerViewModel`, its tests and the previews.
 6. The CLAUDE.md line, `scripts/verify.sh` and the evals. Then the manual checks on a device via `scripts/install-device.sh`.
 
+## Deviations
+- The sound licence note is `Xpeet/Resources/Sounds/SOUNDS-LICENSE.txt`, bundled like the fonts' OFL files, instead of a `LICENSE.md` excluded in `project.yml`. No `excludes` entry is needed.
+- `EngineSoundViewModel.handleListeningStarted()` is a handler of its own, so the event rules are unit-tested synchronously without `run()`.
+- `SNTimeDurationConstraint` is a Swift enum: the 1.5 s window is applied only when it falls inside `.durationRange`; otherwise the classifier keeps its default window.
+- Three lines over 140 characters in `DialFace.swift` (from the visual-polish PR) are wrapped here so SwiftLint `--strict` passes.
+
 ## Risks
 - **Labels on iOS are unverified.** The `.version1` labels were only checked on macOS. If a label is missing on iOS, its confidence is 0 and the feature never fires. Check on a device.
 - **The simulator cannot test detection.** The simulator mic is the Mac's mic, so detection thresholds can only be tuned in a real vehicle.
@@ -84,16 +90,16 @@ This becomes the only folder that imports AVFoundation or SoundAnalysis.
 ## Proof
 | Req | Proof |
 |---|---|
-| R1 | `EngineSoundViewModelTests.testRunSubscribesToEventsWhenAuthorized`, `testCancellingRunStopsEvents`, `testRunDoesNotListenWhenDenied`; `SpeedometerViewModelTests.testRunStartsEngineSoundListening`; build: no `UIBackgroundModes` |
-| R2 | `EngineSoundViewModelTests.testDoesNotRequestMicWhileLocationNotDetermined`, `testRequestsMicOnceAfterLocationResolved`, `testNeverRequestsMicWhenAlreadyAnswered`; `SpeedometerViewModelTests.testMicRequestedOnlyAfterLocationAnswered` |
-| R3 | `EngineSoundViewModelTests.testTwoConsecutiveQualifyingWindowsFire`, `testSingleQualifyingWindowDoesNotFire`, `testLowConfidenceWindowBreaksStreak`, `testNonTriggerLabelDoesNotQualify`, `testGapBetweenWindowsBreaksStreak` |
+| R1 | `EngineSoundViewModelTests.testRunSubscribesToEventsWhenAuthorized`, `testCancellingRunStopsEvents`, `testRunDoesNotListenWhenDenied`, `testRunListensAfterAuthorizationGranted`; `SpeedometerViewModelTests.testRunStartsEngineSoundListening`; build: no `UIBackgroundModes` |
+| R2 | `EngineSoundViewModelTests.testDoesNotRequestMicWhileLocationNotDetermined`, `testRequestsMicOnceAfterLocationResolved`, `testRequestsMicWhenLocationResolvedBeforeMicStatusArrives`, `testNeverRequestsMicWhenAlreadyAnswered`; `SpeedometerViewModelTests.testMicRequestedOnlyAfterLocationAnswered` |
+| R3 | `EngineSoundViewModelTests.testTwoConsecutiveQualifyingWindowsFire`, `testSingleQualifyingWindowDoesNotFire`, `testLowConfidenceWindowBreaksStreak`, `testConfidenceExactlyThresholdQualifies`, `testEveryTriggerLabelQualifies`, `testNonTriggerLabelDoesNotQualify`, `testGapBetweenWindowsBreaksStreak`, `testConstants` |
 | R4 | review: no file, log or network in `Core/Audio` |
-| R5 | `EngineSoundViewModelTests.testRandomLowPicksOhayo`, `testRandomHighPicksVroom`, `testBundledSoundsExistAndAreAtMostThreeSeconds` |
+| R5 | `EngineSoundViewModelTests.testRandomLowPicksOhayo`, `testRandomHighPicksVroom`, `testRandomOneIsClamped`, `testBundledSoundsExistAndAreAtMostThreeSeconds` |
 | R6 | `EngineSoundViewModelTests.testEventWhileMovingIsDropped`, `testEventWhenStoppedPlays`, `testDroppedWhileMovingIsNotQueued`; `SpeedometerViewModelTests.testEngineSoundSeesMovingFromDisplayedSpeed` |
 | R7 | `EngineSoundViewModelTests.testEventsDuringCooldownAreDropped`, `testPlaysAgainAfterSixtySeconds`, `testFailedPlaybackStartsNoCooldown` |
-| R8 | `EngineSoundViewModelTests.testEventsWhilePlayingAreDropped`, `testEventsWithinHalfSecondAfterEndAreDropped`, `testPausesDetectorWhilePlayingAndResumesAfter` |
+| R8 | `EngineSoundViewModelTests.testEventsWhilePlayingAreDropped`, `testEventsWithinHalfSecondAfterEndAreDropped`, `testEventAfterTailPlays`, `testPausesDetectorWhilePlayingAndResumesAfter`, `testRunPlaysThroughPlayerAndReturnsToListening` |
 | R9, R10 | manual on device: music keeps playing, with and without Bluetooth; a call or Siri interrupts |
-| R11 | `EngineSoundViewModelTests.testDeniedShowsMicChip`; `SpeedometerViewModelTests.testMicChipShownWhenNoLocationStatus`, `testLocationChipTakesPriorityOverMicChip` |
+| R11 | `EngineSoundViewModelTests.testDeniedShowsMicChip`, `testAuthorizedAndNotDeterminedShowNoChip`; `SpeedometerViewModelTests.testMicChipShownWhenNoLocationStatus`, `testLocationChipTakesPriorityOverMicChip` |
 | R12 | `EngineSoundViewModelTests.testFailingDetectorSetsFailedSilently`, `testStreamEndingMidRunSetsFailed`, `testFailedRunRetriesOnNextRun` |
 | R13 | manual: Accessibility Inspector |
 

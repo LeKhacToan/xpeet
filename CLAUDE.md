@@ -26,6 +26,7 @@ Single-screen speedometer: no tabs, no navigation, no networking (see `specs/spe
   - `SpeedProvider` protocol + `SpeedSample`.
   - `CoreLocationSpeedProvider` (production).
   - `FakeSpeedProvider` (`#if DEBUG`, shared by previews and tests).
+- `Xpeet/Core/Audio/` the only code that imports AVFoundation/SoundAnalysis: `SoundTriggerDetector` + `SoundPlayer` protocols, production adapters, fakes (`#if DEBUG`).
 - `Xpeet/Features/<Name>/` one folder per feature: `<Name>View.swift` + `<Name>ViewModel.swift`.
   - The ViewModel is `@Observable @MainActor`. Dependencies (provider, `UserDefaults`, `Locale`, clock) are injected through `init` with production defaults.
   - Logic lives in synchronous `handle(...)` methods; `run() async` only feeds streams into them.

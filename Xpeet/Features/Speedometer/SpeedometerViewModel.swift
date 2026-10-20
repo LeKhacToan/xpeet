@@ -80,6 +80,9 @@ final class SpeedometerViewModel {
     private var smoothedMetersPerSecond: Double?
     private var lastSample: SpeedSample?
 
+    /// Plays a sound on engine start while stopped (specs/engine-sound-clip). Shares this screen's lifecycle.
+    let engineSound: EngineSoundViewModel
+
     private let provider: SpeedProvider
     private let defaults: UserDefaults
     private let locale: Locale
@@ -91,9 +94,11 @@ final class SpeedometerViewModel {
         defaults: UserDefaults = .standard,
         locale: Locale = .current,
         now: @escaping () -> Date = Date.init,
-        setIdleTimerDisabled: @escaping @MainActor (Bool) -> Void = { UIApplication.shared.isIdleTimerDisabled = $0 }
+        setIdleTimerDisabled: @escaping @MainActor (Bool) -> Void = { UIApplication.shared.isIdleTimerDisabled = $0 },
+        engineSound: EngineSoundViewModel? = nil
     ) {
         self.provider = provider ?? CoreLocationSpeedProvider()
+        self.engineSound = engineSound ?? EngineSoundViewModel()
         self.defaults = defaults
         self.locale = locale
         self.now = now
@@ -102,6 +107,8 @@ final class SpeedometerViewModel {
             ?? SpeedUnit.defaultUnit(for: locale)
         self.face = defaults.string(forKey: Self.faceDefaultsKey).flatMap(GaugeFace.init(rawValue:))
             ?? GaugeFace.defaultFace
+        // No sound once the vehicle moves (R6). Read live when a detection fires; no reading counts as stopped.
+        self.engineSound.isMoving = { [weak self] in (self?.displayedSpeed ?? 0) > 0 }
     }
 
     // MARK: - Output
@@ -126,7 +133,16 @@ final class SpeedometerViewModel {
         return unit.gaugeFraction(for: speed)
     }
 
+    /// Location status first; the mic-off hint only when there is none (engine-sound R11).
     var statusText: String? {
+        locationStatusText ?? engineSound.chipText
+    }
+
+    var statusSymbol: String? {
+        locationStatusText != nil ? locationStatusSymbol : engineSound.chipSymbol
+    }
+
+    private var locationStatusText: String? {
         switch state {
         case .acquiring: String(localized: "Searching for GPS…")
         case .live(let weakSignal): weakSignal ? String(localized: "Weak GPS signal") : nil
@@ -135,8 +151,8 @@ final class SpeedometerViewModel {
         }
     }
 
-    /// SF Symbol shown next to `statusText`.
-    var statusSymbol: String? {
+    /// SF Symbol shown next to the location status.
+    private var locationStatusSymbol: String? {
         switch state {
         case .acquiring: "location.magnifyingglass"
         case .live(let weakSignal): weakSignal ? "exclamationmark.triangle" : nil
@@ -179,7 +195,14 @@ final class SpeedometerViewModel {
                     await self.tick()
                 }
             }
+            group.addTask {
+                await self.runEngineSound()
+            }
         }
+    }
+
+    private func runEngineSound() async {
+        await engineSound.run()
     }
 
     func handle(authorization: LocationAuthorization) {
@@ -196,6 +219,8 @@ final class SpeedometerViewModel {
         case .servicesOff:
             becomeUnavailable(.servicesOff)
         }
+        // The mic prompt waits until the location prompt is answered, so the two never stack (engine-sound R2).
+        engineSound.handle(locationAuthorizationResolved: authorization != .notDetermined)
     }
 
     func handle(sample: SpeedSample) {

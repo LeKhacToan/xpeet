@@ -27,14 +27,21 @@ final class SpeedometerViewModelTests: XCTestCase {
         defaults: UserDefaults? = nil,
         locale: Locale? = nil,
         clock: TestClock = TestClock(),
-        idleTimer: IdleTimerRecorder = IdleTimerRecorder()
+        idleTimer: IdleTimerRecorder = IdleTimerRecorder(),
+        detector: FakeSoundTriggerDetector? = nil
     ) -> SpeedometerViewModel {
+        // Always fakes: tests never touch the real microphone.
         SpeedometerViewModel(
             provider: provider ?? FakeSpeedProvider(),
             defaults: defaults ?? makeDefaults(),
             locale: locale ?? metric,
             now: { clock.now },
-            setIdleTimerDisabled: { idleTimer.calls.append($0) }
+            setIdleTimerDisabled: { idleTimer.calls.append($0) },
+            engineSound: EngineSoundViewModel(
+                detector: detector ?? FakeSoundTriggerDetector(),
+                player: FakeSoundPlayer(),
+                now: { clock.now }
+            )
         )
     }
 
@@ -659,5 +666,82 @@ final class SpeedometerViewModelTests: XCTestCase {
         await waitUntil { viewModel.mood == .searching }
         task.cancel()
         await task.value
+    }
+
+    // MARK: - engine-sound R1, R2, R6, R11
+
+    func testRunStartsEngineSoundListening() async {
+        let detector = FakeSoundTriggerDetector(authorization: .authorized)
+        let viewModel = makeViewModel(detector: detector)
+
+        let task = Task { await viewModel.run() }
+        await waitUntil { detector.eventSubscriberCount == 1 }
+        XCTAssertEqual(viewModel.engineSound.phase, .listening)
+
+        task.cancel()
+        await task.value
+        await waitUntil { detector.eventSubscriberCount == 0 }
+    }
+
+    func testMicRequestedOnlyAfterLocationAnswered() async {
+        let provider = FakeSpeedProvider(authorization: .notDetermined)
+        let detector = FakeSoundTriggerDetector(authorization: .notDetermined)
+        let viewModel = makeViewModel(provider: provider, detector: detector)
+
+        let task = Task { await viewModel.run() }
+        await waitUntil { provider.requestAuthorizationCount == 1 }
+        try? await Task.sleep(for: .milliseconds(50))
+        XCTAssertEqual(detector.requestAuthorizationCount, 0, "location prompt is still pending")
+
+        provider.send(.authorized)
+        await waitUntil { detector.requestAuthorizationCount == 1 }
+
+        task.cancel()
+        await task.value
+    }
+
+    func testEngineSoundSeesMovingFromDisplayedSpeed() {
+        let clock = TestClock()
+        let viewModel = makeViewModel(clock: clock)
+        XCTAssertFalse(viewModel.engineSound.isMoving(), "acquiring counts as stopped")
+
+        viewModel.handle(authorization: .authorized)
+        viewModel.handle(sample: sample(kmh: 30, at: clock))
+        XCTAssertTrue(viewModel.engineSound.isMoving())
+
+        viewModel.handle(sample: sample(kmh: 0, stationary: true, at: clock))
+        XCTAssertFalse(viewModel.engineSound.isMoving())
+
+        viewModel.handle(authorization: .denied)
+        XCTAssertFalse(viewModel.engineSound.isMoving(), "unknown movement counts as stopped")
+    }
+
+    func testMicChipShownWhenNoLocationStatus() {
+        let clock = TestClock()
+        let viewModel = makeViewModel(clock: clock)
+        viewModel.handle(authorization: .authorized)
+        viewModel.handle(sample: sample(kmh: 40, at: clock))
+        viewModel.engineSound.handle(micAuthorization: .denied)
+
+        XCTAssertEqual(viewModel.statusText, "Microphone off: enable it in Settings to hear engine sounds")
+        XCTAssertEqual(viewModel.statusSymbol, "mic.slash")
+        XCTAssertFalse(viewModel.canOpenSettings, "the mic hint has no button")
+    }
+
+    func testLocationChipTakesPriorityOverMicChip() {
+        let clock = TestClock()
+        let viewModel = makeViewModel(clock: clock)
+        viewModel.engineSound.handle(micAuthorization: .denied)
+
+        viewModel.handle(authorization: .authorized)
+        XCTAssertEqual(viewModel.statusText, "Searching for GPS…")
+        XCTAssertEqual(viewModel.statusSymbol, "location.magnifyingglass")
+
+        viewModel.handle(sample: sample(kmh: 40, accuracy: 3, at: clock))
+        XCTAssertEqual(viewModel.statusText, "Weak GPS signal")
+
+        viewModel.handle(authorization: .denied)
+        XCTAssertEqual(viewModel.statusText, "Location access is off")
+        XCTAssertEqual(viewModel.statusSymbol, "location.slash")
     }
 }

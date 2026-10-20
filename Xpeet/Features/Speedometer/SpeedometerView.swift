@@ -148,6 +148,7 @@ private extension SpeedometerViewModel {
     static func preview(
         face: GaugeFace = .minimalRing,
         authorization: LocationAuthorization = .authorized,
+        mic: MicAuthorization = .authorized,
         kmh: Double? = nil
     ) -> SpeedometerViewModel {
         let samples = kmh.map { [SpeedSample(metersPerSecond: $0 / 3.6, accuracy: 0.5, isStationary: false, timestamp: .now)] } ?? []
@@ -156,7 +157,8 @@ private extension SpeedometerViewModel {
             defaults: UserDefaults(suiteName: "SpeedometerPreview-\(face.rawValue)") ?? .standard,
             locale: Locale(identifier: "fr_FR"),
             now: { .distantPast },
-            setIdleTimerDisabled: { _ in }
+            setIdleTimerDisabled: { _ in },
+            engineSound: EngineSoundViewModel(detector: FakeSoundTriggerDetector(authorization: mic), player: FakeSoundPlayer())
         )
         viewModel.select(face)
         return viewModel
@@ -217,4 +219,8 @@ private extension SpeedometerViewModel {
 
 #Preview("Mascot worried, landscape", traits: .landscapeLeft) {
     SpeedometerView(viewModel: .preview(face: .digitalHUD, kmh: 130))
+}
+
+#Preview("Mic off") {
+    SpeedometerView(viewModel: .preview(mic: .denied, kmh: 42))
 }
