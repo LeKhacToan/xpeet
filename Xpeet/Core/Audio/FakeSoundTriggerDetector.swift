@@ -93,5 +93,11 @@ final class FakeSoundPlayer: SoundPlayer {
         pending?.resume(throwing: SoundPlayerError.couldNotPlay)
         pending = nil
     }
+
+    /// As the real player does when its task is cancelled mid-sound.
+    func cancelPlayback() {
+        pending?.resume(throwing: CancellationError())
+        pending = nil
+    }
 }
 #endif

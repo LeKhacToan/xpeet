@@ -143,6 +143,7 @@ struct SpeedometerView: View {
     }
 }
 
+#if DEBUG
 private extension SpeedometerViewModel {
     /// Preview ViewModel whose fixes never go stale.
     static func preview(
@@ -224,3 +225,4 @@ private extension SpeedometerViewModel {
 #Preview("Mic off") {
     SpeedometerView(viewModel: .preview(mic: .denied, kmh: 42))
 }
+#endif

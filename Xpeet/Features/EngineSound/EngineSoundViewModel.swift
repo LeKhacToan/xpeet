@@ -32,6 +32,8 @@ final class EngineSoundViewModel {
     private let now: () -> Date
     private let random: () -> Double
 
+    /// Counts `run()` calls, so the end of an older run cannot reset a newer one.
+    private var runCount = 0
     private var locationResolved = false
     private var hasRequestedMic = false
     private var streak = 0
@@ -66,6 +68,8 @@ final class EngineSoundViewModel {
 
     /// Waits for microphone access, then listens and plays until cancelled.
     func run() async {
+        runCount += 1
+        let thisRun = runCount
         if phase == .failed { phase = .idle }
         for await authorization in detector.authorizationUpdates() {
             handle(micAuthorization: authorization)
@@ -82,7 +86,7 @@ final class EngineSoundViewModel {
                     if let file = await self.handle(event: event) { playQueue.yield(file) }
                 }
                 playQueue.finish()
-                await self.handleListeningEnded(cancelled: Task.isCancelled)
+                await self.listeningEnded(cancelled: Task.isCancelled, run: thisRun)
             }
             // Playback runs beside the events loop, so events keep arriving (and being dropped) while a sound plays.
             group.addTask {
@@ -162,9 +166,17 @@ final class EngineSoundViewModel {
         detector.requestAuthorization()
     }
 
+    private func listeningEnded(cancelled: Bool, run: Int) {
+        guard run == runCount else { return }
+        handleListeningEnded(cancelled: cancelled)
+    }
+
     private func play(_ file: SoundFile) async {
         do {
             try await player.play(file)
+            handlePlaybackFinished()
+        } catch is CancellationError {
+            // Cut off because the screen went away: the sound did start, so the cooldown applies (R7).
             handlePlaybackFinished()
         } catch {
             handlePlaybackFailed()

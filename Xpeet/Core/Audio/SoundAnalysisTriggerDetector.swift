@@ -41,7 +41,7 @@ final class SoundAnalysisTriggerDetector: SoundTriggerDetector {
                 defer {
                     pipeline.stop()
                     AudioSession.deactivate()
-                    self.pipeline = nil
+                    if self.pipeline === pipeline { self.pipeline = nil }
                     continuation.finish()
                 }
                 do {
@@ -62,7 +62,8 @@ final class SoundAnalysisTriggerDetector: SoundTriggerDetector {
                     }
                     group.addTask {
                         // Route changes (e.g. Bluetooth connects) stop the engine and change the input format.
-                        for await _ in NotificationCenter.default.notifications(named: .AVAudioEngineConfigurationChange) {
+                        let center = NotificationCenter.default
+                        for await _ in center.notifications(named: .AVAudioEngineConfigurationChange, object: pipeline.engine) {
                             await MainActor.run { pipeline.restart() }
                         }
                     }
@@ -100,14 +101,15 @@ private final class AnalysisPipeline: NSObject, SNResultsObserving, @unchecked S
     private static let windowSeconds = 1.5
     private static let overlap = 0.5
 
-    private let engine = AVAudioEngine()
+    let engine = AVAudioEngine()
     private let queue = DispatchQueue(label: "app.plouton.xpeet.sound-analysis")
     private let labels: Set<String>
     private let continuation: AsyncStream<SoundTriggerEvent>.Continuation
     private var analyzer: SNAudioStreamAnalyzer?
+    /// The live request. Callbacks for a removed one (after `stop()` or a restart) are ignored, so a deliberate
+    /// teardown never reads as a failure.
+    private var request: SNRequest?
     private var isPaused = false
-    /// Set while tearing down on purpose, so the analyzer's completion does not read as a failure.
-    private var suppressCompletion = false
 
     init(labels: Set<String>, continuation: AsyncStream<SoundTriggerEvent>.Continuation) {
         self.labels = labels
@@ -121,9 +123,16 @@ private final class AnalysisPipeline: NSObject, SNResultsObserving, @unchecked S
 
         let request = try SNClassifySoundRequest(classifierIdentifier: .version1)
         let window = CMTime(seconds: Self.windowSeconds, preferredTimescale: 48_000)
-        // Keep the classifier's default window if 1.5 s is not allowed on this OS.
-        if case let .durationRange(range) = request.windowDurationConstraint, CMTimeRangeContainsTime(range, time: window) {
-            request.windowDuration = window
+        // 1.5 s if allowed, else the nearest allowed window.
+        switch request.windowDurationConstraint {
+        case let .durationRange(range):
+            if CMTimeRangeContainsTime(range, time: window) { request.windowDuration = window }
+        case let .enumeratedDurations(durations):
+            if let nearest = durations.min(by: { abs($0.seconds - Self.windowSeconds) < abs($1.seconds - Self.windowSeconds) }) {
+                request.windowDuration = nearest
+            }
+        @unknown default:
+            break
         }
         request.overlapFactor = Self.overlap
 
@@ -131,7 +140,7 @@ private final class AnalysisPipeline: NSObject, SNResultsObserving, @unchecked S
         try analyzer.add(request, withObserver: self)
         queue.sync {
             self.analyzer = analyzer
-            self.suppressCompletion = false
+            self.request = request
         }
 
         input.installTap(onBus: 0, bufferSize: 8192, format: format) { [weak self] buffer, time in
@@ -149,7 +158,7 @@ private final class AnalysisPipeline: NSObject, SNResultsObserving, @unchecked S
         engine.inputNode.removeTap(onBus: 0)
         engine.stop()
         queue.sync {
-            suppressCompletion = true
+            request = nil
             analyzer?.removeAllRequests()
             analyzer = nil
         }
@@ -190,16 +199,16 @@ private final class AnalysisPipeline: NSObject, SNResultsObserving, @unchecked S
     // MARK: SNResultsObserving (on `queue`)
 
     func request(_ request: SNRequest, didProduce result: SNResult) {
-        guard let result = result as? SNClassificationResult else { return }
+        guard request === self.request, let result = result as? SNClassificationResult else { return }
         let best = labels.compactMap { result.classification(forIdentifier: $0) }.max { $0.confidence < $1.confidence }
         continuation.yield(SoundTriggerEvent(label: best?.identifier ?? "", confidence: best?.confidence ?? 0, timestamp: Date()))
     }
 
     func request(_ request: SNRequest, didFailWithError error: Error) {
-        continuation.finish()
+        if request === self.request { continuation.finish() }
     }
 
     func requestDidComplete(_ request: SNRequest) {
-        if !suppressCompletion { continuation.finish() }
+        if request === self.request { continuation.finish() }
     }
 }

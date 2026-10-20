@@ -3,7 +3,7 @@
 **Spec:** specs/engine-sound-clip/spec.md
 <!-- Produced in Claude Code plan mode. Update in the same commit when implementation diverges. -->
 
-This is PR 3 of 3. Work on branch `feat/engine-sound-clip`, cut from the mascot branch, or from `main` once the earlier PRs are merged.
+This is PR 4 (after gauge themes, mascot and visual polish). Work on branch `feat/engine-sound-clip`, cut from the mascot branch, or from `main` once the earlier PRs are merged.
 
 ## Files that change
 
@@ -78,6 +78,12 @@ This becomes the only folder that imports AVFoundation or SoundAnalysis.
 - The sound licence note is `Xpeet/Resources/Sounds/SOUNDS-LICENSE.txt`, bundled like the fonts' OFL files, instead of a `LICENSE.md` excluded in `project.yml`. No `excludes` entry is needed.
 - `EngineSoundViewModel.handleListeningStarted()` is a handler of its own, so the event rules are unit-tested synchronously without `run()`.
 - `SNTimeDurationConstraint` is a Swift enum: the 1.5 s window is applied only when it falls inside `.durationRange`; otherwise the classifier keeps its default window.
+- `FakeSoundPlayer` lives in `FakeSoundTriggerDetector.swift`, not a file of its own.
+- `project.yml` sources stay `[Xpeet]`: with the licence note bundled as a `.txt`, no `excludes` entry is needed.
+- `XpeetTests/GaugeGeometryTests.swift` injects fake audio into its two view models, so no test can build the real detector.
+- `specs/speedometer/spec.md` Out of scope now points to this spec for the sound.
+- Review fixes: a sound cut off by the screen going away still starts the cooldown; the end of an older `run()` (and the detector's teardown) cannot reset a newer one; analyzer callbacks are matched to the live request instead of a flag; configuration changes are filtered to this engine; an enumerated window constraint picks the duration nearest 1.5 s.
+- The `SpeedometerView` preview helper and previews are wrapped in `#if DEBUG` (they use DEBUG-only fakes), so a Release build compiles.
 - Three lines over 140 characters in `DialFace.swift` (from the visual-polish PR) are wrapped here so SwiftLint `--strict` passes.
 
 ## Risks
@@ -96,11 +102,11 @@ This becomes the only folder that imports AVFoundation or SoundAnalysis.
 | R4 | review: no file, log or network in `Core/Audio` |
 | R5 | `EngineSoundViewModelTests.testRandomLowPicksOhayo`, `testRandomHighPicksVroom`, `testRandomOneIsClamped`, `testBundledSoundsExistAndAreAtMostThreeSeconds` |
 | R6 | `EngineSoundViewModelTests.testEventWhileMovingIsDropped`, `testEventWhenStoppedPlays`, `testDroppedWhileMovingIsNotQueued`; `SpeedometerViewModelTests.testEngineSoundSeesMovingFromDisplayedSpeed` |
-| R7 | `EngineSoundViewModelTests.testEventsDuringCooldownAreDropped`, `testPlaysAgainAfterSixtySeconds`, `testFailedPlaybackStartsNoCooldown` |
+| R7 | `EngineSoundViewModelTests.testEventsDuringCooldownAreDropped`, `testPlaysAgainAfterSixtySeconds`, `testFailedPlaybackStartsNoCooldown`, `testCancelledPlaybackStartsCooldown` |
 | R8 | `EngineSoundViewModelTests.testEventsWhilePlayingAreDropped`, `testEventsWithinHalfSecondAfterEndAreDropped`, `testEventAfterTailPlays`, `testPausesDetectorWhilePlayingAndResumesAfter`, `testRunPlaysThroughPlayerAndReturnsToListening` |
 | R9, R10 | manual on device: music keeps playing, with and without Bluetooth; a call or Siri interrupts |
 | R11 | `EngineSoundViewModelTests.testDeniedShowsMicChip`, `testAuthorizedAndNotDeterminedShowNoChip`; `SpeedometerViewModelTests.testMicChipShownWhenNoLocationStatus`, `testLocationChipTakesPriorityOverMicChip` |
-| R12 | `EngineSoundViewModelTests.testFailingDetectorSetsFailedSilently`, `testStreamEndingMidRunSetsFailed`, `testFailedRunRetriesOnNextRun` |
+| R12 | `EngineSoundViewModelTests.testFailingDetectorSetsFailedSilently`, `testStreamEndingMidRunSetsFailed`, `testFailedRunRetriesOnNextRun`, `testOldRunEndingDoesNotResetNewRun` |
 | R13 | manual: Accessibility Inspector |
 
 Run `scripts/verify.sh` after every step.

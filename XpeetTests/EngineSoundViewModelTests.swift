@@ -260,6 +260,21 @@ final class EngineSoundViewModelTests: XCTestCase {
         XCTAssertNotNil(detect(viewModel))
     }
 
+    func testCancelledPlaybackStartsCooldown() async {
+        let viewModel = makeViewModel()
+        let task = Task { await viewModel.run() }
+        await waitUntil { detector.eventSubscriberCount == 1 }
+        detector.send(window(0.9))
+        detector.send(window(0.9))
+        await waitUntil { player.isPlaying }
+        player.cancelPlayback()
+        await waitUntil { viewModel.phase == .listening }
+        clock.advance(by: 5)
+        XCTAssertNil(detect(viewModel), "the sound did start, so the 60 s cooldown applies")
+        task.cancel()
+        await task.value
+    }
+
     // MARK: - R8
 
     func testEventsWhilePlayingAreDropped() {
@@ -345,6 +360,19 @@ final class EngineSoundViewModelTests: XCTestCase {
         await waitUntil { viewModel.phase == .listening }
         task.cancel()
         await task.value
+    }
+
+    func testOldRunEndingDoesNotResetNewRun() async {
+        let viewModel = makeViewModel()
+        let first = Task { await viewModel.run() }
+        await waitUntil { detector.eventSubscriberCount == 1 }
+        let second = Task { await viewModel.run() }
+        await waitUntil { detector.eventSubscriberCount == 2 }
+        first.cancel()
+        await first.value
+        XCTAssertEqual(viewModel.phase, .listening, "the newer run keeps listening")
+        second.cancel()
+        await second.value
     }
 
     // MARK: - End to end
