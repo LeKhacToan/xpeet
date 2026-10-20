@@ -61,6 +61,9 @@ These are a starting point. Tune them until the R8 test passes.
 5. Add the picker button, the sheet and accessibility.
 6. Add the superseded notes and the CLAUDE.md line. Run `scripts/verify.sh` and the evals, then the manual checks.
 
+## Deviations
+- `Theme` holds the font **design** only. Weights are fixed per role across all faces: number `.heavy`, pill and scale labels `.semibold`. The spec's "font design and weight" is narrowed to keep faces consistent.
+
 ## Risks
 - **Smaller number on dial faces.** The number is about 25% of the dial diameter. If it is not readable, move it to the centre and use a smaller hub, and record that change here.
 - **Canvas labels and Dynamic Type.** Canvas labels use `context.resolve(Text)` and scale with the dial, not with Dynamic Type. This matches R17.

@@ -28,6 +28,11 @@ enum SpeedUnit: String {
         }
     }
 
+    /// How full the gauge is for a displayed speed, 0...1.
+    func gaugeFraction(for speed: Int) -> Double {
+        min(1, Double(speed) / Double(gaugeMaximum))
+    }
+
     var spokenName: String {
         switch self {
         case .kmh: String(localized: "kilometers per hour")
@@ -115,7 +120,7 @@ final class SpeedometerViewModel {
     /// How full the gauge arc is, 0...1. Uses the displayed (rounded) speed so the arc matches the number.
     var gaugeFraction: Double {
         guard let speed = displayedSpeed else { return 0 }
-        return min(1, Double(speed) / Double(unit.gaugeMaximum))
+        return unit.gaugeFraction(for: speed)
     }
 
     var statusText: String? {

@@ -68,7 +68,15 @@ final class GaugeGeometryTests: XCTestCase {
         XCTAssertEqual(GaugeGeometry.litSegments(fraction: 3), 20)
     }
 
+    @MainActor
     func testLitSegmentsNoReading() {
-        XCTAssertEqual(GaugeGeometry.litSegments(fraction: 0), 0)
+        let viewModel = SpeedometerViewModel(
+            provider: FakeSpeedProvider(),
+            defaults: UserDefaults(suiteName: "GaugeGeometryTests-\(UUID().uuidString)") ?? .standard,
+            locale: Locale(identifier: "fr_FR"),
+            setIdleTimerDisabled: { _ in }
+        )
+        XCTAssertNil(viewModel.displayedSpeed)
+        XCTAssertEqual(GaugeGeometry.litSegments(fraction: viewModel.gaugeFraction), 0)
     }
 }

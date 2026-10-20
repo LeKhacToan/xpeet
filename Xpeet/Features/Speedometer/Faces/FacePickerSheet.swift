@@ -48,8 +48,7 @@ struct FacePickerSheet: View {
         } label: {
             VStack(spacing: 8) {
                 GaugeDisplay(face: face, reading: .sample(unit: unit), animated: false) {
-                    UnitPill(text: unit.symbol, theme: face.theme)
-                        .scaleEffect(0.5)
+                    UnitPill(text: unit.symbol, theme: face.theme, compact: true)
                 }
                 .padding(12)
                 .frame(height: 150)

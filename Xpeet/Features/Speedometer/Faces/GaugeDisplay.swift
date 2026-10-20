@@ -14,7 +14,7 @@ struct GaugeReading: Equatable {
         return GaugeReading(
             displayText: String(value),
             value: value,
-            fraction: min(1, Double(value) / Double(unit.gaugeMaximum)),
+            fraction: unit.gaugeFraction(for: value),
             unit: unit
         )
     }
@@ -106,16 +106,19 @@ struct GaugeDisplay<UnitControl: View>: View {
 struct UnitPill: View {
     let text: String
     let theme: Theme
+    /// Small, fixed-size variant for picker thumbnails.
+    var compact = false
 
     var body: some View {
         Text(text)
-            .font(.system(.title, design: theme.design.font, weight: .semibold))
+            .font(compact ? .system(size: 11, weight: .semibold, design: theme.design.font)
+                : .system(.title, design: theme.design.font, weight: .semibold))
             .lineLimit(1)
             .minimumScaleFactor(0.6)
             .foregroundStyle(Color(hex: theme.accent))
-            .padding(.horizontal, 20)
-            .padding(.vertical, 6)
-            .frame(minWidth: 88, minHeight: 44)
+            .padding(.horizontal, compact ? 8 : 20)
+            .padding(.vertical, compact ? 2 : 6)
+            .frame(minWidth: compact ? 0 : 88, minHeight: compact ? 0 : 44)
             .background(Color(hex: theme.accent).opacity(Theme.pillTintOpacity), in: Capsule())
             .contentShape(Capsule())
     }
@@ -128,6 +131,19 @@ struct UnitPill: View {
                 UnitPill(text: SpeedUnit.kmh.symbol, theme: face.theme)
             }
             .frame(height: 320)
+            .padding()
+            .background(face.theme.backgroundGradient)
+        }
+    }
+}
+
+#Preview("Unit pill") {
+    VStack(spacing: 16) {
+        ForEach(GaugeFace.allCases) { face in
+            HStack {
+                UnitPill(text: "km/h", theme: face.theme)
+                UnitPill(text: "mph", theme: face.theme, compact: true)
+            }
             .padding()
             .background(face.theme.backgroundGradient)
         }
