@@ -83,6 +83,7 @@ struct SpeedometerView: View {
                 .contentShape(Circle())
         }
         .buttonStyle(.plain)
+        .dynamicTypeSize(...DynamicTypeSize.accessibility2)
         .padding(.trailing)
         .padding(.top, 4)
         .accessibilityLabel(Self.faceButtonLabel)

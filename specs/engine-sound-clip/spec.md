@@ -5,7 +5,7 @@
 This spec adds on-device engine-sound detection through the microphone, and plays a short bundled sound file while the vehicle is stopped.
 
 Notes on the earlier specs:
-- It clarifies `specs/speedometer/spec.md` Out of scope "speed-based colours or sounds". This sound is not tied to speed: it plays only while stopped (R6).
+- It clarifies `specs/speedometer/spec.md` Out of scope "speed-based colours or sounds", gauge R3 and gauge-themes R7 ("no haptics or sounds tied to speed"). This sound is not tied to speed: the only speed input is a gate that silences it once moving (R6).
 - Speedometer R20 (foreground only, no `UIBackgroundModes`) stays in force.
 
 Research: the researcher agent's findings, from 2026-10-20, are summarised under Flagged concerns and Data & API.

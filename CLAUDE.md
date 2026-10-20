@@ -29,7 +29,7 @@ Single-screen speedometer: no tabs, no navigation, no networking (see `specs/spe
 - `Xpeet/Features/<Name>/` one folder per feature: `<Name>View.swift` + `<Name>ViewModel.swift`.
   - The ViewModel is `@Observable @MainActor`. Dependencies (provider, `UserDefaults`, `Locale`, clock) are injected through `init` with production defaults.
   - Logic lives in synchronous `handle(...)` methods; `run() async` only feeds streams into them.
-  - `Features/Speedometer/Faces/` gauge faces: `GaugeFace` + `Theme` (hex palettes) + pure `GaugeGeometry`; one view per face, laid out by `GaugeDisplay`.
+  - `Features/Speedometer/Faces/` gauge faces: `GaugeFace` + `Theme` (hex palettes) + pure `GaugeGeometry`; one drawing view per face style (`MinimalRingFace`, `DialFace`, `SegmentBar`), laid out by `GaugeDisplay`.
 - `XpeetTests/` XCTest unit tests, one file per ViewModel: `<Name>ViewModelTests.swift`; pure helpers may get their own file (e.g. `GaugeGeometryTests.swift`).
 
 ## Conventions

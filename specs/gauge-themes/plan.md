@@ -62,6 +62,7 @@ These are a starting point. Tune them until the R8 test passes.
 6. Add the superseded notes and the CLAUDE.md line. Run `scripts/verify.sh` and the evals, then the manual checks.
 
 ## Deviations
+- **Dial layout (review finding):** with the number below the hub, a 3-digit speed overlapped the end-of-scale label and the needle. Took the plan's Risk mitigation: the number sits in a centre disc (0.5 of the diameter, font 0.2), and the needle is a pointer running only between the disc and the rim (0.25–0.46). No needle hub.
 - `Theme` holds the font **design** only. Weights are fixed per role across all faces: number `.heavy`, pill and scale labels `.semibold`. The spec's "font design and weight" is narrowed to keep faces consistent.
 
 ## Risks

@@ -2,6 +2,12 @@ import SwiftUI
 
 /// Round dial with ticks, scale labels and a needle. Used by Analog sport and Retro. Decorative for VoiceOver.
 struct DialFace: View {
+    /// Share of the dial diameter taken by the centre disc that holds the number.
+    static let discDiameter = 0.5
+    /// Needle span, as fractions of the diameter from the centre.
+    private static let needleInner = 0.25
+    private static let needleOuter = 0.46
+
     let fraction: Double
     let unit: SpeedUnit
     let theme: Theme
@@ -15,18 +21,17 @@ struct DialFace: View {
                     .equatable()
                 Needle()
                     .fill(Color(hex: theme.accent))
-                    .frame(width: diameter * 0.03, height: diameter * 0.5)
+                    .frame(width: diameter * 0.035, height: diameter * (Self.needleOuter - Self.needleInner))
                     .shadow(color: Color(hex: theme.accent).opacity(theme.colorScheme == .dark ? Theme.glowOpacity : 0), radius: 6)
-                    // The needle points up; its pivot sits 80% down its length, at the dial centre.
-                    .offset(y: -diameter * 0.15)
+                    // The needle points up and runs between the centre disc and the rim; rotating about the dial centre.
+                    .offset(y: -diameter * (Self.needleOuter + Self.needleInner) / 2)
                     .rotationEffect(.degrees(GaugeGeometry.needleAngle(fraction: fraction)))
                     .animation(animation, value: fraction)
-                Circle()
-                    .fill(Color(hex: theme.accent))
-                    .frame(width: diameter * 0.07)
+                // The number sits on this disc, so neither the needle nor the scale labels ever cross it.
                 Circle()
                     .fill(Color(hex: theme.backgroundCenter))
-                    .frame(width: diameter * 0.025)
+                    .overlay { Circle().strokeBorder(theme.color(theme.track), lineWidth: diameter * 0.006) }
+                    .frame(width: diameter * Self.discDiameter)
             }
             .frame(width: proxy.size.width, height: proxy.size.height)
         }

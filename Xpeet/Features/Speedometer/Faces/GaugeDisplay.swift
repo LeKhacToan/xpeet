@@ -61,10 +61,9 @@ struct GaugeDisplay<UnitControl: View>: View {
             DialFace(fraction: reading.fraction, unit: reading.unit, theme: theme, animation: motion)
                 .frame(width: diameter, height: diameter)
                 .overlay {
-                    // Below the needle hub, above the unit pill.
-                    speed(fontSize: diameter * 0.22)
-                        .frame(width: diameter * 0.42)
-                        .offset(y: diameter * 0.2)
+                    // Inside the centre disc; 0.4 of the diameter keeps "199" within the disc's 0.5.
+                    speed(fontSize: diameter * 0.2)
+                        .frame(width: diameter * 0.4)
                 }
                 .overlay(alignment: .bottom) { bottomPill(diameter: diameter) }
         case .digitalHUD:
@@ -96,9 +95,19 @@ struct GaugeDisplay<UnitControl: View>: View {
             .minimumScaleFactor(0.2)
             .contentTransition(motion == nil ? .identity : .numericText(value: Double(reading.value ?? 0)))
             .animation(motion, value: reading.displayText)
-            .accessibilityHidden(accessibilityLabel == nil)
-            .accessibilityLabel(accessibilityLabel ?? "")
-            .accessibilityAddTraits(.updatesFrequently)
+            .speedAccessibility(accessibilityLabel)
+    }
+}
+
+private extension View {
+    /// The speed element's VoiceOver label; hidden entirely when there is none (thumbnails).
+    @ViewBuilder
+    func speedAccessibility(_ label: String?) -> some View {
+        if let label {
+            accessibilityLabel(label).accessibilityAddTraits(.updatesFrequently)
+        } else {
+            accessibilityHidden(true)
+        }
     }
 }
 
