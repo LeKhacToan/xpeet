@@ -65,11 +65,10 @@ final class GaugeFaceTests: XCTestCase {
 
     func testMascotFeatureContrastPerFace() {
         for face in GaugeFace.allCases {
-            let theme = face.theme
-            let worst = [theme.backgroundCenter, theme.backgroundEdge].map { background in
-                Theme.contrastRatio(theme.number, Theme.blend(theme.accent, over: background, opacity: MascotView.fillOpacity))
-            }.min() ?? 0
-            XCTAssertGreaterThanOrEqual(worst, 3, "\(face) mascot features on face fill")
+            let mascot = face.theme.mascot
+            XCTAssertGreaterThanOrEqual(Theme.contrastRatio(mascot.ink, mascot.face), 3, "\(face) ink on face")
+            XCTAssertGreaterThanOrEqual(Theme.contrastRatio(mascot.ink, mascot.highlight), 3, "\(face) ink on highlight")
+            XCTAssertGreaterThanOrEqual(Theme.contrastRatio(mascot.ink, mascot.eyeWhite), 3, "\(face) pupil on eye white")
         }
     }
 

@@ -17,7 +17,7 @@ Research (researcher agent, 2026-10-20): font licences, tabular digits and the r
   | Minimal ring | Nunito | `Nunito[wght].ttf` | `Nunito-Black` (number), `Nunito-SemiBold` (secondary) |
   | Analog sport | Barlow Condensed | `BarlowCondensed-SemiBold.ttf`, `-Bold.ttf`, `-Black.ttf` | `BarlowCondensed-Black`, `BarlowCondensed-SemiBold` |
   | Digital HUD | Oxanium | `Oxanium[wght].ttf` | `OxaniumRoman-ExtraBold`, `OxaniumRoman-SemiBold` |
-  | Retro | Bodoni Moda | `BodoniModa[opsz,wght].ttf` | `BodoniModa-Black`, `BodoniModa-SemiBold` |
+  | Retro | Bodoni Moda | `BodoniModa[opsz,wght].ttf` | `BodoniModa-Regular_Black`, `BodoniModa-Regular_SemiBold` (the `opsz` axis adds `Regular_` to the instance names) |
 
   All are SIL OFL 1.1 with no Reserved Font Name. Total font payload is under 1.5 MB. *(unit: every file and licence exists in the bundle; total size)*
 

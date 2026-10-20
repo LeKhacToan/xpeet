@@ -68,14 +68,24 @@ struct GaugeDisplay<UnitControl: View>: View {
                 .overlay(alignment: .bottom) { bottomPill(diameter: diameter) }
         case .digitalHUD:
             VStack(spacing: diameter * 0.04) {
-                speed(fontSize: diameter * 0.42)
+                speed(fontSize: diameter * 0.4)
                     .frame(width: diameter * 0.9)
+                    .background {
+                        // Soft glow behind the readout.
+                        Ellipse()
+                            .fill(RadialGradient(
+                                colors: [Color(hex: theme.accent).opacity(0.22), .clear],
+                                center: .center, startRadius: 0, endRadius: diameter * 0.45
+                            ))
+                            .frame(width: diameter * 1.1, height: diameter * 0.6)
+                    }
                 unitControl
                     .frame(maxWidth: diameter * 0.55)
                 SegmentBar(fraction: reading.fraction, theme: theme, animation: motion)
                     .frame(width: diameter * 0.86, height: diameter * 0.07)
             }
             .frame(width: diameter, height: diameter)
+            .background { Scanlines(theme: theme).equatable() }
         }
     }
 
@@ -88,8 +98,7 @@ struct GaugeDisplay<UnitControl: View>: View {
 
     private func speed(fontSize: CGFloat) -> some View {
         Text(reading.displayText)
-            .font(.system(size: fontSize, weight: .heavy, design: theme.design.font))
-            .monospacedDigit()
+            .font(theme.font(role: .number, size: fontSize))
             .foregroundStyle(Color(hex: reading.value == nil ? theme.placeholder : theme.number))
             .lineLimit(1)
             .minimumScaleFactor(0.2)
@@ -120,8 +129,7 @@ struct UnitPill: View {
 
     var body: some View {
         Text(text)
-            .font(compact ? .system(size: 11, weight: .semibold, design: theme.design.font)
-                : .system(.title, design: theme.design.font, weight: .semibold))
+            .font(compact ? theme.font(role: .secondary, size: 11) : theme.font(role: .secondary, textStyle: .title, size: 26))
             .lineLimit(1)
             .minimumScaleFactor(0.6)
             .foregroundStyle(Color(hex: theme.accent))

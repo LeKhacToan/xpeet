@@ -67,7 +67,7 @@ struct FacePickerSheet: View {
                     }
                 }
                 Text(face.displayName)
-                    .font(.subheadline.weight(isSelected ? .semibold : .regular))
+                    .font(face.theme.font(role: .secondary, textStyle: .subheadline, size: 15))
                     .foregroundStyle(.primary)
                     .multilineTextAlignment(.center)
             }

@@ -44,7 +44,7 @@ extension Theme {
         chipText: 0xBFBFBF,
         buttonLabel: 0x0A0F0C,
         scaleLabel: 0xFFFFFF,
-        design: .rounded,
+        typeface: Typeface(number: "Nunito-Black", secondary: "Nunito-SemiBold"),
         colorScheme: .dark
     )
 
@@ -60,7 +60,7 @@ extension Theme {
         chipText: 0xBFBFBF,
         buttonLabel: 0x08090B,
         scaleLabel: 0xD9DDE3,
-        design: .rounded,
+        typeface: Typeface(number: "BarlowCondensed-Black", secondary: "BarlowCondensed-SemiBold"),
         colorScheme: .dark
     )
 
@@ -76,7 +76,7 @@ extension Theme {
         chipText: 0xBFEFFA,
         buttonLabel: 0x020605,
         scaleLabel: 0xBFEFFA,
-        design: .monospaced,
+        typeface: Typeface(number: "OxaniumRoman-ExtraBold", secondary: "OxaniumRoman-SemiBold"),
         colorScheme: .dark
     )
 
@@ -93,7 +93,7 @@ extension Theme {
         chipText: 0x3D3128,
         buttonLabel: 0xFFF8E7,
         scaleLabel: 0x3D3128,
-        design: .serif,
+        typeface: Typeface(number: "BodoniModa-Regular_Black", secondary: "BodoniModa-Regular_SemiBold"),
         colorScheme: .light
     )
 }
