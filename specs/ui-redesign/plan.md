@@ -30,7 +30,7 @@ No new types parallel to existing ones: the mascot stays `Mood` + `MoodResolver`
 - `Xpeet/Features/Speedometer/Faces/Theme.swift` (modified):
   - remove `MascotPalette` and `mascot`;
   - add `redZone: UInt32?`, `dialProgress: Bool` (true only for Analog sport) and `secondaryText: UInt32` (the Open Settings hint);
-  - add `static let captionTypeface = "SpaceGrotesk-SemiBold"` and `func captionFont(textStyle:size:)`;
+  - add `static let captionTypeface = "SpaceGrotesk-Light_Bold"` (see Deviations) and `func captionFont(textStyle:size:)`;
   - add a `glass(_:)` helper for the shared material, tint and hairline background.
 - `Xpeet/Features/Speedometer/Faces/GaugeFace.swift` (modified):
   - the Minimal ring palette per spec R9;
@@ -126,6 +126,10 @@ Each step ends with `xcodegen generate` (when files were added) and a green `scr
 - **Performance:** materials blur once per layout. `HUDFrame`, the bezel and the red zone are static `Equatable` views or `Canvas`. Per sample, only the existing arc, needle, segments and number change, plus the new progress arc on Analog sport, which is the same trimmed-arc animation the Minimal ring already uses.
 
 ## Deviations from the spec (recorded with the spec in this commit)
+- **R14 (implementation):**
+  - Space Grotesk's variable font has Light, Regular, Medium and Bold named instances only, with no SemiBold. Their PostScript names carry the default instance's prefix (`SpaceGrotesk-Light_Bold`). Captions use `SpaceGrotesk-Light_Bold`; `FontTests.testCaptionFontResolves` is the gate.
+  - The licence ships as `SpaceGrotesk-OFL.txt`, following the bundle's `<Family>-OFL.txt` convention, unmodified. It has CRLF line endings, so the licence-header check in `FontTests` now splits on `isNewline`.
+  - Minimal ring's placeholder is `#A7B2C2`, not R9's `#8E9BAE`, because the placeholder needs 7:1 (gauge-themes R8). `#8E9BAE` is the hint colour (`secondaryText`).
 - **R1:** each mascot image is a 288×288 single-scale JPEG of the badge's bounding square, clipped to a circle in code, rather than a PNG with transparency outside the circle. Reason: the size budget (see Risks). The spec's R1 text is updated.
 
 ## Proof

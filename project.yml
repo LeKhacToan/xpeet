@@ -39,6 +39,7 @@ targets:
           - BarlowCondensed-Black.ttf
           - "Oxanium[wght].ttf"
           - "BodoniModa[opsz,wght].ttf"
+          - "SpaceGrotesk[wght].ttf"
   XpeetTests:
     type: bundle.unit-test
     platform: iOS

@@ -89,7 +89,8 @@ It supersedes these approved requirements (each earlier spec gets a note in the 
   | background centre | `#0D121D` |
   | background edge | `#080B11` |
   | number | `#F5F8FC` |
-  | placeholder | `#8E9BAE` |
+  | placeholder | `#A7B2C2` (amended: 7:1 needed) |
+| secondary text (hint) | `#8E9BAE` |
   | accent | `#00F2FE` |
   | accent deep | `#4FACFE` |
   | chip text | `#C9D3E0` |

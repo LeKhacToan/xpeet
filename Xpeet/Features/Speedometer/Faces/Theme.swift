@@ -38,8 +38,18 @@ struct Theme: Equatable {
     var buttonLabel: UInt32
     /// Dial scale labels and major ticks.
     var scaleLabel: UInt32
+    /// Secondary lines such as the Open Settings hint (specs/ui-redesign R17).
+    var secondaryText: UInt32
     var typeface: Typeface
     var colorScheme: ColorScheme
+    /// Static red zone at the top of a dial's scale; nil for faces without one (specs/ui-redesign R11, R13).
+    var redZone: UInt32? = nil
+    /// Whether a dial draws a progress arc along its ticks besides the needle (specs/ui-redesign R11).
+    var dialProgress = false
+
+    /// Small captions shared by every face: "SPEED", unit pill, status chip, hints (specs/ui-redesign R14).
+    /// Space Grotesk ships Light…Bold instances only; its instance names carry the default instance's prefix.
+    static let captionTypeface = "SpaceGrotesk-Light_Bold"
 
     static let pillTintOpacity = 0.16
     static let glowOpacity = 0.45
@@ -77,6 +87,11 @@ struct Theme: Equatable {
     /// Fixed size with tabular digits, for text sized by the gauge diameter.
     func font(role: Role, size: CGFloat) -> Font {
         Font(UIFont.tabular(name: name(for: role), size: size))
+    }
+
+    /// Space Grotesk for captions, scaling with Dynamic Type relative to `textStyle`.
+    static func captionFont(textStyle: Font.TextStyle, size: CGFloat) -> Font {
+        Font.custom(captionTypeface, size: size, relativeTo: textStyle)
     }
 
     /// Scales with Dynamic Type relative to `textStyle`, for pills, chips and picker text.
