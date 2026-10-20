@@ -69,7 +69,8 @@ private struct DialScale: View, Equatable {
                 line.move(to: point(center, radius, angle))
                 line.addLine(to: point(center, radius - length, angle))
                 let color = tick.isMajor ? Color(hex: theme.scaleLabel) : theme.color(theme.track)
-                context.stroke(line, with: .color(color), style: StrokeStyle(lineWidth: diameter * (tick.isMajor ? 0.012 : 0.007), lineCap: .round))
+                let width = diameter * (tick.isMajor ? 0.012 : 0.007)
+                context.stroke(line, with: .color(color), style: StrokeStyle(lineWidth: width, lineCap: .round))
 
                 if let label = tick.label {
                     let text = Text(label)

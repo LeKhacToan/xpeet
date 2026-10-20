@@ -74,6 +74,9 @@ final class SpeedometerViewModel {
     private(set) var state: SpeedometerState = .acquiring
     private(set) var unit: SpeedUnit
     private(set) var face: GaugeFace
+    /// The mascot's expression. Follows the same filtered speed as the number.
+    private(set) var mood: Mood = .searching
+    private var moodResolver = MoodResolver()
     private var smoothedMetersPerSecond: Double?
     private var lastSample: SpeedSample?
 
@@ -159,6 +162,7 @@ final class SpeedometerViewModel {
         defer { setIdleTimerDisabled(false) }
         resetFilter()
         if case .live = state { state = .acquiring }
+        mood = moodResolver.lost()
 
         let authorizations = provider.authorizationUpdates()
         let samples = provider.speedUpdates()
@@ -213,15 +217,21 @@ final class SpeedometerViewModel {
         }
         lastSample = sample
         state = .live(weakSignal: sample.accuracy > Self.weakAccuracyMetersPerSecond)
+        mood = moodResolver.sample(metersPerSecond: smoothedMetersPerSecond ?? 0, timestamp: sample.timestamp, now: now())
     }
 
     /// Falls back to Acquiring when the last fix is too old. iOS pauses updates while stationary, so a
     /// stationary fix never goes stale.
     func tick() {
-        guard case .live = state, let last = lastSample, !last.isStationary else { return }
-        if now().timeIntervalSince(last.timestamp) > Self.staleInterval {
+        guard case .live = state, let last = lastSample else { return }
+        // Before the stationary guard: sleepy must start while iOS pauses updates. Assign only on change, so
+        // the observed property does not invalidate the screen every second.
+        let next = moodResolver.tick(at: now())
+        if next != mood { mood = next }
+        if !last.isStationary, now().timeIntervalSince(last.timestamp) > Self.staleInterval {
             resetFilter()
             state = .acquiring
+            mood = moodResolver.lost()
         }
     }
 
@@ -241,6 +251,7 @@ final class SpeedometerViewModel {
     private func becomeUnavailable(_ reason: SpeedometerState.UnavailableReason) {
         resetFilter()
         state = .unavailable(reason)
+        mood = moodResolver.lost()
     }
 
     private func resetFilter() {

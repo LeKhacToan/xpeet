@@ -16,8 +16,11 @@ struct SpeedometerView: View {
     private var theme: Theme { viewModel.face.theme }
 
     var body: some View {
-        GaugeDisplay(face: viewModel.face, reading: reading, accessibilityLabel: viewModel.accessibilityLabel) {
-            unitButton
+        GeometryReader { proxy in
+            GaugeDisplay(face: viewModel.face, reading: reading, accessibilityLabel: viewModel.accessibilityLabel) {
+                unitButton
+            }
+            .overlay { mascot(in: proxy.size) }
         }
         .padding(.horizontal)
         .padding(.top, 8)
@@ -48,6 +51,16 @@ struct SpeedometerView: View {
             fraction: viewModel.gaugeFraction,
             unit: viewModel.unit
         )
+    }
+
+    /// The mascot sits in the space the gauge leaves over; it never shrinks the gauge (speed-mascot R12).
+    @ViewBuilder
+    private func mascot(in container: CGSize) -> some View {
+        if let frame = MascotPlacement.frame(in: container) {
+            MascotView(mood: viewModel.mood, theme: theme)
+                .frame(width: frame.width, height: frame.height)
+                .position(x: frame.midX, y: frame.midY)
+        }
     }
 
     /// Unit and face switches are instant; only new samples animate.
@@ -196,4 +209,12 @@ private extension SpeedometerViewModel {
 
 #Preview("Retro, denied") {
     SpeedometerView(viewModel: .preview(face: .retro, authorization: .denied))
+}
+
+#Preview("Mascot worried") {
+    SpeedometerView(viewModel: .preview(kmh: 130))
+}
+
+#Preview("Mascot worried, landscape", traits: .landscapeLeft) {
+    SpeedometerView(viewModel: .preview(face: .digitalHUD, kmh: 130))
 }

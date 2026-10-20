@@ -51,6 +51,13 @@ The files go under `Features/Speedometer/Mascot/`, not a separate `Features/Masc
   - The blink is the only exception to "no per-frame animation".
 - `CLAUDE.md` Architecture: one line about the `Mascot/` subfolder. The owner approved this. Run the evals after editing.
 
+## Deviations
+- `MascotPlacement.swift` *(added during build)*: the R12 size and position rules as a pure enum with `MascotPlacementTests`, so the View only applies a frame.
+- `MoodResolver.tick(at:)` returns `searching` unchanged until a sample arrives after `lost()` (found by `testLostOverridesStartled`).
+- `MoodResolver.sample(metersPerSecond:timestamp:now:)` takes both times: the GPS timestamp only for the braking Δt (R5), the injected clock for the sleepy and startled durations, so a lagging fix never shortens them (review finding).
+- `SpeedometerViewModel.tick()` assigns `mood` only when it changes, so the screen is not invalidated every second.
+- Evals: `evals/run.sh` + `scripts/check-bands.sh` were run after the CLAUDE.md edit; the result is quoted in the PR description.
+
 ## Order of work
 1. Add `Mood` and `MoodResolver`, with `MoodResolverTests`.
 2. Wire the resolver into `SpeedometerViewModel`, with integration tests.
@@ -67,15 +74,15 @@ The files go under `Features/Speedometer/Mascot/`, not a separate `Features/Masc
 | Req | Proof |
 |---|---|
 | R1 | `MoodResolverTests.testMoodCases`; previews |
-| R2 | `MoodResolverTests.testNotLiveIsSearching`, `testStoppedUnderTenSecondsIsCalm`, `testStoppedTenSecondsIsSleepy`, `testSlowIsCalm`; `SpeedometerViewModelTests.testMoodFollowsState`, `testStationaryTickBecomesSleepy` |
+| R2 | `MoodResolverTests.testNotLiveIsSearching`, `testStoppedUnderTenSecondsIsCalm`, `testStoppedTenSecondsIsSleepy`, `testSleepyOnSampleAfterTenSeconds`, `testMovingAgainWakesUp`, `testSlowIsCalm`; `SpeedometerViewModelTests.testMoodFollowsState`, `testMoodUsesFilteredSpeed`, `testStationaryTickBecomesSleepy`, `testRunResetsMoodToSearching` |
 | R3 | `MoodResolverTests.testHappyBandEdges`, `testWorriedBandEdges`, `testOscillationAroundHappyDoesNotFlicker`, `testOscillationAroundWorriedDoesNotFlicker`, `testMoodIndependentOfUnit` |
-| R4 | `MoodResolverTests.testNewMoodNeedsTwoSamples`, `testSearchingIsImmediate`, `testFirstMoodAfterSearchingIsImmediate` |
-| R5 | `MoodResolverTests.testHardBrakingIsStartled`, `testGentleBrakingIsNotStartled`, `testLongGapIsIgnored` |
-| R6 | `MoodResolverTests.testStartledExpiresAfterTwoSeconds`, `testRepeatedBrakingRestartsStartled`, `testLostOverridesStartled`, `testHardAccelerationNoReaction` |
+| R4 | `MoodResolverTests.testNewMoodNeedsTwoSamples`, `testInterruptedCandidateStartsOver`, `testSearchingIsImmediate`, `testFirstMoodAfterSearchingIsImmediate` |
+| R5 | `MoodResolverTests.testHardBrakingIsStartled`, `testGentleBrakingIsNotStartled`, `testBrakingUsesSampleInterval`, `testLongGapIsIgnored`; `SpeedometerViewModelTests.testHardBrakingStartlesThenRecovers` |
+| R6 | `MoodResolverTests.testStartledExpiresAfterTwoSeconds`, `testAfterStartledNoExtraDebounce`, `testRepeatedBrakingRestartsStartled`, `testLostOverridesStartled`, `testHardAccelerationNoReaction`, `testStartledOverridesSleepy`, `testStartledRunsOnTheClockNotTheFixTimestamp`, `testSleepyRunsOnTheClockNotTheFixTimestamp` |
 | R7 | review: no CoreMotion |
 | R8 | `GaugeFaceTests.testMascotFeatureContrastPerFace`; previews |
 | R9, R10, R11 | manual: blink, crossfade, Reduce Motion |
-| R12 | manual: previews for iPhone SE and Pro Max, both orientations |
+| R12 | `MascotPlacementTests.testSizeIsEighteenPercentClamped`, `testPortraitPlacesMascotCentredAboveGauge`, `testLandscapePlacesMascotLeadingOfGauge`, `testSmallPortraitStillFits`, `testHiddenWhenNoRoom`, `testMascotNeverOverlapsGauge`; manual: previews |
 | R13 | review |
 | R14 | manual: Accessibility Inspector |
 
