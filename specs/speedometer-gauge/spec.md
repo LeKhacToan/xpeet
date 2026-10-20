@@ -7,6 +7,8 @@ This spec changes the look of the single speed screen. It replaces these parts o
 - the "Layout" paragraph
 - "Arc or needle gauge" in Out of scope
 
+> **Superseded in part** by `specs/gauge-themes/spec.md`: R1 (the arc is now the Minimal ring face), R4 (Retro is light), R5 and R13 (palette and contrast are per face), and the light-mode / ticks / needle exclusions in Out of scope.
+
 Every other requirement there stays in force, and those are cited below as "speedometer R<n>".
 
 ## Requirements
