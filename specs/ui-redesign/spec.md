@@ -1,6 +1,6 @@
 # Spec: UI redesign from the Stitch "Xpeet Anime Speedometer" project
 
-**Intent:** intent/2026-10-20-ui-redesign.md  **Status:** draft
+**Intent:** intent/2026-10-20-ui-redesign.md  **Status:** approved
 **Depends on:** `specs/gauge-themes`, `specs/speed-mascot`, `specs/visual-polish`, `specs/engine-sound-clip` (all merged).
 
 The target look is the Stitch project `2676886462094675705` (design system "Nocturne Precision").
@@ -44,10 +44,11 @@ It supersedes these approved requirements (each earlier spec gets a note in the 
   | `Mascot/blink` | the blink frame (R3) | `471c14750acb47259f899c419334545b` |
 
   Each image:
-  - is cropped to the render's circular badge, with full transparency outside the circle;
-  - is resized to 288×288 px (3× the 96 pt maximum, R5) and stored as a single-scale PNG.
+  - is cropped to the bounding square of the render's circular badge;
+  - is resized to 288×288 px (3× the 96 pt maximum, R5) and stored as a single-scale JPEG;
+  - is clipped to a circle when drawn, so nothing outside the badge shows.
 
-  All eight together are under 600 KB. *(unit: every `Mood` resolves to an asset that loads, plus the blink asset; total size checked in review)*
+  (Amended in planning: PNG with alpha was about 0.95 MB in total.) All eight together are under 600 KB. *(unit: every `Mood` resolves to an asset that loads, plus the blink asset; total size checked in review)*
 
 - **R2** The same character appears on every face. Hair and colours are not tinted by the theme. *(review)*
 
@@ -239,6 +240,6 @@ Carried from the intent, all answered by the owner on 2026-10-20:
 - *Space Grotesk?* **Answered:** yes, captions only (R14).
 
 Raised by this spec:
-- Badge size 22%, 44–96 pt (R5), matching the frames. Proposed; owner to confirm on device.
-- Blink only in `calm` (R3). Other moods would need their own closed-eye frames. Proposed.
-- The portrait top row is always reserved for the chip (R7), so the gauge never jumps. The portrait gauge is width-bound, so it keeps its size. The row takes about 52 pt from the space above the gauge, which still fits a 75 pt badge on iPhone SE. Proposed.
+- Badge size 22%, 44–96 pt (R5). **Approved** by the owner (2026-10-20); to be checked on device.
+- Blink only in `calm` (R3). **Approved.** Other moods would need their own closed-eye frames.
+- The portrait top row is always reserved for the chip (R7), so the gauge never jumps. The portrait gauge is width-bound, so it keeps its size. The row takes about 52 pt from the space above the gauge, which still fits a 75 pt badge on iPhone SE. **Approved.**
