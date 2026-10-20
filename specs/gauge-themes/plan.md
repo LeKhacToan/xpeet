@@ -23,7 +23,8 @@ Delivered as PR 1 of 3. The speed-mascot and engine-sound-clip PRs follow it.
   - A static `Canvas` draws ticks and labels, and redraws only when the size or unit changes.
   - A `Needle` shape rotates.
   - The number sits below the hub.
-- `DigitalHUDFace.swift`: a monospaced number and a bar of 20 segments.
+- `DigitalHUDFace.swift`: the 20-segment `SegmentBar`. The HUD's monospaced number is laid out by `GaugeDisplay`.
+- `GaugeDisplay.swift` *(added during build)*: `GaugeReading`, the per-face layout of the drawing, number and unit control, and `UnitPill`. The speed screen and the picker thumbnails share it, so a thumbnail always matches the real face.
 - `FacePickerSheet.swift`: a grid of thumbnails, a checkmark on the selected face, and a "Done" button. Detents are medium and large.
 
 ### Modified
@@ -50,7 +51,7 @@ These are a starting point. Tune them until the R8 test passes.
 | Minimal ring | `#16231B`→`#0A0F0C` | white | `#9FE3B5` (unchanged) |
 | Analog sport | `#15181C`→`#08090B` | white | `#7FD8FF` |
 | Digital HUD | `#04100E`→`#020605` | `#E6FBFF` | `#4DD9FF` |
-| Retro (light) | `#F3EAD3`→`#E6D9BC` | `#2B2118` | `#8B2E1F` |
+| Retro (light) | `#F3EAD3`→`#E6D9BC` | `#2B2118` | `#7A281B` (darkened from `#8B2E1F` for 4.5:1 pill contrast; placeholder `#4A3E33` for 7:1) |
 
 ## Order of work
 1. Add `GaugeFace`, `Theme` and `GaugeGeometry` with their tests. Run `xcodegen generate`.
@@ -82,7 +83,7 @@ These are a starting point. Tune them until the R8 test passes.
 | R12 | `SpeedometerViewModelTests.testChangingFaceKeepsSpeedUnitStateAndLabel`, `testChangingFaceDoesNotResetFilter` |
 | R13 | `SpeedometerViewModelTests.testFaceDefaultsToMinimalRing`, `testFacePersistsAcrossInstances`, `testUnknownSavedFaceFallsBackToMinimalRing` |
 | R14 | manual: "199" landscape preview per face |
-| R15 | manual: Freeway Drive with Reduce Motion on and off |
+| R15 | manual: Freeway Drive in Xcode with Reduce Motion on and off (`simctl location` delivers no speed, so it cannot test the Live state) |
 | R16 | `GaugeFaceTests.testAccessibilityStrings`; manual: Accessibility Inspector |
 | R17 | manual: largest Dynamic Type, both orientations |
 

@@ -527,4 +527,59 @@ final class SpeedometerViewModelTests: XCTestCase {
         viewModel.handle(authorization: .restricted)
         XCTAssertEqual(viewModel.statusSymbol, "location.slash")
     }
+
+    // MARK: - gauge-themes R11, R12, R13
+
+    func testFaceDefaultsToMinimalRing() {
+        XCTAssertEqual(makeViewModel().face, .minimalRing)
+    }
+
+    func testSelectFaceUpdatesFace() {
+        let viewModel = makeViewModel()
+        viewModel.select(.digitalHUD)
+        XCTAssertEqual(viewModel.face, .digitalHUD)
+    }
+
+    func testFacePersistsAcrossInstances() {
+        let defaults = makeDefaults()
+        makeViewModel(defaults: defaults).select(.retro)
+
+        XCTAssertEqual(makeViewModel(defaults: defaults).face, .retro)
+    }
+
+    func testUnknownSavedFaceFallsBackToMinimalRing() {
+        let defaults = makeDefaults()
+        defaults.set("neonRemoved", forKey: SpeedometerViewModel.faceDefaultsKey)
+
+        XCTAssertEqual(makeViewModel(defaults: defaults).face, .minimalRing)
+    }
+
+    func testChangingFaceKeepsSpeedUnitStateAndLabel() {
+        let clock = TestClock()
+        let viewModel = makeViewModel(clock: clock)
+        viewModel.handle(authorization: .authorized)
+        viewModel.handle(sample: sample(kmh: 87, accuracy: 3, at: clock))
+        let before = (viewModel.displayText, viewModel.unit, viewModel.state, viewModel.statusText, viewModel.accessibilityLabel)
+
+        for face in GaugeFace.allCases {
+            viewModel.select(face)
+            XCTAssertEqual(viewModel.displayText, before.0)
+            XCTAssertEqual(viewModel.unit, before.1)
+            XCTAssertEqual(viewModel.state, before.2)
+            XCTAssertEqual(viewModel.statusText, before.3)
+            XCTAssertEqual(viewModel.accessibilityLabel, before.4)
+        }
+    }
+
+    func testChangingFaceDoesNotResetFilter() {
+        let clock = TestClock()
+        let viewModel = makeViewModel(clock: clock)
+        viewModel.handle(authorization: .authorized)
+        viewModel.handle(sample: sample(kmh: 100, at: clock))
+
+        viewModel.select(.analogSport)
+        // 100 + 0.6 * (50 - 100) = 70: the EMA kept its history.
+        viewModel.handle(sample: sample(kmh: 50, at: clock))
+        XCTAssertEqual(viewModel.displayText, "70")
+    }
 }

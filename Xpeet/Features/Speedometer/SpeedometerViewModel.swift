@@ -64,9 +64,11 @@ final class SpeedometerViewModel {
     static let zeroClampMetersPerSecond = 1 / 3.6
     static let weakAccuracyMetersPerSecond = 2.0
     static let unitDefaultsKey = "speedUnit"
+    static let faceDefaultsKey = "gaugeFace"
 
     private(set) var state: SpeedometerState = .acquiring
     private(set) var unit: SpeedUnit
+    private(set) var face: GaugeFace
     private var smoothedMetersPerSecond: Double?
     private var lastSample: SpeedSample?
 
@@ -90,6 +92,8 @@ final class SpeedometerViewModel {
         self.setIdleTimerDisabled = setIdleTimerDisabled
         self.unit = defaults.string(forKey: Self.unitDefaultsKey).flatMap(SpeedUnit.init(rawValue:))
             ?? SpeedUnit.defaultUnit(for: locale)
+        self.face = defaults.string(forKey: Self.faceDefaultsKey).flatMap(GaugeFace.init(rawValue:))
+            ?? GaugeFace.defaultFace
     }
 
     // MARK: - Output
@@ -219,6 +223,12 @@ final class SpeedometerViewModel {
     func toggleUnit() {
         unit = unit == .kmh ? .mph : .kmh
         defaults.set(unit.rawValue, forKey: Self.unitDefaultsKey)
+    }
+
+    /// Switches the gauge face. Speed, unit, state and filter are untouched.
+    func select(_ face: GaugeFace) {
+        self.face = face
+        defaults.set(face.rawValue, forKey: Self.faceDefaultsKey)
     }
 
     // MARK: - Private
