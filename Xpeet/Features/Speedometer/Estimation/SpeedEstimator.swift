@@ -10,7 +10,7 @@ struct SpeedEstimator: Equatable {
         var usesPositionSpeed = false
     }
 
-    struct Estimate: Equatable, Sendable {
+    struct Estimate: Equatable, Codable, Sendable {
         var metersPerSecond: Double
         /// 1σ uncertainty, m/s.
         var sigma: Double
@@ -43,6 +43,22 @@ struct SpeedEstimator: Equatable {
     static let positionSpeedMaxAccuracy = 10.0
     /// ... and this far apart.
     static let positionSpeedInterval: ClosedRange<TimeInterval> = 2...5
+
+    /// Every tuning constant, written into each recorded drive's header so a replay knows what produced it (R22).
+    static func recordedConstants(_ configuration: Configuration) -> [String: Double] {
+        [
+            "speedAccuracyScale": speedAccuracyScale,
+            "minimumSpeedAccuracy": minimumSpeedAccuracy,
+            "gapStartInterval": gapStartInterval,
+            "weakSignalSigma": weakSignalSigma,
+            "positionSpeedMaxAccuracy": positionSpeedMaxAccuracy,
+            "jerkNoise": GPSOnlyFilter.jerkNoise,
+            "initialAccelerationVariance": GPSOnlyFilter.initialAccelerationVariance,
+            "maxAcceleration": GPSOnlyFilter.maxAcceleration,
+            "fusionEnabled": configuration.fusionEnabled ? 1 : 0,
+            "usesPositionSpeed": configuration.usesPositionSpeed ? 1 : 0,
+        ]
+    }
 
     let configuration: Configuration
     /// Kept across `reset()`: the boot-time offset does not change while the app runs.

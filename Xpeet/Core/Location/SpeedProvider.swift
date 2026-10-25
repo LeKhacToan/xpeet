@@ -1,7 +1,7 @@
 import Foundation
 
 /// One fix from the location source. Negative `metersPerSecond` or any negative accuracy means that value is invalid.
-struct SpeedSample: Equatable, Sendable {
+struct SpeedSample: Equatable, Codable, Sendable {
     var metersPerSecond: Double
     /// Speed accuracy, ± m/s.
     var accuracy: Double

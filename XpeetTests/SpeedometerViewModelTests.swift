@@ -29,7 +29,8 @@ final class SpeedometerViewModelTests: XCTestCase {
         clock: TestClock = TestClock(),
         idleTimer: IdleTimerRecorder = IdleTimerRecorder(),
         detector: FakeSoundTriggerDetector? = nil,
-        motion: FakeMotionProvider? = nil
+        motion: FakeMotionProvider? = nil,
+        recorder: DriveLogging? = nil
     ) -> SpeedometerViewModel {
         // Always fakes: tests never touch the real microphone or motion sensors.
         SpeedometerViewModel(
@@ -43,7 +44,8 @@ final class SpeedometerViewModelTests: XCTestCase {
                 detector: detector ?? FakeSoundTriggerDetector(),
                 player: FakeSoundPlayer(),
                 now: { clock.now }
-            )
+            ),
+            makeRecorder: { recorder }
         )
     }
 
@@ -132,6 +134,53 @@ final class SpeedometerViewModelTests: XCTestCase {
         await waitUntil { viewModel.displayText == "72" }
 
         XCTAssertEqual(viewModel.estimator.shown?.source, .gpsOnly)
+        task.cancel()
+        await task.value
+    }
+
+    // MARK: - speed-accuracy R22, R23
+
+    func testRunRecordsHeaderInputsAndShown() async {
+        let provider = FakeSpeedProvider()
+        let motion = FakeMotionProvider()
+        let spy = SpyDriveLog()
+        let clock = TestClock()
+        let viewModel = makeViewModel(provider: provider, clock: clock, motion: motion, recorder: spy)
+
+        let task = Task { await viewModel.run() }
+        await waitUntil { provider.speedSubscriberCount > 0 && motion.subscriberCount > 0 }
+        let fix = sample(kmh: 72, at: clock)
+        provider.send(fix)
+        let reading = MotionSample(timestamp: 7, userAcceleration: .zero, gravity: Vector3(x: 0, y: 0, z: -1), rotationRate: .zero)
+        motion.send([reading])
+        await waitUntil { spy.events.count >= 4 }
+
+        guard case .header = spy.events.first else { return XCTFail("header first: \(spy.events)") }
+        XCTAssertTrue(spy.events.contains(.fix(fix, arrival: clock.now)))
+        XCTAssertTrue(spy.events.contains(.motion(reading, arrival: clock.now)))
+        XCTAssertTrue(spy.events.contains { event in
+            if case .shown(let shown) = event { return shown.displayed == 72 && shown.source == .gpsOnly }
+            return false
+        })
+        task.cancel()
+        await task.value
+        XCTAssertTrue(spy.isFinished)
+    }
+
+    func testFailingRecorderDoesNotChangeOutput() async {
+        let provider = FakeSpeedProvider()
+        let clock = TestClock()
+        let viewModel = makeViewModel(provider: provider, clock: clock, recorder: DriveRecorder(sink: FailingDriveSink()))
+
+        let task = Task { await viewModel.run() }
+        await waitUntil { provider.speedSubscriberCount > 0 }
+        provider.send(sample(kmh: 72, at: clock))
+        await waitUntil { viewModel.displayText == "72" }
+        clock.advance(by: 1)
+        provider.send(sample(kmh: 74, at: clock))
+        await waitUntil { viewModel.displayText == "74" }
+
+        XCTAssertEqual(viewModel.state, .live(weakSignal: false))
         task.cancel()
         await task.value
     }

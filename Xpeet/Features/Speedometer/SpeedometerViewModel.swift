@@ -85,6 +85,9 @@ final class SpeedometerViewModel {
     /// The whole-unit number on screen while Live. Changes only when the rounded value moves.
     private var shownSpeed: Int?
     private var lastSample: SpeedSample?
+    /// The current run's drive recorder (Debug, opt-in), with a token so an ending run can't clear a newer one.
+    @ObservationIgnored private var recorder: DriveLogging?
+    @ObservationIgnored private var recorderRun: UUID?
 
     /// Plays a sound on engine start while stopped (specs/engine-sound-clip). Shares this screen's lifecycle.
     let engineSound: EngineSoundViewModel
@@ -95,6 +98,7 @@ final class SpeedometerViewModel {
     private let locale: Locale
     private let now: () -> Date
     private let setIdleTimerDisabled: @MainActor (Bool) -> Void
+    private let makeRecorder: () -> DriveLogging?
 
     init(
         provider: SpeedProvider? = nil,
@@ -104,8 +108,10 @@ final class SpeedometerViewModel {
         now: @escaping () -> Date = Date.init,
         setIdleTimerDisabled: @escaping @MainActor (Bool) -> Void = { UIApplication.shared.isIdleTimerDisabled = $0 },
         engineSound: EngineSoundViewModel? = nil,
-        estimatorConfiguration: SpeedEstimator.Configuration = SpeedEstimator.Configuration()
+        estimatorConfiguration: SpeedEstimator.Configuration = SpeedEstimator.Configuration(),
+        makeRecorder: @escaping () -> DriveLogging? = DriveLog.makeRecorder
     ) {
+        self.makeRecorder = makeRecorder
         self.provider = provider ?? CoreLocationSpeedProvider()
         self.motionProvider = motionProvider ?? CoreMotionProvider()
         self.estimator = SpeedEstimator(configuration: estimatorConfiguration)
@@ -184,7 +190,11 @@ final class SpeedometerViewModel {
     /// Streams provider updates into the handlers until cancelled. Keeps the screen awake meanwhile.
     func run() async {
         setIdleTimerDisabled(true)
-        defer { setIdleTimerDisabled(false) }
+        let run = startRecording()
+        defer {
+            setIdleTimerDisabled(false)
+            stopRecording(run)
+        }
         resetFilter()
         if case .live = state { state = .acquiring }
         if case .unavailable = state {
@@ -252,6 +262,7 @@ final class SpeedometerViewModel {
     }
 
     func handle(sample: SpeedSample) {
+        recorder?.record(.fix(sample, arrival: now()))
         if case .unavailable = state { return }
         // The first update is often a cached fix. A moving fix that old is not the current speed; a stationary
         // one still is, because iOS reports stationary with the last known location while updates are paused.
@@ -268,18 +279,25 @@ final class SpeedometerViewModel {
         state = .live(weakSignal: estimator.isWeakSignal)
         updateShownSpeed()
         mood = moodResolver.sample(metersPerSecond: gpsOnly.metersPerSecond, timestamp: sample.timestamp, now: now())
+        recordShown()
     }
 
     /// One batch of device motion (speed-accuracy R2). Fusion is not built yet, so nothing on screen changes.
     func handle(motion batch: [MotionSample]) {
-        estimator.motion(batch, arrival: now())
+        let arrival = now()
+        if let recorder {
+            batch.forEach { recorder.record(.motion($0, arrival: arrival)) }
+        }
+        estimator.motion(batch, arrival: arrival)
     }
 
     /// iOS 18+ reported that location is unavailable: keep the reading, flagged as weak signal (speed-accuracy R18).
     func handleLocationUnavailable() {
+        recorder?.record(.unavailable(arrival: now()))
         guard case .live = state else { return }
         estimator.unavailable(at: now())
         updateWeakSignal()
+        recordShown()
     }
 
     /// Falls back to Acquiring when the last fix is too old. iOS pauses updates while stationary, so a
@@ -290,6 +308,7 @@ final class SpeedometerViewModel {
         // the observed property does not invalidate the screen on every tick.
         let next = moodResolver.tick(at: now())
         if next != mood { mood = next }
+        defer { recordShown() }
         if !last.isStationary, now().timeIntervalSince(last.timestamp) > Self.staleInterval {
             resetFilter()
             state = .acquiring
@@ -326,6 +345,46 @@ final class SpeedometerViewModel {
         estimator.reset()
         shownSpeed = nil
         lastSample = nil
+    }
+
+    /// Starts this run's recording, if recording is on (speed-accuracy R22). Returns the run's token.
+    private func startRecording() -> UUID {
+        let run = UUID()
+        recorder?.finish()
+        recorder = makeRecorder()
+        recorderRun = run
+        recorder?.record(.header(.current(startedAt: now(), constants: SpeedEstimator.recordedConstants(estimator.configuration))))
+        return run
+    }
+
+    private func stopRecording(_ run: UUID) {
+        guard recorderRun == run else { return }
+        recorder?.finish()
+        recorder = nil
+        recorderRun = nil
+    }
+
+    private func recordShown() {
+        guard let recorder else { return }
+        let shown = estimator.shown
+        recorder.record(.shown(DriveShown(
+            time: now(),
+            displayed: displayedSpeed,
+            unit: unit.rawValue,
+            state: recordedState,
+            source: shown?.source,
+            gpsOnly: estimator.gpsOnly,
+            fused: estimator.fused,
+            inGap: estimator.inGap
+        )))
+    }
+
+    private var recordedState: String {
+        switch state {
+        case .acquiring: "acquiring"
+        case .live(let weakSignal): weakSignal ? "liveWeak" : "live"
+        case .unavailable: "unavailable"
+        }
     }
 
     private func updateWeakSignal() {
