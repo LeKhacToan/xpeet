@@ -15,10 +15,19 @@ for case_file in "$root"/evals/cases/${1:-*}.json; do
     setup=$(jq -r '.setup // empty' "$case_file")
     [ -n "$setup" ] && bash -c "$setup" && git commit -qam "eval setup" --no-verify
     # Headless: no background tasks, otherwise Claude ends the turn while xcodebuild is still running.
-    CLAUDE_CODE_DISABLE_BACKGROUND_TASKS=1 claude -p "$(jq -r .prompt "$case_file") Run every command in the foreground and finish only after scripts/verify.sh completes." \
+    # Sandbox off: Simulator tests hang inside the Bash sandbox, and a stuck agent starts rewriting scripts/ to work
+    # around it. Instead it may not edit scripts/ or evals/ (deny rules hold even in an untrusted worktree).
+    # Each case is capped at CASE_TIMEOUT seconds (default 30 min) so one stuck agent can't stall the whole run.
+    perl -e 'alarm shift; exec @ARGV' "${CASE_TIMEOUT:-1800}" \
+      env CLAUDE_CODE_DISABLE_BACKGROUND_TASKS=1 \
+      claude -p "$(jq -r .prompt "$case_file") Run every command in the foreground and finish only after scripts/verify.sh completes." \
+      --settings '{"sandbox":{"enabled":false}}' \
       --permission-mode acceptEdits \
       --allowedTools "Read,Edit,Write,Glob,Grep,Bash(scripts/*),Bash(xcodegen:*),Bash(git:*),Bash(touch:*),Bash(rm .claude/bugfix.lock)" \
+      --disallowedTools "Edit(./scripts/**),Write(./scripts/**),Edit(./evals/**),Write(./evals/**)" \
       --output-format json > "$results/$id.json" 2>&1
+    status=$?
+    [ "$status" -eq 142 ] && echo "$id: timed out after ${CASE_TIMEOUT:-1800} s"
   )
   total=$((total + 1))
   echo "$id"
