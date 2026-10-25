@@ -39,8 +39,7 @@ struct GPSOnlyFilter: Equatable {
     /// A measurement at or before the last one is applied without a predict step.
     mutating func update(speed measured: Double, variance measurementVariance: Double, at time: Date) -> Bool {
         let interval = time.timeIntervalSince(timestamp)
-        var next = self
-        if interval > 0 { next.predict(by: interval) }
+        var next = predicted(at: time)
         // At least the nominal 1 s fix interval, so two fixes with one timestamp are not "infinitely fast".
         guard abs(measured - next.speed) <= Self.maxAcceleration * max(interval, 1) else { return false }
 
@@ -60,6 +59,16 @@ struct GPSOnlyFilter: Equatable {
 
     mutating func stop(at time: Date) {
         self = .stopped(at: max(time, timestamp))
+    }
+
+    /// The state predicted forward to `time`, with no measurement. Unchanged for a time at or before the last update.
+    func predicted(at time: Date) -> GPSOnlyFilter {
+        let interval = time.timeIntervalSince(timestamp)
+        guard interval > 0 else { return self }
+        var next = self
+        next.predict(by: interval)
+        next.timestamp = time
+        return next
     }
 
     private mutating func predict(by interval: TimeInterval) {

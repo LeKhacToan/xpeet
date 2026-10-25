@@ -59,6 +59,15 @@ enum SpeedometerState: Equatable {
     case acquiring
     case live(weakSignal: Bool)
     case unavailable(UnavailableReason)
+
+    /// The state as written in a recorded drive's `shown` lines.
+    var recordedName: String {
+        switch self {
+        case .acquiring: "acquiring"
+        case .live(let weakSignal): weakSignal ? "liveWeak" : "live"
+        case .unavailable: "unavailable"
+        }
+    }
 }
 
 @Observable
@@ -108,7 +117,7 @@ final class SpeedometerViewModel {
         now: @escaping () -> Date = Date.init,
         setIdleTimerDisabled: @escaping @MainActor (Bool) -> Void = { UIApplication.shared.isIdleTimerDisabled = $0 },
         engineSound: EngineSoundViewModel? = nil,
-        estimatorConfiguration: SpeedEstimator.Configuration = SpeedEstimator.Configuration(),
+        estimatorConfiguration: SpeedEstimator.Configuration = .launchDefault(),
         makeRecorder: @escaping () -> DriveLogging? = DriveLog.makeRecorder
     ) {
         self.makeRecorder = makeRecorder
@@ -371,20 +380,12 @@ final class SpeedometerViewModel {
             time: now(),
             displayed: displayedSpeed,
             unit: unit.rawValue,
-            state: recordedState,
+            state: state.recordedName,
             source: shown?.source,
             gpsOnly: estimator.gpsOnly,
             fused: estimator.fused,
             inGap: estimator.inGap
         )))
-    }
-
-    private var recordedState: String {
-        switch state {
-        case .acquiring: "acquiring"
-        case .live(let weakSignal): weakSignal ? "liveWeak" : "live"
-        case .unavailable: "unavailable"
-        }
     }
 
     private func updateWeakSignal() {

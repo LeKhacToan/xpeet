@@ -4,10 +4,21 @@ import Foundation
 /// Pure value type: the same inputs always give the same outputs, so recorded drives replay exactly.
 struct SpeedEstimator: Equatable {
     struct Configuration: Equatable, Sendable {
+        static let fusionLaunchArgumentKey = "XpeetFusion"
+
         /// Show the fused estimate when it is ready (R14). Off until the accuracy gate passes (R28).
         var fusionEnabled = false
         /// Use speed from position change for fixes without Doppler speed (R13).
         var usesPositionSpeed = false
+
+        /// As shipped; in Debug builds `-XpeetFusion YES` turns fusion on for a test drive (R14).
+        static func launchDefault(_ defaults: UserDefaults = .standard) -> Configuration {
+            var configuration = Configuration()
+            #if DEBUG
+            configuration.fusionEnabled = defaults.bool(forKey: fusionLaunchArgumentKey)
+            #endif
+            return configuration
+        }
     }
 
     struct Estimate: Equatable, Codable, Sendable {
