@@ -6,6 +6,10 @@ import CoreMotion
 final class CoreMotionProvider: MotionProvider {
     static let sampleRate = 50.0
     static let batchSize = 5
+    /// Debug only: `-XpeetMotionOff YES` runs without motion, to measure its battery cost (specs/speed-accuracy R30).
+    nonisolated static let motionOffLaunchArgumentKey = "XpeetMotionOff"
+
+    private let isEnabled: Bool
 
     /// Apple: create only one motion manager per app. Created on first use.
     private lazy var manager = CMMotionManager()
@@ -13,9 +17,21 @@ final class CoreMotionProvider: MotionProvider {
     /// the newer one is using.
     private var generation = 0
 
+    init(isEnabled: Bool = CoreMotionProvider.launchDefaultEnabled()) {
+        self.isEnabled = isEnabled
+    }
+
+    nonisolated static func launchDefaultEnabled(_ arguments: [String: Any] = LaunchArguments.current) -> Bool {
+        #if DEBUG
+        return !LaunchArguments.bool(motionOffLaunchArgumentKey, in: arguments)
+        #else
+        return true
+        #endif
+    }
+
     func motionUpdates() -> AsyncStream<[MotionSample]> {
         AsyncStream(bufferingPolicy: .bufferingNewest(8)) { continuation in
-            guard manager.isDeviceMotionAvailable else {
+            guard isEnabled, manager.isDeviceMotionAvailable else {
                 continuation.finish()
                 return
             }

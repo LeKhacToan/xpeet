@@ -12,7 +12,7 @@ Measurements from real drives. Constants change only from what is written here (
    - at least one tunnel or underpass.
 3. Copy the drives off the phone with `scripts/pull-drives.sh` (into the gitignored `build/drives/`).
 4. Run `scripts/test.sh`. `AccuracyReportTests` writes `build/drives/report.txt`. Copy the numbers below. Never copy coordinates.
-5. Battery: Xcode → Debug navigator → Energy, with the phone on a cable. Compare 10 min of driving with motion on against motion off.
+5. Battery: Xcode → Debug navigator → Energy, with the phone on a cable. Compare 10 min of driving with motion on (`scripts/install-device.sh`) against motion off (`MOTION_OFF=1 scripts/install-device.sh`).
 
 ## R30 measurements
 _Pending: no drives recorded yet._

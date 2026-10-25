@@ -299,9 +299,11 @@ final class SpeedometerViewModel {
         guard outcome == .accepted, let gpsOnly = estimator.gpsOnly else { return }
         if resumed { shownSpeed = nil }
         lastSample = sample
-        state = .live(weakSignal: estimator.isWeakSignal)
+        updateWeakSignal()
         updateShownSpeed()
-        mood = moodResolver.sample(metersPerSecond: gpsOnly.metersPerSecond, timestamp: sample.timestamp, now: now())
+        // Observed properties are assigned only on change, so a refresh never invalidates the view for nothing.
+        let nextMood = moodResolver.sample(metersPerSecond: gpsOnly.metersPerSecond, timestamp: sample.timestamp, now: now())
+        if nextMood != mood { mood = nextMood }
         recordShown()
     }
 

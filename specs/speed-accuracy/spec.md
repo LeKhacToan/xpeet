@@ -30,7 +30,7 @@ Changes to earlier specs (each gets a "Superseded/Amended by" note when this shi
   - course and course accuracy;
   - the stationary flag and the timestamp.
 
-  On iOS 18+, an update that reports location unavailable is passed on as a gap signal instead of being dropped. A fix whose timestamp is not later than the previous fix's is dropped as a duplicate. The ViewModel still sees no Core Location types (speedometer R4). *(unit: fake provider; review)*
+  On iOS 18+, an update that reports location unavailable is passed on as a gap signal instead of being dropped. A fix whose timestamp is not later than the previous fix's is dropped as a duplicate, unless only its stationary flag changed (that is how a stop arrives). *(Clarified in review.)* The ViewModel still sees no Core Location types (speedometer R4). *(unit: fake provider; review)*
 
 - **R2** **Motion source.**
   - A new `Xpeet/Core/Motion/` is the only code that imports Core Motion. It owns a single motion manager.
@@ -53,7 +53,7 @@ Changes to earlier specs (each gets a "Superseded/Amended by" note when this shi
 - **R5** **GPS-only estimate.**
   - A Kalman filter with speed and acceleration as its state (constant-acceleration model), updated once per fix.
   - Fix noise: R = (k_R · max(speedAccuracy, 0.1 m/s))².
-  - A fix is rejected if its speed differs from the prediction by more than 12 m/s² × the time since the last fix (physics bound).
+  - A fix is rejected if its speed differs from the last accepted speed by more than 12 m/s² × the time since that fix, at least 1 s (physics bound). The acceleration state is clamped to ±12 m/s². *(Clarified in review: judging against the prediction let one accepted glitch lock out every true fix.)*
 
   *(unit: hand-computed steps; a fix with larger speedAccuracy moves the estimate less; an impossible jump is rejected)*
 
@@ -193,7 +193,7 @@ Changes to earlier specs (each gets a "Superseded/Amended by" note when this shi
     - one line per fix: every field in R1, plus arrival time and flags;
     - one line per motion sample;
     - one line per display refresh: shown value, state, source (fused or GPS-only), and both estimates with their σ.
-  - **Retention:** only the 5 newest files are kept. Older ones are deleted when a new recording starts, chosen by file name, not by file dates.
+  - **Retention:** only the 5 newest files are kept. Older ones are deleted when a recording with at least one fix closes, chosen by file name, not by file dates. A recording without any fix is deleted instead. The folder is excluded from backups. *(Clarified in review.)*
 
   *(unit: recorder against a temp folder; review: `#if DEBUG`)*
 
@@ -376,7 +376,7 @@ What I notice while driving:
   - iOS does not document how much it delays or smooths the speed it reports. If τ is wrong, every comparison is biased.
   - Core Motion's gravity estimate may absorb long, sustained acceleration *(research, unconfirmed for iOS)*. That would make σ over-confident in long accelerations or curving tunnels. R27's tunnel target and R28's simulated tunnels are the check.
   - On iOS 17 there is no `locationUnavailable`, so gaps are detected only after 1.5 s without a fix.
-  - Only an iOS 27.1 simulator is installed locally.
+  - Tests run on an iOS 17.5 simulator, so they cover the iOS 17 path (no `locationUnavailable`). The iOS 18+ path is checked by review only. *(Corrected by the verifier.)*
 - **No independent ground truth:** without a GNSS logger, an error the phone's GPS makes everywhere cannot be detected (intent Decisions). The offline references share the GPS's errors. They are valid for lag and smoothness only *(research)*.
 - **Intent wording:** the intent's claim that top apps blend GPS with motion sensors was removed. Nothing public supports it *(research)*.
 

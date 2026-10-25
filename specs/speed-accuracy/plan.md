@@ -208,6 +208,13 @@ PR 1:
     - unit changes are followed;
     - mid-drive clips compare state and GPS-only estimate after a 10 s warm-up instead of the exact number.
   - **`pull-drives.sh`:** copies to a temporary name, and always re-pulls the newest drive.
+- **Verifier fixes (verifier agent, 2026-10-25):**
+  - The new ViewModel tests moved to `SpeedometerViewModelTests+Accuracy.swift`, an extension sharing the main file's helpers (now internal). The main file had passed SwiftLint's 1000-line limit.
+  - Lines over 140 characters are wrapped.
+  - R29 compares against the time-average of the shown estimate.
+  - `-XpeetMotionOff YES` (`MOTION_OFF=1 scripts/install-device.sh`) runs without motion, for the R30 battery comparison. Tested in `LaunchArgumentsTests.swift`.
+  - `state` and `mood` are assigned only when they change.
+  - Spec R1, R5 and R22 now say what the reviewed code does.
 
 ## Risks
 - **Eval coupling:** `fix-zero-clamp` seds the literal guard line in `SpeedometerViewModel.swift`, and `rename-weak-signal-status` greps "Weak GPS signal". Keep both strings, or the eval suite breaks.
@@ -234,7 +241,7 @@ PR 1:
 ## Proof
 | Req | Proof |
 |---|---|
-| R1 | `SpeedometerViewModelTests.testUnavailableUpdateStartsGap`, `SpeedEstimatorTests.testSameTimestampFixUpdatesWithoutPredict`; review: field mapping + duplicate drop in `CoreLocationSpeedProvider` |
+| R1 | `SpeedometerViewModelTests.testUnavailableUpdateStartsGap`, `GPSOnlyFilterTests.testSameTimestampUpdatesWithoutPredict`; review: field mapping + duplicate drop in `CoreLocationSpeedProvider` |
 | R2 | `SpeedometerViewModelTests.testRunFeedsMotionBatchesToEstimator`, `testFinishedMotionStreamKeepsGPSOnly`; review: frame and 50 Hz; manual: device |
 | R3 | `MotionClockTests.testOffsetIsRunningMinimum`, `testMapsMotionTimestampToDate`; `SpeedometerViewModelTests.testEachRunStartsAFreshMotionClock` |
 | R4 | `SpeedEstimatorTests.testSameInputsSameOutputs`, `testKeepsGPSOnlyEstimateWithoutFusion` (PR 1); `testKeepsBothEstimates` (PR 2) |
@@ -252,7 +259,7 @@ PR 1:
 | R16 | manual: device drive with Reduce Motion on/off; review `GaugeDisplay` |
 | R17 | `SpeedEstimatorTests.testGapStartsAfterOnePointFiveSeconds`, `testUnavailableStartsGap`, `testFixEndsGap` |
 | R18 | `SpeedometerViewModelTests.testGPSOnlyGapHoldsWeakThenAcquiring`, `testFusedGapEndsOnUncertainty`, `testFusedGapEndsAfterTenSeconds`, existing `testStaysAtZeroWhenStationaryUpdatesPause` |
-| R19 | `SpeedometerViewModelTests.testFilterResetsAfterAcquiring` (rewritten), `SpeedEstimatorTests.testAxisKeptAcrossReset` |
+| R19 | existing `SpeedometerViewModelTests.testFilterResetsAfterAcquiring`, `testFilterResetsWhenSampleArrivesAfterGap`; `SpeedEstimatorTests.testAxisKeptAcrossReset` |
 | R20 | `SpeedometerViewModelTests.testWeakSignalWhenSigmaAboveLimit`, `testUnavailableUpdateStartsGap`; `SpeedEstimatorTests.testWeakSignalWhenSigmaAboveLimit`, `testWeakSignalDuringGap` |
 | R21 | `SpeedometerViewModelTests.testMoodUsesGPSOnlyEstimate` (rewritten), existing `testEngineSoundSeesMovingFromDisplayedSpeed` |
 | R22 | `DriveRecorderTests.testOffWithoutLaunchArgument`, `testWritesAllLineTypes`, `testKeepsFiveNewestByName`, `testRecordingWithoutFixIsDeleted`; `SpeedometerViewModelTests.testRunRecordsHeaderInputsAndShown`; review: `#if DEBUG`, Release build; `DriveRecorderTests.testRecordingWithoutFixKeepsOldDrives`, `testDrivesAreExcludedFromBackup` |

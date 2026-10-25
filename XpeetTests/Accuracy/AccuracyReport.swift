@@ -19,9 +19,9 @@ struct AccuracyReport {
         var distance: Double
         /// Distance / time, m/s.
         var distanceSpeed: Double
-        /// Time-averaged raw Doppler speed and recorded GPS-only estimate over the same stretch, m/s.
+        /// Time-averaged raw Doppler speed, and the estimate behind the shown number, over the same stretch, m/s.
         var meanDoppler: Double
-        var meanEstimate: Double?
+        var meanShownEstimate: Double?
     }
 
     static let steadyMinimumSpeed = 50 / 3.6
@@ -208,14 +208,19 @@ struct AccuracyReport {
         guard distance >= Self.stretchMinimumDistance else { return nil }
 
         let elapsed = last.timestamp.timeIntervalSince(first.timestamp)
-        let estimates = drive.shown.filter { $0.time >= first.timestamp && $0.time <= last.timestamp }.compactMap(\.gpsOnly)
+        let shown: [(Date, Double)] = drive.shown
+            .filter { $0.time >= first.timestamp && $0.time <= last.timestamp }
+            .compactMap { line in
+                let estimate = line.source == .fused ? line.fused : line.gpsOnly
+                return estimate.map { (line.time, $0.metersPerSecond) }
+            }
         return Stretch(
             start: first.timestamp,
             end: last.timestamp,
             distance: distance,
             distanceSpeed: distance / elapsed,
             meanDoppler: Self.timeAverage(window.map { ($0.timestamp, $0.metersPerSecond) }),
-            meanEstimate: estimates.isEmpty ? nil : estimates.map(\.metersPerSecond).reduce(0, +) / Double(estimates.count)
+            meanShownEstimate: shown.isEmpty ? nil : Self.timeAverage(shown)
         )
     }
 
@@ -228,11 +233,13 @@ struct AccuracyReport {
         if let header = drive.header { lines.append("- device \(header.device), \(header.system)") }
         lines.append("- fixes: \(drive.fixes.count), motion samples: \(drive.motion.count)")
         if let interval = fixInterval { lines.append("- fix interval: median \(seconds(interval.median)), p95 \(seconds(interval.p95))") }
-        if let latency = arrivalLatency { lines.append("- arrival latency: median \(seconds(latency.median)), p95 \(seconds(latency.p95))") }
+        if let latency = arrivalLatency {
+            lines.append("- arrival latency: median \(seconds(latency.median)), p95 \(seconds(latency.p95))")
+        }
         let missing = missingSpeed
         lines.append("- speed −1: \(missing.count) of \(missing.total) fixes; usable for position speed (R13): \(missing.usable)")
         if let accuracy = speedAccuracy {
-            lines.append("- speedAccuracy: median \(String(format: "%.2f", accuracy.median)) m/s, p95 \(String(format: "%.2f", accuracy.p95)) m/s")
+            lines.append(String(format: "- speedAccuracy: median %.2f m/s, p95 %.2f m/s", accuracy.median, accuracy.p95))
         }
         if let sigma = liveSigma {
             lines.append(String(format: "- GPS-only σ while Live: median %.2f m/s, p95 %.2f m/s, weak share %.0f%%",
@@ -255,8 +262,8 @@ struct AccuracyReport {
         for stretch in stretches {
             var line = "  - \(String(format: "%.1f", stretch.distance / 1000)) km: distance/time \(kmh(stretch.distanceSpeed)), "
                 + "Doppler \(kmh(stretch.meanDoppler)) (Δ \(kmh(stretch.meanDoppler - stretch.distanceSpeed)))"
-            if let estimate = stretch.meanEstimate {
-                line += ", GPS-only estimate \(kmh(estimate)) (Δ \(kmh(estimate - stretch.distanceSpeed)))"
+            if let estimate = stretch.meanShownEstimate {
+                line += ", shown \(kmh(estimate)) (Δ \(kmh(estimate - stretch.distanceSpeed)))"
             }
             lines.append(line)
         }

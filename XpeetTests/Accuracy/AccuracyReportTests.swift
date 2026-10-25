@@ -34,7 +34,8 @@ final class AccuracyReportTests: XCTestCase {
 
     func testShortOrUnsteadyDrivesHaveNoStretch() {
         let short = AccuracyReport(drive: DriveFile(name: "short", events: northbound(Array(repeating: 25, count: 60))))
-        let unsteady = AccuracyReport(drive: DriveFile(name: "unsteady", events: northbound((0..<200).map { $0.isMultiple(of: 2) ? 22 : 28 })))
+        let alternating = (0..<200).map { $0.isMultiple(of: 2) ? 22.0 : 28 }
+        let unsteady = AccuracyReport(drive: DriveFile(name: "unsteady", events: northbound(alternating)))
 
         XCTAssertEqual(short.steadyStretches, [], "1.5 km is too short")
         XCTAssertEqual(unsteady.steadyStretches, [], "±12% is not steady")
