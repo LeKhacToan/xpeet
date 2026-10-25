@@ -22,20 +22,33 @@ final class CoreLocationSpeedProvider: NSObject, SpeedProvider {
         return stream
     }
 
-    func speedUpdates() -> AsyncStream<SpeedSample> {
+    func speedUpdates() -> AsyncStream<LocationUpdate> {
         AsyncStream { continuation in
             let task = Task {
+                // Not reset on restart: a replayed fix after a restart is still a duplicate.
+                var lastTimestamp: Date?
                 // Restart the sequence if it ends or throws, so a transient error doesn't stop updates until relaunch.
                 while !Task.isCancelled {
                     do {
                         for try await update in CLLocationUpdate.liveUpdates(.automotiveNavigation) {
-                            guard let location = update.location else { continue }
-                            continuation.yield(SpeedSample(
+                            guard let location = update.location else {
+                                if update.isLocationUnavailable { continuation.yield(.unavailable) }
+                                continue
+                            }
+                            // iOS repeats the last fix (e.g. while paused); a repeat is not a new measurement.
+                            if let lastTimestamp, location.timestamp <= lastTimestamp { continue }
+                            lastTimestamp = location.timestamp
+                            continuation.yield(.fix(SpeedSample(
                                 metersPerSecond: location.speed,
                                 accuracy: location.speedAccuracy,
                                 isStationary: update.isDeviceStationary,
-                                timestamp: location.timestamp
-                            ))
+                                timestamp: location.timestamp,
+                                latitude: location.coordinate.latitude,
+                                longitude: location.coordinate.longitude,
+                                horizontalAccuracy: location.horizontalAccuracy,
+                                course: location.course,
+                                courseAccuracy: location.courseAccuracy
+                            )))
                         }
                     } catch {
                         // Meanwhile the ViewModel falls back to Acquiring once the last fix goes stale.
@@ -90,5 +103,13 @@ private extension CLLocationUpdate {
             return stationary
         }
         return (self as LegacyStationaryReporting).isStationary
+    }
+
+    /// iOS 18+ only. On iOS 17 a gap is detected from time since the last fix (specs/speed-accuracy R17).
+    var isLocationUnavailable: Bool {
+        if #available(iOS 18.0, *) {
+            return locationUnavailable
+        }
+        return false
     }
 }

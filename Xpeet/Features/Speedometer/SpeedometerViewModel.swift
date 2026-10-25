@@ -191,7 +191,12 @@ final class SpeedometerViewModel {
                 for await authorization in authorizations { await self.handle(authorization: authorization) }
             }
             group.addTask {
-                for await sample in samples { await self.handle(sample: sample) }
+                for await update in samples {
+                    switch update {
+                    case .fix(let sample): await self.handle(sample: sample)
+                    case .unavailable: break
+                    }
+                }
             }
             group.addTask {
                 while !Task.isCancelled {
