@@ -164,6 +164,27 @@ Each step: `xcodegen generate` if files were added, then `scripts/verify.sh` wit
 15. RTS references + `AccuracyGateTests`. Set τ and k_R from `results.md`, run the gate on the recorded drives, and write the outcome to `results.md` (R28). Commit 1-2 anonymised clips (R31).
 16. Verify, evals, reviewer, PR. Fusion stays off. If the gate passed, a follow-up one-line PR flips `fusionEnabled`.
 
+## Deviations
+PR 1:
+- **ViewModel names:**
+  - The "unavailable" handler is `handleLocationUnavailable()`, not `handle(unavailable:)`.
+  - `displayedSpeed` stays computed: it reads a stored, observed `shownSpeed` while Live. Leaving Live hides the number with no extra bookkeeping.
+- **Recorder:**
+  - It is injected as a per-run factory (`makeRecorder`), because the spec writes one file per `run()`.
+  - A recording that never got a fix is deleted when it closes, so opening the app briefly cannot push a real drive out of the 5 kept files.
+  - A run token stops an ending run from clearing a newer run's recorder.
+- **Fixtures (R31):** coordinates are converted to metres from the first fix, then written back as degrees around 0°, 0° on the app's sphere. That keeps distances exact for `SpeedEstimator.distance`, and no real place is left. The loader rejects anything beyond 0.5° or any real date.
+- **Small additions:**
+  - `GPSOnlyFilter.predicted(at:)`, for the k_R measurement.
+  - `SpeedometerState.recordedName`, shared by the recorder and the replay.
+  - `scripts/device-id.sh`, extracted from `install-device.sh` and also used by `pull-drives.sh`.
+  - The accuracy maths lives in `XpeetTests/Accuracy/AccuracyReport.swift`.
+- **τ in PR 1:** the report estimates it from acceleration magnitudes. The signed forward-axis estimate comes with PR 2.
+- **Rewritten tests:**
+  - `testToggleUnitConvertsWithoutResettingFilter` and `testChangingFaceDoesNotResetFilter` used a 100 → 50 km/h jump within one instant, which the 12 m/s² physics bound rejects (correctly). They now use 100 → 90.
+  - The EMA tests became `testFollowsHardBrakingWithinOneFix`, `testFollowsAccelerationWithinOneFix`, `testHysteresisHoldsNumber` and `testUnitToggleRecomputesWithoutHysteresis`.
+  - `testMoodUsesFilteredSpeed` became `testMoodUsesGPSOnlyEstimate`.
+
 ## Risks
 - **Eval coupling:** `fix-zero-clamp` seds the literal guard line in `SpeedometerViewModel.swift`, and `rename-weak-signal-status` greps "Weak GPS signal". Keep both strings, or the eval suite breaks.
 - **Existing VM tests:** several of them send 2 fixes with the same timestamp. The filter treats Δt ≤ 0 as an update with no predict step, which blends the two. Any test that changes value under this is updated and listed under Deviations.
@@ -192,8 +213,8 @@ Each step: `xcodegen generate` if files were added, then `scripts/verify.sh` wit
 | R1 | `SpeedometerViewModelTests.testUnavailableUpdateStartsGap`, `SpeedEstimatorTests.testSameTimestampFixUpdatesWithoutPredict`; review: field mapping + duplicate drop in `CoreLocationSpeedProvider` |
 | R2 | `SpeedometerViewModelTests.testRunFeedsMotionBatchesToEstimator`, `testFinishedMotionStreamKeepsGPSOnly`; review: frame and 50 Hz; manual: device |
 | R3 | `MotionClockTests.testOffsetIsRunningMinimum`, `testMapsMotionTimestampToDate` |
-| R4 | `SpeedEstimatorTests.testSameInputsSameOutputs`, `testKeepsBothEstimates` |
-| R5 | `GPSOnlyFilterTests.testFirstFixInitialisesExactly`, `testMatchesHandComputedStep`, `testLessAccurateFixMovesEstimateLess`, `testImpossibleJumpIsRejected` |
+| R4 | `SpeedEstimatorTests.testSameInputsSameOutputs`, `testKeepsGPSOnlyEstimateWithoutFusion` (PR 1); `testKeepsBothEstimates` (PR 2) |
+| R5 | `GPSOnlyFilterTests.testMatchesHandComputedStep`, `testLessAccurateFixMovesEstimateLess`, `testImpossibleJumpIsRejected`, `testBoundGrowsWithTimeSinceLastAcceptedFix`; `SpeedEstimatorTests.testFirstFixInitialisesExactly`; `SpeedometerViewModelTests.testFollowsHardBrakingWithinOneFix`, `testFollowsAccelerationWithinOneFix` |
 | R6 | `FusedFilterTests.testPredictIntegratesForwardAcceleration`, `testCorrectionWeightsBySpeedAccuracy`, `testBiasConvergesOnSyntheticDrive` |
 | R7 | `FusedFilterTests.testDelayCompensationReducesLag`, `testHistoryCappedAtThreeSeconds` |
 | R8 | `FusedFilterTests.testHighInnovationFixRejected`, `testThreeRejectionsReinitialise` |
@@ -201,25 +222,25 @@ Each step: `xcodegen generate` if files were added, then `scripts/verify.sh` wit
 | R10 | `MotionReliabilityTests.testEachHandlingTriggerMarksUnreliable`, `testReliableAfterThreeQuietSeconds`, `testRemountRestartsAxisLearning` |
 | R11 | `SpeedEstimatorTests.testUnreliableMotionShowsGPSOnly`, `testEndedMotionStreamShowsGPSOnly` |
 | R12 | `StopDetectorTests.testStillAndLowGPSSpeedStops`, `testStillAloneDoesNotStop`, `testStopResetsBias`; existing `SpeedometerViewModelTests.testStationaryShowsZero` |
-| R13 | `GPSOnlyFilterTests.testNegativeSpeedIgnoredByDefault`, `testPositionSpeedUsedWhenEnabledAndAccurate`, `testPositionSpeedSkippedWhenInaccurate` |
-| R14 | `SpeedEstimatorTests.testShowsGPSOnlyWhenFusionDisabled`, `testShowsFusedWhenConvergedAndReliable`; `SpeedometerViewModelTests.testFusedRefreshesOnMotionBatch` |
+| R13 | `SpeedEstimatorTests.testNegativeSpeedIgnoredByDefault`, `testPositionSpeedUsedWhenEnabledAndAccurate`, `testPositionSpeedSkippedWhenInaccurate`, `testPositionSpeedSkippedOutsideInterval` |
+| R14 | `SpeedEstimatorTests.testShowsGPSOnlyWhenFusionDisabled`, `testFusionLaunchArgumentOnlyInDebug` (PR 1); `testShowsFusedWhenConvergedAndReliable`, `SpeedometerViewModelTests.testFusedRefreshesOnMotionBatch` (PR 2) |
 | R15 | `SpeedometerViewModelTests.testHysteresisHoldsNumber`, `testUnitToggleRecomputesWithoutHysteresis`, existing `testSpeedBelowOneKmhShowsZero`, `testDisplayIsNeverNegative` |
 | R16 | manual: device drive with Reduce Motion on/off; review `GaugeDisplay` |
 | R17 | `SpeedEstimatorTests.testGapStartsAfterOnePointFiveSeconds`, `testUnavailableStartsGap`, `testFixEndsGap` |
 | R18 | `SpeedometerViewModelTests.testGPSOnlyGapHoldsWeakThenAcquiring`, `testFusedGapEndsOnUncertainty`, `testFusedGapEndsAfterTenSeconds`, existing `testStaysAtZeroWhenStationaryUpdatesPause` |
 | R19 | `SpeedometerViewModelTests.testFilterResetsAfterAcquiring` (rewritten), `SpeedEstimatorTests.testAxisKeptAcrossReset` |
-| R20 | `SpeedometerViewModelTests.testWeakSignalWhenSigmaAboveLimit`, `testWeakSignalDuringGap` |
+| R20 | `SpeedometerViewModelTests.testWeakSignalWhenSigmaAboveLimit`, `testUnavailableUpdateStartsGap`; `SpeedEstimatorTests.testWeakSignalWhenSigmaAboveLimit`, `testWeakSignalDuringGap` |
 | R21 | `SpeedometerViewModelTests.testMoodUsesGPSOnlyEstimate` (rewritten), existing `testEngineSoundSeesMovingFromDisplayedSpeed` |
-| R22 | `DriveRecorderTests.testOffWithoutLaunchArgument`, `testWritesAllLineTypes`, `testKeepsFiveNewestByName`; review: `#if DEBUG` |
+| R22 | `DriveRecorderTests.testOffWithoutLaunchArgument`, `testWritesAllLineTypes`, `testKeepsFiveNewestByName`, `testRecordingWithoutFixIsDeleted`; `SpeedometerViewModelTests.testRunRecordsHeaderInputsAndShown`; review: `#if DEBUG`, Release build |
 | R23 | `DriveRecorderTests.testWriteFailureStopsSilently`, `SpeedometerViewModelTests.testFailingRecorderDoesNotChangeOutput` |
 | R24 | manual: `scripts/pull-drives.sh` on device |
 | R25 | `SyntheticDriveTests.testSameSeedSameDrive`, `testProfileHasAllSegments` |
-| R26 | `DriveReplayTests.testReplayMatchesLiveFeed` |
+| R26 | `DriveReplayTests.testReplayMatchesLiveFeed`, `testFixturesReplayExactly` |
 | R27 | `FusionTargetTests.testSteadySpeedError`, `testHardBrakeLag`, `testTunnelWithinThreeKmh`, `testHandlingFallsBackToGPSOnly` |
 | R28 | `AccuracyGateTests` on `build/drives/` + `results.md` (manual) |
-| R29 | `AccuracyReportTests.testDistanceOverTime` + `results.md` (manual) |
-| R30 | `AccuracyReportTests` + Xcode energy gauge + `results.md` (manual) |
-| R31 | `DriveReplayTests.testFixturesHaveNoAbsoluteCoordinates`; review `make-fixture.py` |
+| R29 | `AccuracyReportTests.testSteadyStretchDistanceMatchesSpeed`, `testShortOrUnsteadyDrivesHaveNoStretch`; `testDistanceOverTime` on `build/drives/` + `results.md` (manual) |
+| R30 | `AccuracyReportTests.testGapWhileMovingIsFound`, `testMissingSpeedCountsUsableFixes`; `testReportOnRecordedDrives` + Xcode energy gauge + `results.md` (manual) |
+| R31 | `DriveReplayTests.testFixturesHaveNoAbsoluteCoordinates`, `testLoaderRejectsAbsoluteCoordinates`; review `make-fixture.py` |
 | R32 | review CLAUDE.md; `evals/run.sh` + `scripts/check-bands.sh` |
 | R33 | review `project.yml`; manual: fresh install shows no motion prompt |
 
