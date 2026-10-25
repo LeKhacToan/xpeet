@@ -34,9 +34,10 @@ struct GaugeDisplay<UnitControl: View>: View {
 
     private var theme: Theme { face.theme }
 
-    /// Nil with Reduce Motion on, so the number and the gauge change instantly.
+    /// Nil with Reduce Motion on, so the number and the gauge change instantly. Short and linear so the gauge never
+    /// trails the reading by more than 0.1 s, even at about 10 updates a second (specs/speed-accuracy R16).
     private var motion: Animation? {
-        animated && !reduceMotion ? .smooth(duration: 0.6) : nil
+        animated && !reduceMotion ? .linear(duration: 0.1) : nil
     }
 
     var body: some View {

@@ -64,20 +64,26 @@ enum SpeedometerState: Equatable {
 @Observable
 @MainActor
 final class SpeedometerViewModel {
-    static let smoothingFactor = 0.6
+    /// A moving fix this old is stale: on arrival it is ignored; once the last fix is this old the state is Acquiring.
     static let staleInterval: TimeInterval = 5
     static let zeroClampMetersPerSecond = 1 / 3.6
-    static let weakAccuracyMetersPerSecond = 2.0
+    /// The shown number changes only once the estimate is this far from it, in the selected unit (speed-accuracy R15).
+    static let displayHysteresis = 0.6
+    /// Often enough to start a 1.5 s gap on time (speed-accuracy R17).
+    static let tickInterval: Duration = .milliseconds(500)
     static let unitDefaultsKey = "speedUnit"
     static let faceDefaultsKey = "gaugeFace"
 
     private(set) var state: SpeedometerState = .acquiring
     private(set) var unit: SpeedUnit
     private(set) var face: GaugeFace
-    /// The mascot's expression. Follows the same filtered speed as the number.
+    /// The mascot's expression. Fed once per fix with the GPS-only estimate (speed-accuracy R21).
     private(set) var mood: Mood = .searching
     private var moodResolver = MoodResolver()
-    private var smoothedMetersPerSecond: Double?
+    /// Updated on every input, so it must not invalidate the view; only `shownSpeed` and `state` are observed.
+    @ObservationIgnored private var estimator: SpeedEstimator
+    /// The whole-unit number on screen while Live. Changes only when the rounded value moves.
+    private var shownSpeed: Int?
     private var lastSample: SpeedSample?
 
     /// Plays a sound on engine start while stopped (specs/engine-sound-clip). Shares this screen's lifecycle.
@@ -95,9 +101,11 @@ final class SpeedometerViewModel {
         locale: Locale = .current,
         now: @escaping () -> Date = Date.init,
         setIdleTimerDisabled: @escaping @MainActor (Bool) -> Void = { UIApplication.shared.isIdleTimerDisabled = $0 },
-        engineSound: EngineSoundViewModel? = nil
+        engineSound: EngineSoundViewModel? = nil,
+        estimatorConfiguration: SpeedEstimator.Configuration = SpeedEstimator.Configuration()
     ) {
         self.provider = provider ?? CoreLocationSpeedProvider()
+        self.estimator = SpeedEstimator(configuration: estimatorConfiguration)
         self.engineSound = engineSound ?? EngineSoundViewModel()
         self.defaults = defaults
         self.locale = locale
@@ -115,10 +123,8 @@ final class SpeedometerViewModel {
 
     /// Speed in the selected unit, or nil when there is no live reading.
     var displayedSpeed: Int? {
-        guard case .live = state, let metersPerSecond = smoothedMetersPerSecond else { return nil }
-        guard metersPerSecond >= Self.zeroClampMetersPerSecond else { return 0 }
-        let value = Measurement(value: metersPerSecond, unit: UnitSpeed.metersPerSecond).converted(to: unit.unitSpeed).value
-        return max(0, Int(value.rounded()))
+        guard case .live = state else { return nil }
+        return shownSpeed
     }
 
     var displayText: String {
@@ -186,6 +192,7 @@ final class SpeedometerViewModel {
 
         let authorizations = provider.authorizationUpdates()
         let samples = provider.speedUpdates()
+        let tickInterval = Self.tickInterval
         await withTaskGroup(of: Void.self) { group in
             group.addTask {
                 for await authorization in authorizations { await self.handle(authorization: authorization) }
@@ -194,13 +201,13 @@ final class SpeedometerViewModel {
                 for await update in samples {
                     switch update {
                     case .fix(let sample): await self.handle(sample: sample)
-                    case .unavailable: break
+                    case .unavailable: await self.handleLocationUnavailable()
                     }
                 }
             }
             group.addTask {
                 while !Task.isCancelled {
-                    try? await Task.sleep(for: .seconds(1))
+                    try? await Task.sleep(for: tickInterval)
                     await self.tick()
                 }
             }
@@ -237,25 +244,29 @@ final class SpeedometerViewModel {
     }
 
     func handle(sample: SpeedSample) {
-        guard sample.metersPerSecond >= 0, sample.accuracy >= 0 else { return }
         if case .unavailable = state { return }
         // The first update is often a cached fix. A moving fix that old is not the current speed; a stationary
         // one still is, because iOS reports stationary with the last known location while updates are paused.
         if !sample.isStationary, now().timeIntervalSince(sample.timestamp) > Self.staleInterval { return }
 
-        if let last = lastSample, sample.timestamp.timeIntervalSince(last.timestamp) > Self.staleInterval {
-            resetFilter()
-        }
-        if sample.isStationary {
-            smoothedMetersPerSecond = 0
-        } else if let previous = smoothedMetersPerSecond {
-            smoothedMetersPerSecond = previous + Self.smoothingFactor * (sample.metersPerSecond - previous)
-        } else {
-            smoothedMetersPerSecond = sample.metersPerSecond
-        }
+        // After a long silence start again from this fix (speed-accuracy R19), but only if it is usable.
+        var next = estimator
+        let resumed = lastSample.map { sample.timestamp.timeIntervalSince($0.timestamp) > Self.staleInterval } ?? false
+        if resumed { next.reset() }
+        guard next.fix(sample, arrival: now()) == .accepted, let gpsOnly = next.gpsOnly else { return }
+        estimator = next
+        if resumed { shownSpeed = nil }
         lastSample = sample
-        state = .live(weakSignal: sample.accuracy > Self.weakAccuracyMetersPerSecond)
-        mood = moodResolver.sample(metersPerSecond: smoothedMetersPerSecond ?? 0, timestamp: sample.timestamp, now: now())
+        state = .live(weakSignal: estimator.isWeakSignal)
+        updateShownSpeed()
+        mood = moodResolver.sample(metersPerSecond: gpsOnly.metersPerSecond, timestamp: sample.timestamp, now: now())
+    }
+
+    /// iOS 18+ reported that location is unavailable: keep the reading, flagged as weak signal (speed-accuracy R18).
+    func handleLocationUnavailable() {
+        guard case .live = state else { return }
+        estimator.unavailable(at: now())
+        updateWeakSignal()
     }
 
     /// Falls back to Acquiring when the last fix is too old. iOS pauses updates while stationary, so a
@@ -263,19 +274,25 @@ final class SpeedometerViewModel {
     func tick() {
         guard case .live = state, let last = lastSample else { return }
         // Before the stationary guard: sleepy must start while iOS pauses updates. Assign only on change, so
-        // the observed property does not invalidate the screen every second.
+        // the observed property does not invalidate the screen on every tick.
         let next = moodResolver.tick(at: now())
         if next != mood { mood = next }
         if !last.isStationary, now().timeIntervalSince(last.timestamp) > Self.staleInterval {
             resetFilter()
             state = .acquiring
             mood = moodResolver.lost()
+            return
         }
+        estimator.tick(now: now())
+        updateWeakSignal()
     }
 
     func toggleUnit() {
         unit = unit == .kmh ? .mph : .kmh
         defaults.set(unit.rawValue, forKey: Self.unitDefaultsKey)
+        // A new unit is a new number, not a small move: no hysteresis (speed-accuracy R15).
+        shownSpeed = nil
+        updateShownSpeed()
     }
 
     /// Switches the gauge face. Speed, unit, state and filter are untouched.
@@ -293,7 +310,28 @@ final class SpeedometerViewModel {
     }
 
     private func resetFilter() {
-        smoothedMetersPerSecond = nil
+        estimator.reset()
+        shownSpeed = nil
         lastSample = nil
+    }
+
+    private func updateWeakSignal() {
+        let next = SpeedometerState.live(weakSignal: estimator.isWeakSignal)
+        if next != state { state = next }
+    }
+
+    private func updateShownSpeed() {
+        guard let shown = estimator.shown else { return }
+        let next = displayValue(for: shown.estimate.metersPerSecond, holding: shownSpeed)
+        if next != shownSpeed { shownSpeed = next }
+    }
+
+    /// The estimate in whole units. A shown number holds until the estimate moves `displayHysteresis` away from it,
+    /// so it does not flicker between two values (speed-accuracy R15).
+    private func displayValue(for metersPerSecond: Double, holding previous: Int?) -> Int {
+        guard metersPerSecond >= Self.zeroClampMetersPerSecond else { return 0 }
+        let value = Measurement(value: metersPerSecond, unit: UnitSpeed.metersPerSecond).converted(to: unit.unitSpeed).value
+        if let previous, abs(value - Double(previous)) < Self.displayHysteresis { return previous }
+        return max(0, Int(value.rounded()))
     }
 }
