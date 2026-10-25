@@ -137,7 +137,7 @@ Changes to earlier specs (each gets a "Superseded/Amended by" note when this shi
   *(unit)*
 
 - **R15** **Rounding.**
-  - The shown whole number changes only when the estimate, in the selected unit, differs from it by at least 0.6. This stops flicker between two values.
+  - The shown whole number changes only when the estimate, in the selected unit, differs from it by more than 0.6. This stops flicker between two values. (Clarified in review: "at least 0.6" contradicted the 59.4 ↔ 60.4 example below.)
   - An estimate below 1 km/h shows 0 (speedometer R7). The value is never negative (speedometer R8).
   - Switching units recomputes the number at once, without hysteresis.
 

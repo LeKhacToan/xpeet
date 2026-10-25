@@ -2,8 +2,9 @@
 import Foundation
 
 /// Debug-only drive recorder (specs/speed-accuracy R22-R23). Off unless the app is launched with
-/// `-XpeetRecordDrives YES`. Each run of the speed screen writes one JSON Lines file to `Documents/Drives/`;
-/// only the newest files are kept. Location traces never leave the phone unless copied off by hand (R24).
+/// `-XpeetRecordDrives YES`. Each run of the speed screen writes one JSON Lines file to `Documents/Drives/`,
+/// which is excluded from backups; only the newest files are kept. Location traces never leave the phone unless
+/// copied off by hand (R24).
 final class DriveRecorder: DriveLogging {
     static let launchArgumentKey = "XpeetRecordDrives"
     static let keptFiles = 5
@@ -14,11 +15,19 @@ final class DriveRecorder: DriveLogging {
     private let continuation: AsyncStream<DriveEvent>.Continuation
     private let writer: Task<Void, Never>
 
-    /// Records into `sink`. The writer runs off the main actor; a failing sink ends recording silently.
-    init(sink: DriveSink) {
+    /// Records into the sink `makeSink` creates. All file work, opening included, runs off the main actor; a sink
+    /// that can't be made or fails ends recording silently.
+    init(makeSink: @escaping @Sendable () throws -> DriveSink) {
         let (events, continuation) = AsyncStream.makeStream(of: DriveEvent.self)
         self.continuation = continuation
         self.writer = Task.detached(priority: .utility) {
+            let sink: DriveSink
+            do {
+                sink = try makeSink()
+            } catch {
+                continuation.finish()
+                return
+            }
             let encoder = DriveEvent.makeEncoder()
             var pending = Data()
             var pendingLines = 0
@@ -44,6 +53,10 @@ final class DriveRecorder: DriveLogging {
         }
     }
 
+    convenience init(sink: DriveSink) {
+        self.init(makeSink: { sink })
+    }
+
     deinit {
         continuation.finish()
     }
@@ -64,29 +77,23 @@ final class DriveRecorder: DriveLogging {
 
     // MARK: Starting
 
-    static func isEnabled(in defaults: UserDefaults) -> Bool {
-        defaults.bool(forKey: launchArgumentKey)
-    }
-
-    /// A recorder writing a new file in `Documents/Drives/`, or nil when recording is off or the file can't be made.
-    static func startIfEnabled(defaults: UserDefaults = .standard, now: Date = Date()) -> DriveRecorder? {
-        guard isEnabled(in: defaults),
+    /// A recorder writing a new file in `Documents/Drives/`, or nil when recording is off.
+    static func startIfEnabled(arguments: [String: Any] = LaunchArguments.current, now: Date = Date()) -> DriveRecorder? {
+        guard LaunchArguments.bool(launchArgumentKey, in: arguments),
               let documents = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first else { return nil }
         return start(in: documents.appendingPathComponent("Drives", isDirectory: true), now: now)
     }
 
-    /// Makes room (keeping `keptFiles` including the new one), then opens a new file named by `now`.
-    static func start(in directory: URL, now: Date) -> DriveRecorder? {
-        let files = FileManager.default
-        do {
-            try files.createDirectory(at: directory, withIntermediateDirectories: true)
-            for old in try recordings(in: directory).dropLast(keptFiles - 1) {
-                try? files.removeItem(at: old)
-            }
-            let url = directory.appendingPathComponent(fileName(for: now))
-            return DriveRecorder(sink: try FileDriveSink(url: url))
-        } catch {
-            return nil
+    /// A recorder writing a new file named by `now` in `directory`. Older files are pruned only once this one is
+    /// kept (it got a fix), so a discarded recording never costs a real drive.
+    static func start(in directory: URL, now: Date) -> DriveRecorder {
+        DriveRecorder {
+            try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+            var drives = directory
+            var noBackup = URLResourceValues()
+            noBackup.isExcludedFromBackup = true
+            try drives.setResourceValues(noBackup)
+            return try FileDriveSink(url: directory.appendingPathComponent(fileName(for: now)))
         }
     }
 
@@ -96,6 +103,13 @@ final class DriveRecorder: DriveLogging {
         try FileManager.default.contentsOfDirectory(at: directory, includingPropertiesForKeys: nil)
             .filter { $0.pathExtension == fileExtension }
             .sorted { $0.lastPathComponent < $1.lastPathComponent }
+    }
+
+    /// Deletes all but the newest `keptFiles` recordings.
+    static func prune(_ directory: URL) {
+        for old in (try? recordings(in: directory).dropLast(keptFiles)) ?? [] {
+            try? FileManager.default.removeItem(at: old)
+        }
     }
 
     static func fileName(for date: Date) -> String {
@@ -134,7 +148,11 @@ final class FileDriveSink: DriveSink, @unchecked Sendable {
 
     func close(keep: Bool) {
         try? handle.close()
-        if !keep { try? FileManager.default.removeItem(at: url) }
+        if keep {
+            DriveRecorder.prune(url.deletingLastPathComponent())
+        } else {
+            try? FileManager.default.removeItem(at: url)
+        }
     }
 }
 #endif

@@ -70,18 +70,56 @@ final class DriveReplayTests: XCTestCase {
         XCTAssertGreaterThan(comparisons.count, 6)
         XCTAssertTrue(comparisons.contains { $0.recorded.state == "liveWeak" }, "the gap was recorded")
         for comparison in comparisons {
-            XCTAssertTrue(comparison.matches, "\(comparison)")
+            XCTAssertTrue(comparison.matchesExactly, "\(comparison)")
         }
     }
 
-    /// Every committed clip replays exactly as it was recorded.
-    func testFixturesReplayExactly() throws {
+    /// A clip cut from the middle of a drive lacks the filter's history; after 10 s of fixes the replay has
+    /// caught up with what was recorded.
+    func testClipFromMiddleMatchesAfterWarmUp() throws {
+        var events: [DriveEvent] = []
+        let clock = TestClock()
+        let viewModel = SpeedometerViewModel(
+            provider: FakeSpeedProvider(),
+            motionProvider: FakeMotionProvider(),
+            defaults: try XCTUnwrap(UserDefaults(suiteName: "DriveReplayTests-\(UUID().uuidString)")),
+            locale: Locale(identifier: "fr_FR"),
+            now: { clock.now },
+            setIdleTimerDisabled: { _ in },
+            engineSound: EngineSoundViewModel(detector: FakeSoundTriggerDetector(), player: FakeSoundPlayer(), now: { clock.now }),
+            makeRecorder: { nil }
+        )
+        viewModel.handle(authorization: .authorized)
+        for second in 0..<60 {
+            let kmh = 60 + 25 * sin(Double(second) / 6)
+            let fix = sample(kmh: kmh, at: clock)
+            events.append(.fix(fix, arrival: clock.now))
+            viewModel.handle(sample: fix)
+            events.append(.shown(DriveShown(
+                time: clock.now, displayed: viewModel.displayedSpeed, unit: viewModel.unit.rawValue,
+                state: viewModel.state.recordedName, source: .gpsOnly, gpsOnly: viewModel.estimator.gpsOnly,
+                fused: nil, inGap: false
+            )))
+            clock.advance(by: 1)
+        }
+
+        let clip = Array(events.dropFirst(60))
+        let comparisons = DriveReplay.compare(clip, warmUp: 10)
+
+        XCTAssertEqual(comparisons.count, 20)
+        for comparison in comparisons {
+            XCTAssertTrue(comparison.matchesEstimate(tolerance: 0.05), "\(comparison)")
+        }
+    }
+
+    /// Every committed clip replays like it was recorded, once the filter has warmed up.
+    func testFixturesReplayAfterWarmUp() throws {
         let fixtures = DriveFile.files(in: DriveFile.fixturesDirectory)
         try XCTSkipIf(fixtures.isEmpty, "No committed drive clips yet (made with scripts/make-fixture.py).")
         for url in fixtures {
             let drive = try DriveFile.load(url, requireAnonymised: true)
-            for comparison in DriveReplay.compare(drive.events) {
-                XCTAssertTrue(comparison.matches, "\(drive.name): \(comparison)")
+            for comparison in DriveReplay.compare(drive.events, warmUp: 10) {
+                XCTAssertTrue(comparison.matchesEstimate(tolerance: 0.05), "\(drive.name): \(comparison)")
             }
         }
     }

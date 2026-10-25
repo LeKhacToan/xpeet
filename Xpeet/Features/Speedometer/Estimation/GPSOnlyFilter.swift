@@ -39,16 +39,19 @@ struct GPSOnlyFilter: Equatable {
     /// A measurement at or before the last one is applied without a predict step.
     mutating func update(speed measured: Double, variance measurementVariance: Double, at time: Date) -> Bool {
         let interval = time.timeIntervalSince(timestamp)
-        var next = predicted(at: time)
-        // At least the nominal 1 s fix interval, so two fixes with one timestamp are not "infinitely fast".
-        guard abs(measured - next.speed) <= Self.maxAcceleration * max(interval, 1) else { return false }
+        // Judged against the last accepted speed, not the prediction: after one accepted glitch the extrapolated
+        // acceleration would carry the prediction away and lock out every true fix. At least the nominal 1 s fix
+        // interval, so two fixes with one timestamp are not "infinitely fast".
+        guard abs(measured - speed) <= Self.maxAcceleration * max(interval, 1) else { return false }
 
+        var next = predicted(at: time)
         let innovation = measured - next.speed
         let innovationVariance = next.p00 + measurementVariance
         let gainSpeed = next.p00 / innovationVariance
         let gainAcceleration = next.p01 / innovationVariance
         next.speed = max(0, next.speed + gainSpeed * innovation)
-        next.acceleration += gainAcceleration * innovation
+        let acceleration = next.acceleration + gainAcceleration * innovation
+        next.acceleration = min(max(acceleration, -Self.maxAcceleration), Self.maxAcceleration)
         next.p11 -= gainAcceleration * next.p01
         next.p01 -= gainSpeed * next.p01
         next.p00 -= gainSpeed * next.p00

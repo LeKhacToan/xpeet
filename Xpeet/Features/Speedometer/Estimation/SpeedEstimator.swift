@@ -12,10 +12,10 @@ struct SpeedEstimator: Equatable {
         var usesPositionSpeed = false
 
         /// As shipped; in Debug builds `-XpeetFusion YES` turns fusion on for a test drive (R14).
-        static func launchDefault(_ defaults: UserDefaults = .standard) -> Configuration {
+        static func launchDefault(_ arguments: [String: Any] = LaunchArguments.current) -> Configuration {
             var configuration = Configuration()
             #if DEBUG
-            configuration.fusionEnabled = defaults.bool(forKey: fusionLaunchArgumentKey)
+            configuration.fusionEnabled = LaunchArguments.bool(fusionLaunchArgumentKey, in: arguments)
             #endif
             return configuration
         }
@@ -63,6 +63,9 @@ struct SpeedEstimator: Equatable {
             "gapStartInterval": gapStartInterval,
             "weakSignalSigma": weakSignalSigma,
             "positionSpeedMaxAccuracy": positionSpeedMaxAccuracy,
+            "positionSpeedMinInterval": positionSpeedInterval.lowerBound,
+            "positionSpeedMaxInterval": positionSpeedInterval.upperBound,
+            "stoppedVariance": GPSOnlyFilter.stoppedVariance,
             "jerkNoise": GPSOnlyFilter.jerkNoise,
             "initialAccelerationVariance": GPSOnlyFilter.initialAccelerationVariance,
             "maxAcceleration": GPSOnlyFilter.maxAcceleration,
@@ -72,7 +75,7 @@ struct SpeedEstimator: Equatable {
     }
 
     let configuration: Configuration
-    /// Kept across `reset()`: the boot-time offset does not change while the app runs.
+    /// Kept across an in-run `reset()`; see `reset(keepingMotionClock:)`.
     private(set) var motionClock = MotionClock()
     private var filter: GPSOnlyFilter?
     /// Recent fixes with a good position, oldest first, for position-derived speed.
@@ -152,10 +155,12 @@ struct SpeedEstimator: Equatable {
     }
 
     /// Forgets every estimate, e.g. after Acquiring (R19).
-    mutating func reset() {
+    /// Keeps the motion clock by default: within one run the boot-time offset holds. Core Motion's clock pauses while
+    /// the phone sleeps, so a new run must start a fresh one.
+    mutating func reset(keepingMotionClock: Bool = true) {
         let motionClock = motionClock
         self = SpeedEstimator(configuration: configuration)
-        self.motionClock = motionClock
+        if keepingMotionClock { self.motionClock = motionClock }
     }
 
     // MARK: Private

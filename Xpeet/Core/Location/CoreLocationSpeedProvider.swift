@@ -26,22 +26,23 @@ final class CoreLocationSpeedProvider: NSObject, SpeedProvider {
         AsyncStream { continuation in
             let task = Task {
                 // Not reset on restart: a replayed fix after a restart is still a duplicate.
-                var lastTimestamp: Date?
+                var last: (timestamp: Date, isStationary: Bool)?
                 // Restart the sequence if it ends or throws, so a transient error doesn't stop updates until relaunch.
                 while !Task.isCancelled {
                     do {
                         for try await update in CLLocationUpdate.liveUpdates(.automotiveNavigation) {
-                            guard let location = update.location else {
-                                if update.isLocationUnavailable { continuation.yield(.unavailable) }
-                                continue
-                            }
-                            // iOS repeats the last fix (e.g. while paused); a repeat is not a new measurement.
-                            if let lastTimestamp, location.timestamp <= lastTimestamp { continue }
-                            lastTimestamp = location.timestamp
+                            // Before the location check: iOS may send "unavailable" along with the last known location.
+                            if update.isLocationUnavailable { continuation.yield(.unavailable) }
+                            guard let location = update.location else { continue }
+                            // iOS repeats the last fix (e.g. while paused); a repeat is not a new measurement. It still
+                            // passes when only the stationary flag changed: that is how a stop arrives.
+                            let isStationary = update.isDeviceStationary
+                            if let last, location.timestamp <= last.timestamp, isStationary == last.isStationary { continue }
+                            last = (location.timestamp, isStationary)
                             continuation.yield(.fix(SpeedSample(
                                 metersPerSecond: location.speed,
                                 accuracy: location.speedAccuracy,
-                                isStationary: update.isDeviceStationary,
+                                isStationary: isStationary,
                                 timestamp: location.timestamp,
                                 latitude: location.coordinate.latitude,
                                 longitude: location.coordinate.longitude,

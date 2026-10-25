@@ -9,6 +9,9 @@ final class CoreMotionProvider: MotionProvider {
 
     /// Apple: create only one motion manager per app. Created on first use.
     private lazy var manager = CMMotionManager()
+    /// The newest stream. An older stream ending (after a quick background/foreground) must not stop the manager
+    /// the newer one is using.
+    private var generation = 0
 
     func motionUpdates() -> AsyncStream<[MotionSample]> {
         AsyncStream(bufferingPolicy: .bufferingNewest(8)) { continuation in
@@ -16,20 +19,17 @@ final class CoreMotionProvider: MotionProvider {
                 continuation.finish()
                 return
             }
+            generation += 1
+            let current = generation
             let pipeline = MotionPipeline(batchSize: Self.batchSize, continuation: continuation)
             manager.deviceMotionUpdateInterval = 1 / Self.sampleRate
             // Z vertical, X arbitrary: no compass, and no extra CPU for magnetometer correction.
-            manager.startDeviceMotionUpdates(using: .xArbitraryZVertical, to: pipeline.queue) { motion, error in
-                if error != nil {
-                    continuation.finish()
-                    return
+            manager.startDeviceMotionUpdates(using: .xArbitraryZVertical, to: pipeline.queue, withHandler: pipeline.handler)
+            continuation.onTermination = { [weak self] _ in
+                Task { @MainActor in
+                    guard let self, self.generation == current else { return }
+                    self.manager.stopDeviceMotionUpdates()
                 }
-                guard let motion else { return }
-                pipeline.append(MotionSample(motion))
-            }
-            let manager = manager
-            continuation.onTermination = { _ in
-                Task { @MainActor in manager.stopDeviceMotionUpdates() }
             }
         }
     }
@@ -53,7 +53,19 @@ private final class MotionPipeline: @unchecked Sendable {
         batch.reserveCapacity(batchSize)
     }
 
-    func append(_ sample: MotionSample) {
+    /// Built here, outside the main actor, because Core Motion calls it on `queue`.
+    var handler: CMDeviceMotionHandler {
+        { [self] motion, error in
+            if error != nil {
+                continuation.finish()
+                return
+            }
+            guard let motion else { return }
+            append(MotionSample(motion))
+        }
+    }
+
+    private func append(_ sample: MotionSample) {
         batch.append(sample)
         guard batch.count >= batchSize else { return }
         continuation.yield(batch)

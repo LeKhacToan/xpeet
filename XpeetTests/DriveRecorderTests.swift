@@ -56,20 +56,16 @@ final class DriveRecorderTests: XCTestCase {
 
     // MARK: - specs/speed-accuracy R22
 
-    func testOffWithoutLaunchArgument() throws {
-        let name = "DriveRecorderTests-\(UUID().uuidString)"
-        let defaults = try XCTUnwrap(UserDefaults(suiteName: name))
-        defer { defaults.removePersistentDomain(forName: name) }
+    func testOffWithoutLaunchArgument() {
+        let key = DriveRecorder.launchArgumentKey
 
-        XCTAssertFalse(DriveRecorder.isEnabled(in: defaults))
-        XCTAssertNil(DriveRecorder.startIfEnabled(defaults: defaults))
-
-        defaults.set(true, forKey: DriveRecorder.launchArgumentKey)
-        XCTAssertTrue(DriveRecorder.isEnabled(in: defaults))
+        XCTAssertNil(DriveRecorder.startIfEnabled(arguments: [:]))
+        XCTAssertNil(DriveRecorder.startIfEnabled(arguments: [key: "NO"]))
+        XCTAssertTrue(LaunchArguments.bool(key, in: [key: "YES"]))
     }
 
     func testWritesAllLineTypes() async throws {
-        let recorder = try XCTUnwrap(DriveRecorder.start(in: directory, now: start))
+        let recorder = DriveRecorder.start(in: directory, now: start)
         let motion = MotionSample(
             timestamp: 120.25,
             userAcceleration: Vector3(x: 0.5, y: 0, z: -0.25),
@@ -109,7 +105,7 @@ final class DriveRecorderTests: XCTestCase {
             FileManager.default.createFile(atPath: directory.appendingPathComponent(name).path, contents: Data("x".utf8))
         }
 
-        let recorder = try XCTUnwrap(DriveRecorder.start(in: directory, now: start))
+        let recorder = DriveRecorder.start(in: directory, now: start)
         recorder.record(.fix(fix, arrival: start))
         await recorder.waitUntilClosed()
 
@@ -117,8 +113,31 @@ final class DriveRecorderTests: XCTestCase {
         XCTAssertEqual(names, Array(old.suffix(4)) + [DriveRecorder.fileName(for: start)])
     }
 
+    func testRecordingWithoutFixKeepsOldDrives() async throws {
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        let old = (1...5).map { "20260101-00000\($0)-000.jsonl" }
+        for name in old {
+            FileManager.default.createFile(atPath: directory.appendingPathComponent(name).path, contents: Data("x".utf8))
+        }
+
+        let recorder = DriveRecorder.start(in: directory, now: start)
+        recorder.record(.unavailable(arrival: start))
+        await recorder.waitUntilClosed()
+
+        XCTAssertEqual(try DriveRecorder.recordings(in: directory).map(\.lastPathComponent), old)
+    }
+
+    func testDrivesAreExcludedFromBackup() async throws {
+        let recorder = DriveRecorder.start(in: directory, now: start)
+        recorder.record(.fix(fix, arrival: start))
+        await recorder.waitUntilClosed()
+
+        let values = try directory.resourceValues(forKeys: [.isExcludedFromBackupKey])
+        XCTAssertEqual(values.isExcludedFromBackup, true)
+    }
+
     func testRecordingWithoutFixIsDeleted() async throws {
-        let recorder = try XCTUnwrap(DriveRecorder.start(in: directory, now: start))
+        let recorder = DriveRecorder.start(in: directory, now: start)
         recorder.record(.header(DriveHeader(startedAt: start, device: "iPhone", system: "26", constants: [:])))
 
         await recorder.waitUntilClosed()

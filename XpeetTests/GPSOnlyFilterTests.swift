@@ -47,6 +47,21 @@ final class GPSOnlyFilterTests: XCTestCase {
         XCTAssertTrue(filter.update(speed: 35, variance: 0.25, at: start + 2))
     }
 
+    func testGlitchRecoversWithinThreeFixes() {
+        var filter = GPSOnlyFilter(speed: 20, variance: 0.25, at: start)
+        for second in 1...3 { _ = filter.update(speed: 20, variance: 0.25, at: start + TimeInterval(second)) }
+
+        // One bad fix just inside the bound is accepted...
+        XCTAssertTrue(filter.update(speed: 32, variance: 0.25, at: start + 4))
+        // ...but must not lock out the true speed that follows.
+        for second in 5...7 {
+            XCTAssertTrue(filter.update(speed: 20, variance: 0.25, at: start + TimeInterval(second)), "fix at \(second) s")
+        }
+
+        XCTAssertEqual(filter.speed, 20, accuracy: 1)
+        XCTAssertLessThanOrEqual(abs(filter.acceleration), GPSOnlyFilter.maxAcceleration)
+    }
+
     func testSameTimestampUpdatesWithoutPredict() {
         var filter = GPSOnlyFilter(speed: 10, variance: 0.25, at: start)
 

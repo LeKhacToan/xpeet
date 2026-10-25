@@ -30,7 +30,8 @@ final class SpeedometerViewModelTests: XCTestCase {
         idleTimer: IdleTimerRecorder = IdleTimerRecorder(),
         detector: FakeSoundTriggerDetector? = nil,
         motion: FakeMotionProvider? = nil,
-        recorder: DriveLogging? = nil
+        recorder: DriveLogging? = nil,
+        configuration: SpeedEstimator.Configuration = .init()
     ) -> SpeedometerViewModel {
         // Always fakes: tests never touch the real microphone or motion sensors.
         SpeedometerViewModel(
@@ -45,6 +46,7 @@ final class SpeedometerViewModelTests: XCTestCase {
                 player: FakeSoundPlayer(),
                 now: { clock.now }
             ),
+            estimatorConfiguration: configuration,
             makeRecorder: { recorder }
         )
     }
@@ -121,6 +123,25 @@ final class SpeedometerViewModelTests: XCTestCase {
         task.cancel()
         await task.value
         await waitUntil { motion.subscriberCount == 0 }
+    }
+
+    func testEachRunStartsAFreshMotionClock() async {
+        let motion = FakeMotionProvider()
+        let viewModel = makeViewModel(motion: motion)
+        let reading = MotionSample(timestamp: 42, userAcceleration: .zero, gravity: Vector3(x: 0, y: 0, z: -1), rotationRate: .zero)
+        let first = Task { await viewModel.run() }
+        await waitUntil { motion.subscriberCount > 0 }
+        motion.send([reading])
+        await waitUntil { viewModel.estimator.motionClock.offset != nil }
+        first.cancel()
+        await first.value
+
+        // Core Motion's clock pauses while the phone sleeps: the old offset may be wrong in the next run.
+        let second = Task { await viewModel.run() }
+        await waitUntil { motion.subscriberCount > 0 }
+        XCTAssertNil(viewModel.estimator.motionClock.offset)
+        second.cancel()
+        await second.value
     }
 
     func testFinishedMotionStreamKeepsGPSOnly() async {
@@ -364,6 +385,35 @@ final class SpeedometerViewModelTests: XCTestCase {
         // Weights 2:1 toward the estimate: 60.55 + (62 - 60.55) / 3 ≈ 61.03, more than 0.6 away.
         viewModel.handle(sample: sample(kmh: 62, at: clock))
         XCTAssertEqual(viewModel.displayText, "61")
+    }
+
+    func testHysteresisHoldsSpecWobble() {
+        // R15's own example: an estimate wobbling 59.4 <-> 60.4 km/h keeps showing 60.
+        var shown = 60
+        for kmh in [59.4, 60.4, 59.4, 60.4, 59.4] {
+            shown = SpeedometerViewModel.displayValue(for: kmh / 3.6, in: .kmh, holding: shown)
+            XCTAssertEqual(shown, 60, "at \(kmh)")
+        }
+        XCTAssertEqual(SpeedometerViewModel.displayValue(for: 59.3 / 3.6, in: .kmh, holding: 60), 59)
+        XCTAssertEqual(SpeedometerViewModel.displayValue(for: 60.7 / 3.6, in: .kmh, holding: 60), 61)
+        XCTAssertEqual(SpeedometerViewModel.displayValue(for: 0.44704 * 40.6, in: .mph, holding: 40), 40)
+    }
+
+    func testPositionSpeedStartsFromAcquiring() throws {
+        let clock = TestClock()
+        let viewModel = makeViewModel(clock: clock, configuration: .init(usesPositionSpeed: true))
+        viewModel.handle(authorization: .authorized)
+
+        // Fixes without Doppler speed, 20 m/s north: the third has a partner 2 s back (R13).
+        for second in 0...2 {
+            viewModel.handle(sample: SpeedSample(
+                metersPerSecond: -1, accuracy: -1, isStationary: false, timestamp: clock.now,
+                latitude: Double(second) * 20 / 111_194.93, longitude: 0, horizontalAccuracy: 5
+            ))
+            if second < 2 { clock.advance(by: 1) }
+        }
+
+        XCTAssertEqual(try XCTUnwrap(viewModel.displayedSpeed), 72)
     }
 
     func testUnitToggleRecomputesWithoutHysteresis() {

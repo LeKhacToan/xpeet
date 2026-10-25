@@ -20,6 +20,15 @@ enum SpeedUnit: String {
         }
     }
 
+    /// Exact factors (1 km/h = 1/3.6 m/s, 1 mph = 0.44704 m/s). Foundation's own converter rounds its coefficient,
+    /// which moves values off hysteresis boundaries.
+    func value(fromMetersPerSecond metersPerSecond: Double) -> Double {
+        switch self {
+        case .kmh: metersPerSecond * 3.6
+        case .mph: metersPerSecond / 0.44704
+        }
+    }
+
     /// Speed at which the gauge arc is full.
     var gaugeMaximum: Int {
         switch self {
@@ -205,6 +214,8 @@ final class SpeedometerViewModel {
             stopRecording(run)
         }
         resetFilter()
+        // Core Motion's clock pauses while the phone sleeps, so the offset from the last run may be wrong now.
+        estimator.reset(keepingMotionClock: false)
         if case .live = state { state = .acquiring }
         if case .unavailable = state {
             mood = moodResolver.unavailable()
@@ -281,8 +292,11 @@ final class SpeedometerViewModel {
         var next = estimator
         let resumed = lastSample.map { sample.timestamp.timeIntervalSince($0.timestamp) > Self.staleInterval } ?? false
         if resumed { next.reset() }
-        guard next.fix(sample, arrival: now()) == .accepted, let gpsOnly = next.gpsOnly else { return }
-        estimator = next
+        let outcome = next.fix(sample, arrival: now())
+        // An unused fix still leaves its position behind for position-derived speed (R13); only a reset that
+        // found nothing usable is thrown away, so the old reading runs out on its own clock.
+        if outcome == .accepted || !resumed { estimator = next }
+        guard outcome == .accepted, let gpsOnly = estimator.gpsOnly else { return }
         if resumed { shownSpeed = nil }
         lastSample = sample
         state = .live(weakSignal: estimator.isWeakSignal)
@@ -362,8 +376,21 @@ final class SpeedometerViewModel {
         recorder?.finish()
         recorder = makeRecorder()
         recorderRun = run
-        recorder?.record(.header(.current(startedAt: now(), constants: SpeedEstimator.recordedConstants(estimator.configuration))))
+        recorder?.record(.header(.current(startedAt: now(), constants: recordedConstants)))
         return run
+    }
+
+    /// Every constant behind what is shown, for the recording's header (R22).
+    private var recordedConstants: [String: Double] {
+        SpeedEstimator.recordedConstants(estimator.configuration).merging([
+            "staleInterval": Self.staleInterval,
+            "zeroClampMetersPerSecond": Self.zeroClampMetersPerSecond,
+            "displayHysteresis": Self.displayHysteresis,
+            "tickInterval": Double(Self.tickInterval.components.seconds)
+                + Double(Self.tickInterval.components.attoseconds) / 1e18,
+            "motionSampleRate": CoreMotionProvider.sampleRate,
+            "motionBatchSize": Double(CoreMotionProvider.batchSize),
+        ]) { current, _ in current }
     }
 
     private func stopRecording(_ run: UUID) {
@@ -395,16 +422,17 @@ final class SpeedometerViewModel {
 
     private func updateShownSpeed() {
         guard let shown = estimator.shown else { return }
-        let next = displayValue(for: shown.estimate.metersPerSecond, holding: shownSpeed)
+        let next = Self.displayValue(for: shown.estimate.metersPerSecond, in: unit, holding: shownSpeed)
         if next != shownSpeed { shownSpeed = next }
     }
 
-    /// The estimate in whole units. A shown number holds until the estimate moves `displayHysteresis` away from it,
-    /// so it does not flicker between two values (speed-accuracy R15).
-    private func displayValue(for metersPerSecond: Double, holding previous: Int?) -> Int {
+    /// The estimate in whole units. A shown number holds until the estimate moves more than `displayHysteresis`
+    /// away from it, so it does not flicker between two values (speed-accuracy R15).
+    static func displayValue(for metersPerSecond: Double, in unit: SpeedUnit, holding previous: Int?) -> Int {
         guard metersPerSecond >= Self.zeroClampMetersPerSecond else { return 0 }
-        let value = Measurement(value: metersPerSecond, unit: UnitSpeed.metersPerSecond).converted(to: unit.unitSpeed).value
-        if let previous, abs(value - Double(previous)) < Self.displayHysteresis { return previous }
+        let value = unit.value(fromMetersPerSecond: metersPerSecond)
+        // The tolerance absorbs rounding in the conversion, so an estimate exactly 0.6 away still holds.
+        if let previous, abs(value - Double(previous)) <= Self.displayHysteresis + 1e-9 { return previous }
         return max(0, Int(value.rounded()))
     }
 }

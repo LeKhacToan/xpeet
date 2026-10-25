@@ -9,8 +9,22 @@ enum DriveReplay {
         var recorded: DriveShown
         var replayedDisplayed: Int?
         var replayedState: String
+        var replayedGPSOnly: SpeedEstimator.Estimate?
 
-        var matches: Bool { recorded.displayed == replayedDisplayed && recorded.state == replayedState }
+        /// Same number and state: expected for a recording replayed from its start.
+        var matchesExactly: Bool { recorded.displayed == replayedDisplayed && recorded.state == replayedState }
+
+        /// Same state and GPS-only estimate within `tolerance` m/s: expected for a clip cut from the middle of a
+        /// drive once the filter has forgotten the history the clip lacks. The number itself may differ by one,
+        /// because hysteresis holds whichever whole value each run reached.
+        func matchesEstimate(tolerance: Double) -> Bool {
+            guard recorded.state == replayedState else { return false }
+            switch (recorded.gpsOnly, replayedGPSOnly) {
+            case (nil, nil): return true
+            case let (recorded?, replayed?): return abs(recorded.metersPerSecond - replayed.metersPerSecond) <= tolerance
+            default: return false
+            }
+        }
     }
 
     private final class Clock {
@@ -19,36 +33,54 @@ enum DriveReplay {
 
     /// Replays `events` in order. At each recorded `shown` line the ViewModel ticks, as the live app did, and what it
     /// shows is compared with what was recorded. A tick right after a fix changes nothing, so fix-driven lines compare
-    /// the same way.
-    static func compare(_ events: [DriveEvent], configuration: SpeedEstimator.Configuration = .init()) -> [Comparison] {
+    /// the same way. Lines within `warmUp` seconds of the first fix are skipped.
+    static func compare(
+        _ events: [DriveEvent],
+        configuration: SpeedEstimator.Configuration = .init(),
+        warmUp: TimeInterval = 0
+    ) -> [Comparison] {
         let clock = Clock()
         let viewModel = makeViewModel(clock: clock, configuration: configuration)
-        if let unit = events.lazy.compactMap({ if case .shown(let shown) = $0 { shown.unit } else { nil } }).first,
-           viewModel.unit.rawValue != unit {
-            viewModel.toggleUnit()
+        var comparisons: [Comparison] = []
+        var firstFix: Date?
+        // Motion arrives in batches; samples recorded with one arrival time were one batch.
+        var batch: (arrival: Date, samples: [MotionSample])?
+
+        func flushMotion() {
+            guard let pending = batch else { return }
+            clock.now = pending.arrival
+            viewModel.handle(motion: pending.samples)
+            batch = nil
         }
 
-        var comparisons: [Comparison] = []
         for event in events {
+            if case let .motion(sample, arrival) = event {
+                if let pending = batch, pending.arrival != arrival { flushMotion() }
+                batch = (arrival, (batch?.samples ?? []) + [sample])
+                continue
+            }
+            flushMotion()
             switch event {
-            case .header:
+            case .header, .motion:
                 break
             case let .fix(sample, arrival):
                 clock.now = arrival
+                firstFix = firstFix ?? arrival
                 viewModel.handle(sample: sample)
             case .unavailable(let arrival):
                 clock.now = arrival
                 viewModel.handleLocationUnavailable()
-            case let .motion(sample, arrival):
-                clock.now = arrival
-                viewModel.handle(motion: [sample])
             case .shown(let shown):
                 clock.now = shown.time
+                // Unit changes aren't recorded as events; follow the unit each line was shown in.
+                if viewModel.unit.rawValue != shown.unit { viewModel.toggleUnit() }
                 viewModel.tick()
+                guard let firstFix, shown.time.timeIntervalSince(firstFix) >= warmUp else { continue }
                 comparisons.append(Comparison(
                     recorded: shown,
                     replayedDisplayed: viewModel.displayedSpeed,
-                    replayedState: viewModel.state.recordedName
+                    replayedState: viewModel.state.recordedName,
+                    replayedGPSOnly: viewModel.estimator.gpsOnly
                 ))
             }
         }

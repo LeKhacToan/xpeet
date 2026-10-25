@@ -39,15 +39,21 @@ if [ -z "$names" ]; then
     echo "pull: no drives on the phone (launch with RECORD=1 scripts/install-device.sh, then drive)."
     exit 0
 fi
+newest=$(printf '%s\n' "$names" | tail -1)
 count=0
 while IFS= read -r name; do
-    if [ -f "$DEST/$name" ]; then
+    # The newest drive may still be recording, so it is always fetched again; finished ones are fetched once.
+    if [ -f "$DEST/$name" ] && [ "$name" != "$newest" ]; then
         echo "pull: $name (already here)"
         continue
     fi
+    # Copy to a temporary name first, so a failed copy never looks like a finished drive.
+    part="$DEST/.$name.part"
+    rm -f "$part"
     xcrun devicectl device copy from --device "$DEVICE_ID" \
         --domain-type appDataContainer --domain-identifier "$BUNDLE_ID" --user mobile \
-        --source "Documents/Drives/$name" --destination "$DEST/$name" >/dev/null
+        --source "Documents/Drives/$name" --destination "$part" >/dev/null
+    mv "$part" "$DEST/$name"
     echo "pull: $name"
     count=$((count + 1))
 done <<< "$names"

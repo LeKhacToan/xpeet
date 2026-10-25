@@ -185,6 +185,30 @@ PR 1:
   - The EMA tests became `testFollowsHardBrakingWithinOneFix`, `testFollowsAccelerationWithinOneFix`, `testHysteresisHoldsNumber` and `testUnitToggleRecomputesWithoutHysteresis`.
   - `testMoodUsesFilteredSpeed` became `testMoodUsesGPSOnlyEstimate`.
 
+- **Review fixes (reviewer agent, 2026-10-25):**
+  - **GPS-only gate:** a fix is judged against the last accepted speed, not the prediction, and the acceleration state is clamped to ±12 m/s². One accepted glitch used to lock out the true fixes for about 5 s. The plan's R8-style re-init after rejections is not needed for GPS-only: the bound grows with the time since the last accepted fix.
+  - **Provider:**
+    - a repeated fix passes when only its stationary flag changed, because that is how a stop arrives;
+    - "unavailable" is checked before the location.
+  - **Recorder:**
+    - the Drives folder is excluded from backups;
+    - pruning happens only when a recording is kept;
+    - the file is opened in the writer task, off the main actor;
+    - `-XpeetRecordDrives` and `-XpeetFusion` are read from the launch-argument domain only (`App/LaunchArguments.swift`);
+    - the header carries every constant and rate.
+  - **ViewModel:**
+    - an ignored or rejected fix keeps its estimator state (its position, for R13);
+    - each `run()` starts a fresh motion clock, because Core Motion's clock pauses while the phone sleeps;
+    - display values use exact unit factors, and an estimate exactly 0.6 away holds. Spec R15 now says "more than 0.6", to match its own 59.4 ↔ 60.4 example.
+  - **Motion:**
+    - an ending stream stops the manager only if no newer stream started;
+    - the handler is built off the main actor.
+  - **Replay:**
+    - motion is replayed in its recorded batches;
+    - unit changes are followed;
+    - mid-drive clips compare state and GPS-only estimate after a 10 s warm-up instead of the exact number.
+  - **`pull-drives.sh`:** copies to a temporary name, and always re-pulls the newest drive.
+
 ## Risks
 - **Eval coupling:** `fix-zero-clamp` seds the literal guard line in `SpeedometerViewModel.swift`, and `rename-weak-signal-status` greps "Weak GPS signal". Keep both strings, or the eval suite breaks.
 - **Existing VM tests:** several of them send 2 fixes with the same timestamp. The filter treats Δt ≤ 0 as an update with no predict step, which blends the two. Any test that changes value under this is updated and listed under Deviations.
@@ -212,9 +236,9 @@ PR 1:
 |---|---|
 | R1 | `SpeedometerViewModelTests.testUnavailableUpdateStartsGap`, `SpeedEstimatorTests.testSameTimestampFixUpdatesWithoutPredict`; review: field mapping + duplicate drop in `CoreLocationSpeedProvider` |
 | R2 | `SpeedometerViewModelTests.testRunFeedsMotionBatchesToEstimator`, `testFinishedMotionStreamKeepsGPSOnly`; review: frame and 50 Hz; manual: device |
-| R3 | `MotionClockTests.testOffsetIsRunningMinimum`, `testMapsMotionTimestampToDate` |
+| R3 | `MotionClockTests.testOffsetIsRunningMinimum`, `testMapsMotionTimestampToDate`; `SpeedometerViewModelTests.testEachRunStartsAFreshMotionClock` |
 | R4 | `SpeedEstimatorTests.testSameInputsSameOutputs`, `testKeepsGPSOnlyEstimateWithoutFusion` (PR 1); `testKeepsBothEstimates` (PR 2) |
-| R5 | `GPSOnlyFilterTests.testMatchesHandComputedStep`, `testLessAccurateFixMovesEstimateLess`, `testImpossibleJumpIsRejected`, `testBoundGrowsWithTimeSinceLastAcceptedFix`; `SpeedEstimatorTests.testFirstFixInitialisesExactly`; `SpeedometerViewModelTests.testFollowsHardBrakingWithinOneFix`, `testFollowsAccelerationWithinOneFix` |
+| R5 | `GPSOnlyFilterTests.testMatchesHandComputedStep`, `testLessAccurateFixMovesEstimateLess`, `testImpossibleJumpIsRejected`, `testBoundGrowsWithTimeSinceLastAcceptedFix`; `SpeedEstimatorTests.testFirstFixInitialisesExactly`; `SpeedometerViewModelTests.testFollowsHardBrakingWithinOneFix`, `testFollowsAccelerationWithinOneFix`; `GPSOnlyFilterTests.testGlitchRecoversWithinThreeFixes` |
 | R6 | `FusedFilterTests.testPredictIntegratesForwardAcceleration`, `testCorrectionWeightsBySpeedAccuracy`, `testBiasConvergesOnSyntheticDrive` |
 | R7 | `FusedFilterTests.testDelayCompensationReducesLag`, `testHistoryCappedAtThreeSeconds` |
 | R8 | `FusedFilterTests.testHighInnovationFixRejected`, `testThreeRejectionsReinitialise` |
@@ -222,20 +246,20 @@ PR 1:
 | R10 | `MotionReliabilityTests.testEachHandlingTriggerMarksUnreliable`, `testReliableAfterThreeQuietSeconds`, `testRemountRestartsAxisLearning` |
 | R11 | `SpeedEstimatorTests.testUnreliableMotionShowsGPSOnly`, `testEndedMotionStreamShowsGPSOnly` |
 | R12 | `StopDetectorTests.testStillAndLowGPSSpeedStops`, `testStillAloneDoesNotStop`, `testStopResetsBias`; existing `SpeedometerViewModelTests.testStationaryShowsZero` |
-| R13 | `SpeedEstimatorTests.testNegativeSpeedIgnoredByDefault`, `testPositionSpeedUsedWhenEnabledAndAccurate`, `testPositionSpeedSkippedWhenInaccurate`, `testPositionSpeedSkippedOutsideInterval` |
+| R13 | `SpeedEstimatorTests.testNegativeSpeedIgnoredByDefault`, `testPositionSpeedUsedWhenEnabledAndAccurate`, `testPositionSpeedSkippedWhenInaccurate`, `testPositionSpeedSkippedOutsideInterval`; `SpeedometerViewModelTests.testPositionSpeedStartsFromAcquiring` |
 | R14 | `SpeedEstimatorTests.testShowsGPSOnlyWhenFusionDisabled`, `testFusionLaunchArgumentOnlyInDebug` (PR 1); `testShowsFusedWhenConvergedAndReliable`, `SpeedometerViewModelTests.testFusedRefreshesOnMotionBatch` (PR 2) |
-| R15 | `SpeedometerViewModelTests.testHysteresisHoldsNumber`, `testUnitToggleRecomputesWithoutHysteresis`, existing `testSpeedBelowOneKmhShowsZero`, `testDisplayIsNeverNegative` |
+| R15 | `SpeedometerViewModelTests.testHysteresisHoldsNumber`, `testUnitToggleRecomputesWithoutHysteresis`, existing `testSpeedBelowOneKmhShowsZero`, `testDisplayIsNeverNegative`; `SpeedometerViewModelTests.testHysteresisHoldsSpecWobble` |
 | R16 | manual: device drive with Reduce Motion on/off; review `GaugeDisplay` |
 | R17 | `SpeedEstimatorTests.testGapStartsAfterOnePointFiveSeconds`, `testUnavailableStartsGap`, `testFixEndsGap` |
 | R18 | `SpeedometerViewModelTests.testGPSOnlyGapHoldsWeakThenAcquiring`, `testFusedGapEndsOnUncertainty`, `testFusedGapEndsAfterTenSeconds`, existing `testStaysAtZeroWhenStationaryUpdatesPause` |
 | R19 | `SpeedometerViewModelTests.testFilterResetsAfterAcquiring` (rewritten), `SpeedEstimatorTests.testAxisKeptAcrossReset` |
 | R20 | `SpeedometerViewModelTests.testWeakSignalWhenSigmaAboveLimit`, `testUnavailableUpdateStartsGap`; `SpeedEstimatorTests.testWeakSignalWhenSigmaAboveLimit`, `testWeakSignalDuringGap` |
 | R21 | `SpeedometerViewModelTests.testMoodUsesGPSOnlyEstimate` (rewritten), existing `testEngineSoundSeesMovingFromDisplayedSpeed` |
-| R22 | `DriveRecorderTests.testOffWithoutLaunchArgument`, `testWritesAllLineTypes`, `testKeepsFiveNewestByName`, `testRecordingWithoutFixIsDeleted`; `SpeedometerViewModelTests.testRunRecordsHeaderInputsAndShown`; review: `#if DEBUG`, Release build |
+| R22 | `DriveRecorderTests.testOffWithoutLaunchArgument`, `testWritesAllLineTypes`, `testKeepsFiveNewestByName`, `testRecordingWithoutFixIsDeleted`; `SpeedometerViewModelTests.testRunRecordsHeaderInputsAndShown`; review: `#if DEBUG`, Release build; `DriveRecorderTests.testRecordingWithoutFixKeepsOldDrives`, `testDrivesAreExcludedFromBackup` |
 | R23 | `DriveRecorderTests.testWriteFailureStopsSilently`, `SpeedometerViewModelTests.testFailingRecorderDoesNotChangeOutput` |
 | R24 | manual: `scripts/pull-drives.sh` on device |
 | R25 | `SyntheticDriveTests.testSameSeedSameDrive`, `testProfileHasAllSegments` |
-| R26 | `DriveReplayTests.testReplayMatchesLiveFeed`, `testFixturesReplayExactly` |
+| R26 | `DriveReplayTests.testReplayMatchesLiveFeed`, `testClipFromMiddleMatchesAfterWarmUp`, `testFixturesReplayAfterWarmUp` |
 | R27 | `FusionTargetTests.testSteadySpeedError`, `testHardBrakeLag`, `testTunnelWithinThreeKmh`, `testHandlingFallsBackToGPSOnly` |
 | R28 | `AccuracyGateTests` on `build/drives/` + `results.md` (manual) |
 | R29 | `AccuracyReportTests.testSteadyStretchDistanceMatchesSpeed`, `testShortOrUnsteadyDrivesHaveNoStretch`; `testDistanceOverTime` on `build/drives/` + `results.md` (manual) |

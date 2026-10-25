@@ -128,15 +128,12 @@ final class SpeedEstimatorTests: XCTestCase {
 
     // MARK: - R14
 
-    func testFusionLaunchArgumentOnlyInDebug() throws {
-        let name = "SpeedEstimatorTests-\(UUID().uuidString)"
-        let defaults = try XCTUnwrap(UserDefaults(suiteName: name))
-        defer { defaults.removePersistentDomain(forName: name) }
-        XCTAssertFalse(SpeedEstimator.Configuration.launchDefault(defaults).fusionEnabled, "off as shipped")
+    func testFusionLaunchArgumentOnlyInDebug() {
+        let key = SpeedEstimator.Configuration.fusionLaunchArgumentKey
 
-        defaults.set(true, forKey: SpeedEstimator.Configuration.fusionLaunchArgumentKey)
-
-        XCTAssertTrue(SpeedEstimator.Configuration.launchDefault(defaults).fusionEnabled, "tests run Debug builds")
+        XCTAssertFalse(SpeedEstimator.Configuration.launchDefault([:]).fusionEnabled, "off as shipped")
+        XCTAssertFalse(SpeedEstimator.Configuration.launchDefault([key: "NO"]).fusionEnabled)
+        XCTAssertTrue(SpeedEstimator.Configuration.launchDefault([key: "YES"]).fusionEnabled, "tests run Debug builds")
     }
 
     func testShowsGPSOnlyWhenFusionDisabled() {
