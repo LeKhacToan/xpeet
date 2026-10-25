@@ -45,6 +45,8 @@ struct SpeedEstimator: Equatable {
     static let positionSpeedInterval: ClosedRange<TimeInterval> = 2...5
 
     let configuration: Configuration
+    /// Kept across `reset()`: the boot-time offset does not change while the app runs.
+    private(set) var motionClock = MotionClock()
     private var filter: GPSOnlyFilter?
     /// Recent fixes with a good position, oldest first, for position-derived speed.
     private var positions: [SpeedSample] = []
@@ -103,6 +105,12 @@ struct SpeedEstimator: Equatable {
         return .accepted
     }
 
+    /// One batch of device motion, as it reached the app. Only aligns clocks for now; fusion uses it in PR 2.
+    mutating func motion(_ batch: [MotionSample], arrival: Date) {
+        guard let latest = batch.last else { return }
+        motionClock.observe(timestamp: latest.timestamp, arrival: arrival)
+    }
+
     /// iOS reported that location is unavailable (iOS 18+): a gap starts now (R17).
     mutating func unavailable(at time: Date) {
         guard filter != nil, !isStopped, gapStart == nil else { return }
@@ -118,7 +126,9 @@ struct SpeedEstimator: Equatable {
 
     /// Forgets every estimate, e.g. after Acquiring (R19).
     mutating func reset() {
+        let motionClock = motionClock
         self = SpeedEstimator(configuration: configuration)
+        self.motionClock = motionClock
     }
 
     // MARK: Private

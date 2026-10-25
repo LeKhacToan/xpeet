@@ -81,7 +81,7 @@ final class SpeedometerViewModel {
     private(set) var mood: Mood = .searching
     private var moodResolver = MoodResolver()
     /// Updated on every input, so it must not invalidate the view; only `shownSpeed` and `state` are observed.
-    @ObservationIgnored private var estimator: SpeedEstimator
+    @ObservationIgnored private(set) var estimator: SpeedEstimator
     /// The whole-unit number on screen while Live. Changes only when the rounded value moves.
     private var shownSpeed: Int?
     private var lastSample: SpeedSample?
@@ -90,6 +90,7 @@ final class SpeedometerViewModel {
     let engineSound: EngineSoundViewModel
 
     private let provider: SpeedProvider
+    private let motionProvider: MotionProvider
     private let defaults: UserDefaults
     private let locale: Locale
     private let now: () -> Date
@@ -97,6 +98,7 @@ final class SpeedometerViewModel {
 
     init(
         provider: SpeedProvider? = nil,
+        motionProvider: MotionProvider? = nil,
         defaults: UserDefaults = .standard,
         locale: Locale = .current,
         now: @escaping () -> Date = Date.init,
@@ -105,6 +107,7 @@ final class SpeedometerViewModel {
         estimatorConfiguration: SpeedEstimator.Configuration = SpeedEstimator.Configuration()
     ) {
         self.provider = provider ?? CoreLocationSpeedProvider()
+        self.motionProvider = motionProvider ?? CoreMotionProvider()
         self.estimator = SpeedEstimator(configuration: estimatorConfiguration)
         self.engineSound = engineSound ?? EngineSoundViewModel()
         self.defaults = defaults
@@ -192,6 +195,7 @@ final class SpeedometerViewModel {
 
         let authorizations = provider.authorizationUpdates()
         let samples = provider.speedUpdates()
+        let motion = motionProvider.motionUpdates()
         let tickInterval = Self.tickInterval
         await withTaskGroup(of: Void.self) { group in
             group.addTask {
@@ -204,6 +208,10 @@ final class SpeedometerViewModel {
                     case .unavailable: await self.handleLocationUnavailable()
                     }
                 }
+            }
+            group.addTask {
+                // Ends at once without motion sensors (e.g. Simulator); the reading stays GPS-only.
+                for await batch in motion { await self.handle(motion: batch) }
             }
             group.addTask {
                 while !Task.isCancelled {
@@ -260,6 +268,11 @@ final class SpeedometerViewModel {
         state = .live(weakSignal: estimator.isWeakSignal)
         updateShownSpeed()
         mood = moodResolver.sample(metersPerSecond: gpsOnly.metersPerSecond, timestamp: sample.timestamp, now: now())
+    }
+
+    /// One batch of device motion (speed-accuracy R2). Fusion is not built yet, so nothing on screen changes.
+    func handle(motion batch: [MotionSample]) {
+        estimator.motion(batch, arrival: now())
     }
 
     /// iOS 18+ reported that location is unavailable: keep the reading, flagged as weak signal (speed-accuracy R18).

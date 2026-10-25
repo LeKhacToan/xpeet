@@ -240,4 +240,14 @@ final class SpeedEstimatorTests: XCTestCase {
         XCTAssertFalse(estimator.inGap)
         XCTAssertEqual(estimator.configuration, .init(usesPositionSpeed: true))
     }
+
+    func testResetKeepsMotionClock() {
+        var estimator = SpeedEstimator()
+        let sample = MotionSample(timestamp: 50, userAcceleration: .zero, gravity: Vector3(x: 0, y: 0, z: -1), rotationRate: .zero)
+        estimator.motion([sample], arrival: start)
+
+        estimator.reset()
+
+        XCTAssertEqual(estimator.motionClock.date(for: 50), start)
+    }
 }

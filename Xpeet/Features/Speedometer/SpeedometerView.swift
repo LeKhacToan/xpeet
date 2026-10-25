@@ -233,6 +233,7 @@ private extension SpeedometerViewModel {
         let samples = kmh.map { [SpeedSample(metersPerSecond: $0 / 3.6, accuracy: accuracy, isStationary: false, timestamp: .now)] } ?? []
         let viewModel = SpeedometerViewModel(
             provider: FakeSpeedProvider(authorization: authorization, samples: samples),
+            motionProvider: FakeMotionProvider(),
             defaults: UserDefaults(suiteName: "SpeedometerPreview-\(face.rawValue)") ?? .standard,
             locale: Locale(identifier: "fr_FR"),
             now: { .distantPast },

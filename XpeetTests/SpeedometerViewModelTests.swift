@@ -28,11 +28,13 @@ final class SpeedometerViewModelTests: XCTestCase {
         locale: Locale? = nil,
         clock: TestClock = TestClock(),
         idleTimer: IdleTimerRecorder = IdleTimerRecorder(),
-        detector: FakeSoundTriggerDetector? = nil
+        detector: FakeSoundTriggerDetector? = nil,
+        motion: FakeMotionProvider? = nil
     ) -> SpeedometerViewModel {
-        // Always fakes: tests never touch the real microphone.
+        // Always fakes: tests never touch the real microphone or motion sensors.
         SpeedometerViewModel(
             provider: provider ?? FakeSpeedProvider(),
+            motionProvider: motion ?? FakeMotionProvider(),
             defaults: defaults ?? makeDefaults(),
             locale: locale ?? metric,
             now: { clock.now },
@@ -96,6 +98,40 @@ final class SpeedometerViewModelTests: XCTestCase {
         await waitUntil { viewModel.state == .acquiring }
         XCTAssertEqual(viewModel.statusText, "Searching for GPS…")
 
+        task.cancel()
+        await task.value
+    }
+
+    // MARK: - speed-accuracy R2
+
+    func testRunFeedsMotionBatchesToEstimator() async {
+        let motion = FakeMotionProvider()
+        let clock = TestClock()
+        let viewModel = makeViewModel(clock: clock, motion: motion)
+
+        let task = Task { await viewModel.run() }
+        await waitUntil { motion.subscriberCount > 0 }
+        let sample = MotionSample(timestamp: 42, userAcceleration: .zero, gravity: Vector3(x: 0, y: 0, z: -1), rotationRate: .zero)
+        motion.send([sample])
+        await waitUntil { viewModel.estimator.motionClock.offset != nil }
+
+        XCTAssertEqual(viewModel.estimator.motionClock.date(for: 42), clock.now)
+        task.cancel()
+        await task.value
+        await waitUntil { motion.subscriberCount == 0 }
+    }
+
+    func testFinishedMotionStreamKeepsGPSOnly() async {
+        let provider = FakeSpeedProvider()
+        let clock = TestClock()
+        let viewModel = makeViewModel(provider: provider, clock: clock, motion: FakeMotionProvider(isAvailable: false))
+
+        let task = Task { await viewModel.run() }
+        await waitUntil { provider.speedSubscriberCount > 0 }
+        provider.send(sample(kmh: 72, at: clock))
+        await waitUntil { viewModel.displayText == "72" }
+
+        XCTAssertEqual(viewModel.estimator.shown?.source, .gpsOnly)
         task.cancel()
         await task.value
     }
