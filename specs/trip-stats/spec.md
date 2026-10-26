@@ -4,6 +4,21 @@
 
 This spec adds a running trip — distance, moving and stopped time, average moving speed — to the speed screen, a trip sheet with details and the last 10 trips, and local storage of trip totals. It builds on the speed estimate from `specs/speed-accuracy/spec.md`; no new sensor, permission or network use.
 
+Design: Stitch project `2676886462094675705` ("Xpeet Anime Speedometer", design system "Nocturne Precision"), frames saved in `specs/trip-stats/design/`. Where a frame and this spec differ, this spec wins.
+
+| Frame | File | Stitch screen |
+|---|---|---|
+| Portrait, trip line under the gauge | `portrait-trip-line.jpg` | `25e56725f1184a5fbe872019cf0ed8c0` |
+| Landscape, trip line right of the gauge, weak-signal chip at the bottom | `landscape-trip-line.jpg` | `370ce36f7bc944dea95c46023a7a4b57` |
+| Trip sheet, running trip with history (one approximate) | `trip-sheet.jpg` | `b52ffad748cd48cca09eb95941835b8b` |
+| Trip sheet, empty trip, no history | `trip-sheet-empty.jpg` | `5a3958bde9a84452a8edf90bc4fa83b0` |
+
+Known differences, where the spec wins:
+- **Fonts:** the trip line in the portrait frame renders in a serif fallback. The app uses the theme's caption font (R12).
+- **Faces:** the frames show only the Minimal ring face. Other faces use their own theme tokens (R12).
+- **Status chip:** the portrait frame has an empty top row. In the app, the status chip still appears there when there is a status (ui-redesign R7).
+- **Device chrome:** the frames' Dynamic Island and phone mock-up are not part of the design.
+
 Changes to earlier specs (each gets a note when this ships):
 - `specs/speedometer/spec.md`:
   - **R1** amended: a second modal sheet (the trip sheet) is allowed, besides the face picker.
@@ -67,9 +82,13 @@ Changes to earlier specs (each gets a note when this ships):
 
 - **R12** **Placement and look.**
   - Portrait: below the gauge, centred, above "Open Settings" when that shows.
-  - Landscape: at the bottom edge, with the status chip (intent Decisions); when both show, the chip stays above it.
+  - Landscape: to the right of the gauge, vertically centred on it, mirroring the mascot on the left (intent Decisions, changed after the Stitch design). The status chip stays alone at the bottom edge.
   - The gauge may get smaller to make room, but "199" is never truncated or clipped in any orientation, on any face (speedometer R3, gauge-themes R14). The mascot keeps its placement rule (speed-mascot R12).
-  - Text: the theme's caption font and **secondary text** colour, smaller than the unit pill; at least 4.5:1 contrast on every face (already tested for that token, ui-redesign R16).
+  - Look (frames `portrait-trip-line`, `landscape-trip-line`):
+    - a quiet frosted-glass capsule (the same glass as the status chip), at least 44 pt tall;
+    - a small trip glyph before the text and a faint chevron after it;
+    - text in the theme's caption font and **secondary text** colour, with tabular digits, smaller than the unit pill;
+    - at least 4.5:1 contrast on every face (already tested for that token, ui-redesign R16).
   - Dynamic Type follows the system up to `accessibility2`, like the unit pill, so it never pushes the gauge below the "199" rule.
   - No colour or style changes with speed, distance or average speed.
 
@@ -78,10 +97,17 @@ Changes to earlier specs (each gets a note when this ships):
 - **R13** **Tapping the line** opens the trip sheet. The hit area is at least 44 × 44 pt. Nothing else on the main screen changes; there is no trip control on the main screen besides the line. *(manual)*
 
 ### Trip sheet
-- **R14** **Contents.** A modal sheet titled "Trip", with "Done":
-  - **Current trip:** distance; moving time; stopped time; total time; average moving speed (R4) in the selected speed unit; start time ("Started 08:42", or "Not started" for an empty trip); and an "Approximate" note with a short reason ("GPS was lost for part of this trip") when R3 applies.
+- **R14** **Contents** (frames `trip-sheet`, `trip-sheet-empty`). A modal sheet titled "Trip", with "Done", in the face picker's glass style (ui-redesign R18):
+  - **Header:** a start time under the title ("Started 08:42", or "Not started" for an empty trip).
+  - **Current trip card:** a "Current distance" label over the large distance, then a 2 × 2 grid: moving time, stopped time, total time, and average moving speed (R4) in the selected speed unit.
+  - **Approximate:** when R3 applies, a neutral "Approximate" note with a short reason ("GPS was lost for part of this trip"). It is never red.
+  - **Empty trip:** under the card, the hint "The trip starts when the car moves.", and "New trip" disabled.
   - **"New trip"** button (R7).
-  - **History:** the last 10 finished trips, newest first, each with its date and start time, distance, moving time and average moving speed, and "Approximate" when it applies. Empty history shows "No earlier trips".
+  - **History:** "Earlier trips", the last 10 finished trips, newest first.
+    - Each row has its day and start time on the left ("Today", "Yesterday", a weekday and date), and distance · moving time · average speed on one line on the right.
+    - "Approximate" sits as a small neutral tag under the day, so the values never wrap.
+    - There is no count badge.
+    - Empty history shows a quiet panel: "No earlier trips".
   - All values use the current unit and the device locale.
 
   *(manual: frames for empty, running, approximate, with history; unit: the ViewModel exposes the values)*
@@ -144,7 +170,7 @@ There is no loading state: storage is read synchronously at start.
 - **Performance:** the tracker does constant work per update (2 Hz ticks plus fixes, 10 Hz with fusion later); `UserDefaults` writes at most every 10 s (R10).
 - **Battery:** no extra sensors or timers; it reuses the existing tick.
 - **Privacy:** only trip totals and times are stored locally (R9). No location data, no network, no analytics. App data is included in the user's device backups like the existing settings.
-- **Localization:** new strings: "Trip", "Done", "New trip", "Distance", "Moving time", "Stopped time", "Total time", "Average speed", "Started %@", "Not started", "Approximate", "GPS was lost for part of this trip", "No earlier trips", "Double-tap for trip details", and the "h"/"min" time formats.
+- **Localization:** new strings: "Trip", "Done", "New trip", "Current distance", "Earlier trips", "The trip starts when the car moves.", "Today", "Yesterday", "Distance", "Moving time", "Stopped time", "Total time", "Average speed", "Started %@", "Not started", "Approximate", "GPS was lost for part of this trip", "No earlier trips", "Double-tap for trip details", and the "h"/"min" time formats.
 
 ## Out of scope
 - Top, peak or maximum speed; records, streaks, rankings, achievements (R16).

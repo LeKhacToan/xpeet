@@ -64,7 +64,7 @@ The owner accepted the proposed answers (2026-10-26).
 - **Trip end:** a new trip starts on opening the app after 30 min with no movement, or on "New trip".
 - **GPS gaps:** while the reading is still shown with "Weak GPS signal", the shown speed counts toward distance. Once it is "--", nothing counts. The trip is marked "approximate" if more than a set share of its moving time was lost this way.
 - **History:** the last 10 trips, totals only, in the trip sheet.
-- **Landscape:** the trip line stays visible, at the bottom edge with the status chip. The gauge keeps the size "199" needs.
+- **Landscape:** the trip line stays visible, to the right of the gauge, mirroring the mascot on the left. The gauge keeps the size "199" needs. (Changed 2026-10-26: the Stitch design showed there is no room for both the status chip and the trip line at the bottom edge.)
 - **Mascot:** no reaction to trips.
 
 ## Open questions
