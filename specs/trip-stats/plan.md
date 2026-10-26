@@ -107,6 +107,15 @@ Each step: `xcodegen generate` when files are added, then `scripts/verify.sh` (B
 6. `testTripDistanceAgainstPositions` in the accuracy tests.
 7. The CLAUDE.md line, the supersede notes, `scripts/verify.sh`, `evals/run.sh` + `scripts/check-bands.sh`. Then the `reviewer` and `verifier` agents, and the PR. Install on the phone with `scripts/install-device.sh` for a test drive.
 
+## Deviations
+- **R1 distance:** an interval that ends stopped still adds the trapezoid down to 0, because braking to a stop covers ground. The spec's R1 text is clarified to match.
+- **API names:** `TripTracker.newTrip()` takes no time. `TripTracker.endRun(at:)` is the same as feeding `.notMeasured`.
+- **ViewModel length:** the trip glue stays in `SpeedometerViewModel.swift` (now about 505 lines), because an extension in another file can't reach the private stored properties. This needs SwiftLint to confirm when it is installed.
+- **Trip glyph:** the SF Symbol `point.topleft.down.curvedto.point.bottomright.up`, a route. `road.lanes` was unreadable at caption size.
+- **R18 on real drives:** `AccuracyReport.tripDistance` rebuilds the trip from the recorded `shown` lines, which are exactly the readings the ViewModel fed the tracker, instead of replaying through a ViewModel. `positionDistance` restarts its chord chain after gaps, as the trip does.
+- **Test locale:** the ViewModel tests run in `fr_FR` (the existing helper's locale), so their expected lines use a decimal comma. The formatter tests cover `en_GB` and `fr_FR`.
+- **Visual check:** portrait, landscape (Minimal ring and Retro) and both sheet states were rendered with a temporary `ImageRenderer` test, not committed, and compared with the Stitch frames. `ImageRenderer` leaves a `ScrollView` blank, so the sheet was rendered once with a `VStack` in its place, which was then restored.
+
 ## Risks
 - **The ViewModel keeps growing:** it is about 450 lines, and SwiftLint `--strict` may flag `type_body_length` / `file_length` (SwiftLint isn't installed locally). Keep the trip glue to a few calls into `TripTracker`. If it passes the limits, move the trip methods into an extension file, `SpeedometerViewModel+Trip.swift` (stored properties stay in the class), and record that under Deviations.
 - **Observation churn:** ticks run at 2 Hz. `trip` is assigned only when a formatted string changes, so the screen updates at most when the 0.1 km or minute values change.
@@ -128,15 +137,15 @@ Each step: `xcodegen generate` when files are added, then `scripts/verify.sh` (B
 | R7 | `TripTrackerTests.testNewTripArchivesCurrent`; `SpeedometerViewModelTests.testStartNewTrip` |
 | R8 | `TripTrackerTests.testShortTripIsDropped`, `testHistoryKeepsTenNewest` |
 | R9 | `TripStoreTests.testStoresTotalsOnly` (decoded JSON keys), `testRoundTrip` |
-| R10 | `TripStoreTests.testCorruptDataGivesEmptyTrip`; `SpeedometerViewModelTests.testSavesEveryTenSecondsAndOnRunEnd` |
-| R11 | `TripFormatterTests.testLineText` (km, mi, decimals, hours), `testEmptyLine`; `SpeedometerViewModelTests.testTripLineHiddenWhileUnavailable`, `testUnitSwitchConvertsTripLine` |
-| R12 | `TripLinePlacementTests.testLandscapeTrailingFrame`, `testNoRoomReturnsNil`; manual: frames and every face, both orientations, largest size; existing contrast tests for `secondaryText` |
+| R10 | `TripStoreTests.testCorruptDataGivesEmptyTrip`, `testEmptyStoreGivesEmptyTrip`; `SpeedometerViewModelTests.testSavesWhileDrivingAndOnRunEnd` |
+| R11 | `TripFormatterTests.testLineText`, `testEmptyLine`, `testDistanceUsesLocaleDecimalSeparator`; `SpeedometerViewModelTests.testDrivingGrowsTheTripLine`, `testWeakSignalGapStillCounts`, `testTripLineHiddenWhileUnavailable`, `testUnitSwitchConvertsTripLine` |
+| R12 | `TripLinePlacementTests.testLandscapeTrailingFrame`, `testPortraitReturnsNil`, `testNoRoomReturnsNil`; renders compared with the frames; existing contrast tests for `secondaryText` |
 | R13 | manual: tap opens the sheet, hit area ≥ 44 pt |
-| R14 | `TripFormatterTests.testSheetStrings` (Started/Not started, Today/Yesterday/weekday, "--"); manual: the 4 frames |
+| R14 | `TripFormatterTests.testSheetStrings`, `testDisplayOfTracker`; renders of the sheet, running and after "New trip" |
 | R15 | manual: values update with the sheet open |
 | R16 | review: no max/peak strings or ranking; `TripStoreTests.testStoresTotalsOnly` |
 | R17 | `TripFormatterTests.testAccessibilityValue`; manual: Accessibility Inspector |
-| R18 | `TripTrackerTests.testConstantSpeedDistanceWithinHalfPercent`; `AccuracyReportTests.testTripDistanceAgainstPositions` on `build/drives/` (manual) |
+| R18 | `TripTrackerTests.testConstantSpeedDistanceWithinHalfPercent`; `AccuracyReportTests.testTripDistanceMatchesPositionsOnStraightDrive`; `testTripDistanceAgainstPositions` on `build/drives/` (skips until drives are recorded) |
 | R19 | `TripTrackerTests.testMovingPlusStoppedEqualsLiveTime` |
 | R20 | review CLAUDE.md; `evals/run.sh` + `scripts/check-bands.sh` |
 

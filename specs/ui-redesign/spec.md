@@ -75,6 +75,7 @@ It supersedes these approved requirements (each earlier spec gets a note in the 
     - Portrait: top centre, in a top row it shares with the face button.
     - Landscape: at the bottom edge, as today.
     - The portrait top row is always reserved, so the gauge never changes size when the chip appears or goes away.
+    - **Amended** by `specs/trip-stats/spec.md` R12: the trip line sits under the gauge in portrait and right of the gauge in landscape; the chip keeps its place.
   - Look: a frosted-glass rounded rectangle, 18 pt radius, so wrapped text reads well (amended in build; was "capsule") (system material tinted with the theme's chip fill, with a 1 pt hairline that is brighter at the top). It holds a small accent status dot, the SF Symbol icon and the text.
   - The text wraps to as many lines as it needs and is never truncated. The chip never overlaps the face button.
 
@@ -211,7 +212,7 @@ Accessibility: R6, R14, R15, R16 and R18. Dynamic Type applies to chip, pill, hi
 Each of these can be a later intent:
 - Stitch extras:
   - GPS accuracy, lock percentage, latency and "Synced";
-  - trip distance, peak or top speed, lateral G, altitude;
+  - ~~trip distance~~ (now in `specs/trip-stats/spec.md`), peak or top speed, lateral G, altitude;
   - HUD mirror mode, volume slider, "Sport tune";
   - the AI co-pilot text.
 - The mood caption under the badge.

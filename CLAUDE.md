@@ -34,6 +34,7 @@ Single-screen speedometer: no tabs, no navigation, no networking (see `specs/spe
   - Logic lives in synchronous `handle(...)` methods; `run() async` only feeds streams into them.
   - `Features/Speedometer/Faces/` gauge faces: `GaugeFace` + `Theme` (hex palettes) + pure `GaugeGeometry`; one drawing view per face style (`MinimalRingFace`, `DialFace`, `SegmentBar`), laid out by `GaugeDisplay`.
   - `Features/Speedometer/Estimation/` pure speed estimation, no framework imports: `SpeedEstimator` (owned by `SpeedometerViewModel`, `@ObservationIgnored`), `GPSOnlyFilter`, `MotionClock`.
+  - `Features/Speedometer/Trip/` trip stats: `Trip` + pure `TripTracker`/`TripFormatter`/`TripLinePlacement` (owned by `SpeedometerViewModel`), `TripStore` (UserDefaults, totals only), views `TripLine` and `TripSheet`. No ViewModel of its own.
   - `Features/Speedometer/Mascot/` the speed-reactive face: `Mood` + pure `MoodResolver` (owned by `SpeedometerViewModel`), `MascotPlacement`, `MascotView`. No ViewModel of its own.
 - `XpeetTests/` XCTest unit tests, one file per ViewModel: `<Name>ViewModelTests.swift`; pure helpers may get their own file (e.g. `GaugeGeometryTests.swift`).
   - `XpeetTests/Accuracy/` drive replay and the accuracy report; real drives live in gitignored `build/drives/`, never in git.

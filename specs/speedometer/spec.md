@@ -5,7 +5,7 @@
 ## Requirements
 
 ### Screen and navigation
-- **R1** The app launches straight into one speed screen. There is no `TabView`, no navigation stack and no other screen. The Home and Settings features are removed. *(manual: launch the app; build: no `TabView` in `Xpeet/`)* **Amended** by `specs/gauge-themes/spec.md` R9–R10: one modal face-picker sheet is allowed.
+- **R1** The app launches straight into one speed screen. There is no `TabView`, no navigation stack and no other screen. The Home and Settings features are removed. *(manual: launch the app; build: no `TabView` in `Xpeet/`)* **Amended** by `specs/gauge-themes/spec.md` R9–R10: one modal face-picker sheet is allowed. **Amended** by `specs/trip-stats/spec.md`: a second modal sheet, the trip sheet, is allowed.
 - **R2** The screen always uses the dark appearance with a black background, whatever the system setting is. *(manual, preview)* **Superseded** by `specs/speedometer-gauge/spec.md` R4 (dark gradient background).
 - **R3** The app supports portrait, landscape left and landscape right on iPhone. In every orientation the speed number is fully visible and never truncated or clipped, up to 3-digit speeds (e.g. "199"). *(manual: rotate in the simulator; previews in both orientations)*
 
@@ -85,7 +85,7 @@ No network. `APIClient` and `Core/Networking/` are removed because nothing uses 
 
 ## Non-functional
 - **Privacy:**
-  - Location is used only in memory to compute the current speed. It is never stored, logged or sent anywhere. **Exception** (`specs/speed-accuracy/spec.md` R22): Debug builds launched with `-XpeetRecordDrives YES` record drives to the phone.
+  - Location is used only in memory to compute the current speed. It is never stored, logged or sent anywhere. **Exception** (`specs/speed-accuracy/spec.md` R22): Debug builds launched with `-XpeetRecordDrives YES` record drives to the phone. **Exception** (`specs/trip-stats/spec.md` R9): trip totals and times are stored; positions never are.
   - Add `INFOPLIST_KEY_NSLocationWhenInUseUsageDescription` in `project.yml` with this string: "Xpeet uses your location only to show your current speed. It never leaves your device."
   - No ATT, no analytics, no third-party code.
 - **Performance:**
@@ -97,7 +97,7 @@ No network. `APIClient` and `Core/Networking/` are removed because nothing uses 
 
 ## Out of scope
 - Background or locked-screen speed tracking, CarPlay, Live Activities and widgets.
-- ~~Arc gauge~~ (now in `specs/speedometer-gauge/spec.md`), ~~needle gauge~~ (now in `specs/gauge-themes/spec.md`), HUD mirror mode, trip statistics (max, average, distance, time).
+- ~~Arc gauge~~ (now in `specs/speedometer-gauge/spec.md`), ~~needle gauge~~ (now in `specs/gauge-themes/spec.md`), HUD mirror mode, ~~trip statistics~~ (now in `specs/trip-stats/spec.md`, except max speed, which stays out).
 - Speed-limit data, over-speed alerts, speed-based colours or sounds (the engine-start sound in `specs/engine-sound-clip/spec.md` is not speed-based: it only plays while stopped). **Exception** (`specs/speed-mascot/spec.md`): the mascot's expression follows speed; gauge colours still never do.
 - Privacy-policy link, App Store metadata, privacy nutrition label (not distributed).
 - Settings screen (except the face picker sheet in `specs/gauge-themes/spec.md`), app version display, onboarding screens.
