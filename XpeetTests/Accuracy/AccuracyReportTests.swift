@@ -80,7 +80,46 @@ final class AccuracyReportTests: XCTestCase {
         XCTAssertEqual(spread.p95, 95)
     }
 
+    // MARK: - trip-stats R18
+
+    func testTripDistanceMatchesPositionsOnStraightDrive() {
+        var events = northbound(Array(repeating: 25, count: 200))
+        // What the app showed at each fix: Live, with the GPS-only estimate behind the number.
+        events += (0..<200).map { index in
+            .shown(DriveShown(
+                time: start + TimeInterval(index) + 0.2, displayed: 90, unit: "kmh", state: "live", source: .gpsOnly,
+                gpsOnly: .init(metersPerSecond: 25, sigma: 0.3), fused: nil, inGap: false
+            ))
+        }
+        events.sort { lineTime($0) < lineTime($1) }
+        let report = AccuracyReport(drive: DriveFile(name: "north", events: events))
+
+        XCTAssertEqual(report.positionDistance, 25 * 199, accuracy: 1)
+        XCTAssertEqual(report.tripDistance, report.positionDistance, accuracy: report.positionDistance * 0.005)
+    }
+
+    private func lineTime(_ event: DriveEvent) -> Date {
+        switch event {
+        case .header(let header): header.startedAt
+        case .fix(_, let arrival), .unavailable(let arrival), .motion(_, let arrival): arrival
+        case .shown(let shown): shown.time
+        }
+    }
+
     // MARK: - On recorded drives (skipped until some are pulled into build/drives)
+
+    func testTripDistanceAgainstPositions() throws {
+        let drives = DriveFile.files(in: DriveFile.recordedDrivesDirectory)
+        try XCTSkipIf(drives.isEmpty, "No recorded drives in build/drives.")
+
+        for url in drives {
+            let report = AccuracyReport(drive: try DriveFile.load(url))
+            let positions = report.positionDistance
+            guard positions >= 5_000 else { continue }
+            // R18: within 2% on drives of at least 5 km.
+            XCTAssertEqual(report.tripDistance, positions, accuracy: positions * 0.02, url.lastPathComponent)
+        }
+    }
 
     func testReportOnRecordedDrives() throws {
         let drives = DriveFile.files(in: DriveFile.recordedDrivesDirectory)

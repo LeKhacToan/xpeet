@@ -224,6 +224,50 @@ struct AccuracyReport {
         )
     }
 
+    // MARK: trip-stats R18
+
+    /// The trip distance the app would have shown: the recorded `shown` lines fed through `TripTracker`, exactly
+    /// as the ViewModel feeds it (Live: the estimate behind the number; Acquiring; Unavailable).
+    var tripDistance: Double {
+        var tracker = TripTracker()
+        for line in drive.shown {
+            let reading: TripReading
+            switch line.state {
+            case "live", "liveWeak":
+                let estimate = line.source == .fused ? line.fused : line.gpsOnly
+                reading = .live(metersPerSecond: estimate?.metersPerSecond ?? 0)
+            case "acquiring":
+                reading = .acquiring
+            default:
+                reading = .notMeasured
+            }
+            tracker.update(at: line.time, reading: reading)
+        }
+        return tracker.current.distance + tracker.history.reduce(0) { $0 + $1.distance }
+    }
+
+    /// Distance along the road from positions: straight lines between fixes about `chordInterval` apart, restarting
+    /// after any silence longer than the stale interval, so gaps are left out as the trip leaves them out.
+    var positionDistance: Double {
+        var total = 0.0
+        var anchor: SpeedSample?
+        var last: SpeedSample?
+        for (sample, _) in drive.fixes where sample.horizontalAccuracy >= 0 && !sample.isStationary {
+            if let previous = last, sample.timestamp.timeIntervalSince(previous.timestamp) > TripTracker.maxInterval {
+                if let start = anchor { total += SpeedEstimator.distance(from: start, to: previous) }
+                anchor = sample
+            } else if let start = anchor, sample.timestamp.timeIntervalSince(start.timestamp) >= Self.chordInterval {
+                total += SpeedEstimator.distance(from: start, to: sample)
+                anchor = sample
+            } else if anchor == nil {
+                anchor = sample
+            }
+            last = sample
+        }
+        if let start = anchor, let end = last, end != start { total += SpeedEstimator.distance(from: start, to: end) }
+        return total
+    }
+
     // MARK: Text
 
     var text: String {
@@ -258,6 +302,12 @@ struct AccuracyReport {
                          + "accuracy after: \(String(format: "%.0f", gap.accuracyAfter)) m")
         }
         let stretches = steadyStretches
+        let positions = positionDistance
+        if positions > 0 {
+            let trip = tripDistance
+            lines.append(String(format: "- trip distance (trip-stats R18): %.2f km, from positions %.2f km (Δ %+.1f%%)",
+                                trip / 1_000, positions / 1_000, (trip - positions) / positions * 100))
+        }
         lines.append("- steady stretches ≥ 3 km (R29): \(stretches.count)")
         for stretch in stretches {
             var line = "  - \(String(format: "%.1f", stretch.distance / 1000)) km: distance/time \(kmh(stretch.distanceSpeed)), "
