@@ -244,6 +244,7 @@ final class SpeedometerViewModel {
         }
         // After a long break this starts a new trip (trip-stats R6).
         tripTracker.beginRun(at: now())
+        saveTrip()
         refreshTrip()
 
         let authorizations = provider.authorizationUpdates()

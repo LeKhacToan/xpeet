@@ -74,7 +74,7 @@ Like `Mascot/`: no ViewModel of its own; `SpeedometerViewModel` owns the logic. 
   - **Landscape:** the gauge's `GeometryReader` gets a second overlay at `TripLinePlacement.frame(in:)`, next to the existing `mascot(in:)`. The status chip stays alone in the bottom inset.
   - **Sheet:** `.sheet(isPresented: $showsTrip) { TripSheet(display: viewModel.trip, onNewTrip: viewModel.startNewTrip) }`.
   - **Previews:** existing previews gain a running trip; new previews for landscape with a trip and for the trip sheet.
-- **`project.yml`:** no change (no new key or permission). Run `xcodegen generate` for the new files.
+- **`project.yml`:** the location usage string gains "and trip totals" (owner-approved after review). No new key or permission. Run `xcodegen generate` for the new files.
 - **`CLAUDE.md` Architecture:** one line under Features: `Features/Speedometer/Trip/` holds the trip stats. It lists `Trip`, the pure `TripTracker`/`TripFormatter`/`TripLinePlacement` (owned by `SpeedometerViewModel`), `TripStore`, and `TripLine`/`TripSheet`, and has no ViewModel (R20).
 - **Supersede notes:**
   - `specs/speedometer/spec.md`: R1, Out of scope "trip statistics", the privacy line.
@@ -123,6 +123,8 @@ Each step: `xcodegen generate` when files are added, then `scripts/verify.sh` (B
   - **Approximate note:** it now reads "Approximate · GPS was lost for part of this trip".
   - **Total time:** while the reading is not Live, `tick()` still refreshes the trip, so total time keeps counting with the sheet open.
   - **R18 measurement:** `AccuracyReport.tripAndPositionDistance` compares the trip and the positions over the same gap-free stretches, so the 5 s held speed at a tunnel mouth no longer biases it.
+  - **Location usage string** (owner-approved): it now mentions trip totals, in `project.yml`.
+  - **Save on a new trip:** `run()` saves right after `beginRun`, so a trip archived by the 30-minute rule is stored at once (verifier).
   - **Shared thresholds:** `TripTrackerTests.testThresholdsMatchTheSpeedometer` pins `movingThreshold` and `maxInterval` to the ViewModel's zero clamp and stale interval.
 
 ## Risks

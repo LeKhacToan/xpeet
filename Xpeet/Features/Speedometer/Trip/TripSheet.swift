@@ -222,7 +222,8 @@ private extension TripDisplay {
         let start = now.addingTimeInterval(TimeInterval(-minutes * 60))
         if minutes > 0 {
             for second in stride(from: 0, through: minutes * 60, by: 1) {
-                tracker.update(at: start.addingTimeInterval(TimeInterval(second)), reading: .live(metersPerSecond: second % 300 < 40 ? 0 : 12))
+                let speed: Double = second % 300 < 40 ? 0 : 12
+                tracker.update(at: start.addingTimeInterval(TimeInterval(second)), reading: .live(metersPerSecond: speed))
             }
         }
         let formatter = TripFormatter(locale: Locale(identifier: "en_GB"), calendar: .current)

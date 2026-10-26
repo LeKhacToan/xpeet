@@ -86,7 +86,7 @@ No network. `APIClient` and `Core/Networking/` are removed because nothing uses 
 ## Non-functional
 - **Privacy:**
   - Location is used only in memory to compute the current speed. It is never stored, logged or sent anywhere. **Exception** (`specs/speed-accuracy/spec.md` R22): Debug builds launched with `-XpeetRecordDrives YES` record drives to the phone. **Exception** (`specs/trip-stats/spec.md` R9): trip totals and times are stored; positions never are.
-  - Add `INFOPLIST_KEY_NSLocationWhenInUseUsageDescription` in `project.yml` with this string: "Xpeet uses your location only to show your current speed. It never leaves your device."
+  - Add `INFOPLIST_KEY_NSLocationWhenInUseUsageDescription` in `project.yml` with this string: "Xpeet uses your location only to show your current speed. It never leaves your device." **Amended** by `specs/trip-stats/spec.md`: "…to show your current speed and trip totals…".
   - No ATT, no analytics, no third-party code.
 - **Performance:**
   - Show the first Live value within one sample of the first valid fix. There is no extra warm-up delay beyond R9's filter.

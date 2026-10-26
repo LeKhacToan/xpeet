@@ -182,7 +182,7 @@ There is no loading state: storage is read synchronously at start.
 - Mascot reactions to trips (intent Decisions).
 
 ## Flagged concerns
-- **Privacy, new stored data (owner):** trip start/end times, distances and durations are now stored on the device (R9), where `specs/speedometer/spec.md` said location is never stored. No positions are stored, but times and distances can still hint at routines (e.g. a daily commute length). They stay on the device and in its normal backups. No new permission or Info.plist string.
+- **Privacy, new stored data (owner):** trip start/end times, distances and durations are now stored on the device (R9), where `specs/speedometer/spec.md` said location is never stored. No positions are stored, but times and distances can still hint at routines (e.g. a daily commute length). They stay on the device and in its normal backups. No new permission. The owner approved rewording the existing location usage string to "Xpeet uses your location only to show your current speed and trip totals. It never leaves your device." (2026-10-27, after review).
 - **Driving safety (App Review 1.4.4/1.4.5, not binding):** the line is read-only; the sheet is optional and opening it while driving is possible, as with the face picker. No speed-based reward, top speed or alert (R16). Average speed is plain information.
 - **Spec amendments:** speedometer R1 (second sheet) and its privacy wording; ui-redesign R7 layout. Both need owner sign-off.
 - **CLAUDE.md and evals:** R20 changes the Architecture section → owner approval plus an eval re-run.
