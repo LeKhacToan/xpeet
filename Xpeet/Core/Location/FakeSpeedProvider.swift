@@ -8,7 +8,7 @@ final class FakeSpeedProvider: SpeedProvider {
     private(set) var requestAuthorizationCount = 0
     private let initialSamples: [SpeedSample]
     private var authorizationContinuations: [UUID: AsyncStream<LocationAuthorization>.Continuation] = [:]
-    private var sampleContinuations: [UUID: AsyncStream<SpeedSample>.Continuation] = [:]
+    private var sampleContinuations: [UUID: AsyncStream<LocationUpdate>.Continuation] = [:]
 
     var speedSubscriberCount: Int { sampleContinuations.count }
 
@@ -28,14 +28,14 @@ final class FakeSpeedProvider: SpeedProvider {
         return stream
     }
 
-    func speedUpdates() -> AsyncStream<SpeedSample> {
-        let (stream, continuation) = AsyncStream.makeStream(of: SpeedSample.self)
+    func speedUpdates() -> AsyncStream<LocationUpdate> {
+        let (stream, continuation) = AsyncStream.makeStream(of: LocationUpdate.self)
         let id = UUID()
         sampleContinuations[id] = continuation
         continuation.onTermination = { [weak self] _ in
             Task { @MainActor in self?.sampleContinuations[id] = nil }
         }
-        initialSamples.forEach { continuation.yield($0) }
+        initialSamples.forEach { continuation.yield(.fix($0)) }
         return stream
     }
 
@@ -49,7 +49,11 @@ final class FakeSpeedProvider: SpeedProvider {
     }
 
     func send(_ sample: SpeedSample) {
-        sampleContinuations.values.forEach { $0.yield(sample) }
+        sampleContinuations.values.forEach { $0.yield(.fix(sample)) }
+    }
+
+    func sendUnavailable() {
+        sampleContinuations.values.forEach { $0.yield(.unavailable) }
     }
 }
 #endif

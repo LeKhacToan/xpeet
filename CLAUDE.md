@@ -27,12 +27,16 @@ Single-screen speedometer: no tabs, no navigation, no networking (see `specs/spe
   - `CoreLocationSpeedProvider` (production).
   - `FakeSpeedProvider` (`#if DEBUG`, shared by previews and tests).
 - `Xpeet/Core/Audio/` the only code that imports AVFoundation/SoundAnalysis: `SoundTriggerDetector` + `SoundPlayer` protocols, production adapters, fakes (`#if DEBUG`).
+- `Xpeet/Core/Motion/` the only code that imports CoreMotion: `MotionProvider` + `MotionSample`, `CoreMotionProvider` (50 Hz, batched), `FakeMotionProvider` (`#if DEBUG`).
+- `Xpeet/Core/Recording/` drive recording (specs/speed-accuracy): `DriveEvent` in every build; `DriveRecorder` is `#if DEBUG` and off unless launched with `-XpeetRecordDrives YES`.
 - `Xpeet/Features/<Name>/` one folder per feature: `<Name>View.swift` + `<Name>ViewModel.swift`.
   - The ViewModel is `@Observable @MainActor`. Dependencies (provider, `UserDefaults`, `Locale`, clock) are injected through `init` with production defaults.
   - Logic lives in synchronous `handle(...)` methods; `run() async` only feeds streams into them.
   - `Features/Speedometer/Faces/` gauge faces: `GaugeFace` + `Theme` (hex palettes) + pure `GaugeGeometry`; one drawing view per face style (`MinimalRingFace`, `DialFace`, `SegmentBar`), laid out by `GaugeDisplay`.
+  - `Features/Speedometer/Estimation/` pure speed estimation, no framework imports: `SpeedEstimator` (owned by `SpeedometerViewModel`, `@ObservationIgnored`), `GPSOnlyFilter`, `MotionClock`.
   - `Features/Speedometer/Mascot/` the speed-reactive face: `Mood` + pure `MoodResolver` (owned by `SpeedometerViewModel`), `MascotPlacement`, `MascotView`. No ViewModel of its own.
 - `XpeetTests/` XCTest unit tests, one file per ViewModel: `<Name>ViewModelTests.swift`; pure helpers may get their own file (e.g. `GaugeGeometryTests.swift`).
+  - `XpeetTests/Accuracy/` drive replay and the accuracy report; real drives live in gitignored `build/drives/`, never in git.
 
 ## Conventions
 

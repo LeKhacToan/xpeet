@@ -3,36 +3,40 @@ import XCTest
 
 @MainActor
 final class SpeedometerViewModelTests: XCTestCase {
-    private final class TestClock {
+    final class TestClock {
         var now = Date(timeIntervalSince1970: 1_000)
         func advance(by seconds: TimeInterval) { now += seconds }
     }
 
-    private final class IdleTimerRecorder {
+    final class IdleTimerRecorder {
         var calls: [Bool] = []
     }
 
-    private let metric = Locale(identifier: "fr_FR")
-    private let unitedStates = Locale(identifier: "en_US")
+    let metric = Locale(identifier: "fr_FR")
+    let unitedStates = Locale(identifier: "en_US")
 
-    private func makeDefaults() -> UserDefaults {
+    func makeDefaults() -> UserDefaults {
         let name = "SpeedometerViewModelTests-\(UUID().uuidString)"
         let defaults = UserDefaults(suiteName: name)!
         defaults.removePersistentDomain(forName: name)
         return defaults
     }
 
-    private func makeViewModel(
+    func makeViewModel(
         provider: FakeSpeedProvider? = nil,
         defaults: UserDefaults? = nil,
         locale: Locale? = nil,
         clock: TestClock = TestClock(),
         idleTimer: IdleTimerRecorder = IdleTimerRecorder(),
-        detector: FakeSoundTriggerDetector? = nil
+        detector: FakeSoundTriggerDetector? = nil,
+        motion: FakeMotionProvider? = nil,
+        recorder: DriveLogging? = nil,
+        configuration: SpeedEstimator.Configuration = .init()
     ) -> SpeedometerViewModel {
-        // Always fakes: tests never touch the real microphone.
+        // Always fakes: tests never touch the real microphone or motion sensors.
         SpeedometerViewModel(
             provider: provider ?? FakeSpeedProvider(),
+            motionProvider: motion ?? FakeMotionProvider(),
             defaults: defaults ?? makeDefaults(),
             locale: locale ?? metric,
             now: { clock.now },
@@ -41,11 +45,13 @@ final class SpeedometerViewModelTests: XCTestCase {
                 detector: detector ?? FakeSoundTriggerDetector(),
                 player: FakeSoundPlayer(),
                 now: { clock.now }
-            )
+            ),
+            estimatorConfiguration: configuration,
+            makeRecorder: { recorder }
         )
     }
 
-    private func sample(
+    func sample(
         kmh: Double,
         accuracy: Double = 0.5,
         stationary: Bool = false,
@@ -54,7 +60,7 @@ final class SpeedometerViewModelTests: XCTestCase {
         SpeedSample(metersPerSecond: kmh / 3.6, accuracy: accuracy, isStationary: stationary, timestamp: clock.now)
     }
 
-    private func waitUntil(
+    func waitUntil(
         timeout: TimeInterval = 2,
         file: StaticString = #filePath,
         line: UInt = #line,
@@ -234,53 +240,7 @@ final class SpeedometerViewModelTests: XCTestCase {
         XCTAssertEqual(viewModel.displayedSpeed, 0)
     }
 
-    // MARK: - R9, R10, R11
-
-    func testSmoothingMatchesExponentialMovingAverage() {
-        let clock = TestClock()
-        let viewModel = makeViewModel(clock: clock)
-        viewModel.handle(authorization: .authorized)
-        XCTAssertEqual(SpeedometerViewModel.smoothingFactor, 0.6)
-
-        // EMA with α = 0.6: 10 -> 10 + 0.6 * (20 - 10) = 16 -> 16 + 0.6 * (30 - 16) = 24.4
-        var displayed: [String] = []
-        for kmh in [10.0, 20, 30] {
-            viewModel.handle(sample: sample(kmh: kmh, at: clock))
-            displayed.append(viewModel.displayText)
-        }
-
-        XCTAssertEqual(displayed, ["10", "16", "24"])
-    }
-
-    func testStepUpIsWithinFivePercentByFourthSample() throws {
-        let clock = TestClock()
-        let viewModel = makeViewModel(clock: clock)
-        viewModel.handle(authorization: .authorized)
-        viewModel.handle(sample: sample(kmh: 0, at: clock))
-
-        for _ in 1...4 {
-            clock.advance(by: 1)
-            viewModel.handle(sample: sample(kmh: 60, at: clock))
-        }
-
-        let displayed = try XCTUnwrap(viewModel.displayedSpeed)
-        XCTAssertLessThanOrEqual(abs(displayed - 60), 3)
-    }
-
-    func testHardBrakeIsWithinFivePercentByFourthSample() throws {
-        let clock = TestClock()
-        let viewModel = makeViewModel(clock: clock)
-        viewModel.handle(authorization: .authorized)
-        viewModel.handle(sample: sample(kmh: 60, at: clock))
-
-        for _ in 1...4 {
-            clock.advance(by: 1)
-            viewModel.handle(sample: sample(kmh: 0, at: clock))
-        }
-
-        let displayed = try XCTUnwrap(viewModel.displayedSpeed)
-        XCTAssertLessThanOrEqual(displayed, 3)
-    }
+    // MARK: - R11 (speed-accuracy R19)
 
     func testFilterResetsAfterAcquiring() {
         let clock = TestClock()
@@ -332,9 +292,9 @@ final class SpeedometerViewModelTests: XCTestCase {
         XCTAssertEqual(viewModel.unitText, "mph")
         XCTAssertEqual(viewModel.displayText, "62") // 100 km/h = 62.1 mph
 
-        // Filter keeps its history: 100 + 0.6 * (50 - 100) = 70 km/h = 43.5 mph
-        viewModel.handle(sample: sample(kmh: 50, at: clock))
-        XCTAssertEqual(viewModel.displayText, "43")
+        // Filter keeps its history: equal weights at one instant give 95 km/h = 59.0 mph (a reset would show 56).
+        viewModel.handle(sample: sample(kmh: 90, at: clock))
+        XCTAssertEqual(viewModel.displayText, "59")
     }
 
     func testUnitPersistsAcrossInstances() {
@@ -426,20 +386,6 @@ final class SpeedometerViewModelTests: XCTestCase {
     }
 
     // MARK: - Weak signal state
-
-    func testWeakSignalWhenAccuracyAboveTwoMetersPerSecond() {
-        let clock = TestClock()
-        let viewModel = makeViewModel(clock: clock)
-        viewModel.handle(authorization: .authorized)
-
-        viewModel.handle(sample: sample(kmh: 50, accuracy: 2.5, at: clock))
-        XCTAssertEqual(viewModel.state, .live(weakSignal: true))
-        XCTAssertEqual(viewModel.statusText, "Weak GPS signal")
-
-        viewModel.handle(sample: sample(kmh: 50, accuracy: 1.5, at: clock))
-        XCTAssertEqual(viewModel.state, .live(weakSignal: false))
-        XCTAssertNil(viewModel.statusText)
-    }
 
     // MARK: - R21
 
@@ -585,9 +531,9 @@ final class SpeedometerViewModelTests: XCTestCase {
         viewModel.handle(sample: sample(kmh: 100, at: clock))
 
         viewModel.select(.analogSport)
-        // 100 + 0.6 * (50 - 100) = 70: the EMA kept its history.
-        viewModel.handle(sample: sample(kmh: 50, at: clock))
-        XCTAssertEqual(viewModel.displayText, "70")
+        // Equal weights at one instant give 95 (a reset would show 90): the filter kept its history.
+        viewModel.handle(sample: sample(kmh: 90, at: clock))
+        XCTAssertEqual(viewModel.displayText, "95")
     }
 
     // MARK: - speed-mascot R2, R5
@@ -662,19 +608,20 @@ final class SpeedometerViewModelTests: XCTestCase {
         XCTAssertEqual(viewModel.mood, .happy)
     }
 
-    func testMoodUsesFilteredSpeed() {
+    func testMoodUsesGPSOnlyEstimate() {
         let clock = TestClock()
         let viewModel = makeViewModel(clock: clock)
         viewModel.handle(authorization: .authorized)
-        viewModel.handle(sample: sample(kmh: 0, at: clock))
-        // Raw 60 km/h, but the EMA shows 36: still a happy candidate, needs a second sample.
-        clock.advance(by: 1)
-        viewModel.handle(sample: sample(kmh: 60, at: clock))
-        XCTAssertEqual(viewModel.displayText, "36")
+        viewModel.handle(sample: sample(kmh: 20, at: clock))
+
+        // Two raw 40 km/h fixes would make it happy, but they are vague (±10 m/s): the estimate stays below 30.
+        for _ in 1...2 {
+            clock.advance(by: 1)
+            viewModel.handle(sample: sample(kmh: 40, accuracy: 10, at: clock))
+        }
+
+        XCTAssertLessThan(viewModel.displayedSpeed ?? 0, 30)
         XCTAssertEqual(viewModel.mood, .calm)
-        clock.advance(by: 1)
-        viewModel.handle(sample: sample(kmh: 60, at: clock))
-        XCTAssertEqual(viewModel.mood, .happy)
     }
 
     func testStationaryTickBecomesSleepy() {
@@ -697,7 +644,7 @@ final class SpeedometerViewModelTests: XCTestCase {
         viewModel.handle(sample: sample(kmh: 60, at: clock))
         clock.advance(by: 1)
         viewModel.handle(sample: sample(kmh: 60, at: clock))
-        // Filtered 60 -> 36 km/h in 1 s: 6.7 m/s².
+        // Filtered 60 -> about 22 km/h in 1 s: over 10 m/s².
         clock.advance(by: 1)
         viewModel.handle(sample: sample(kmh: 20, at: clock))
         XCTAssertEqual(viewModel.mood, .startled)

@@ -50,7 +50,7 @@ Every other requirement there stays in force, and those are cited below as "spee
 - **R9** "Open Settings" uses the brand colour with dark label text. *(manual)*
 
 ### Motion
-- **R10** By default the number keeps its digit-by-digit numeric transition (speedometer R12), and the progress arc animates to its new length with the same short smooth animation (about 0.6 s). Nothing animates between samples. *(manual: Freeway Drive)* **Exception** (`specs/speed-mascot/spec.md` R9): the mascot's periodic blink.
+- **R10** By default the number keeps its digit-by-digit numeric transition (speedometer R12), and the progress arc animates to its new length with the same short smooth animation (about 0.6 s). Nothing animates between samples. *(manual: Freeway Drive)* **Exception** (`specs/speed-mascot/spec.md` R9): the mascot's periodic blink. **Amended** by `specs/speed-accuracy/spec.md` R16: the animation is linear, at most 0.1 s.
 - **R11** With Reduce Motion on, the number and the arc both change instantly: no numeric transition and no arc animation. *(manual: Settings > Accessibility > Motion > Reduce Motion)*
 
 ### Kept from the first spec

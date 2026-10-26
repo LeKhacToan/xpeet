@@ -10,17 +10,17 @@
 - **R3** The app supports portrait, landscape left and landscape right on iPhone. In every orientation the speed number is fully visible and never truncated or clipped, up to 3-digit speeds (e.g. "199"). *(manual: rotate in the simulator; previews in both orientations)*
 
 ### Speed reading
-- **R4** Speed comes from device location updates configured for automotive navigation, at the highest rate the system provides. The ViewModel reads speed only through a `SpeedProvider` abstraction, never CoreLocation types directly. *(unit: ViewModel tests use a fake provider)*
-- **R5** A sample whose speed or speed accuracy is negative counts as invalid. Invalid samples never change the displayed number. *(unit)*
-- **R6** If there is no valid sample yet, or the last valid sample is more than 5 seconds old, the screen shows "--" and the "Searching for GPS…" status (state **Acquiring**). Exception: if the last valid sample was stationary, the screen keeps showing 0, because iOS pauses updates while the device is not moving. A moving sample that is already more than 5 seconds old when it arrives (e.g. a cached fix at launch) is ignored. *(unit, with an injected clock)*
+- **R4** Speed comes from device location updates configured for automotive navigation, at the highest rate the system provides. The ViewModel reads speed only through a `SpeedProvider` abstraction, never CoreLocation types directly. *(unit: ViewModel tests use a fake provider)* **Amended** by `specs/speed-accuracy/spec.md` R1–R2: fixes carry position and course, and device motion is read through `MotionProvider`.
+- **R5** A sample whose speed or speed accuracy is negative counts as invalid. Invalid samples never change the displayed number. *(unit)* **Amended** by `specs/speed-accuracy/spec.md` R13: a fix with no Doppler speed may use position-derived speed (off by default).
+- **R6** If there is no valid sample yet, or the last valid sample is more than 5 seconds old, the screen shows "--" and the "Searching for GPS…" status (state **Acquiring**). Exception: if the last valid sample was stationary, the screen keeps showing 0, because iOS pauses updates while the device is not moving. A moving sample that is already more than 5 seconds old when it arrives (e.g. a cached fix at launch) is ignored. *(unit, with an injected clock)* **Amended** by `specs/speed-accuracy/spec.md` R17–R18: a gap starts after 1.5 s without a fix and is flagged as weak signal; the 5 s limit stays for the GPS-only reading.
 - **R7** If the provider reports the device as stationary, or the filtered speed is below 1 km/h (0.28 m/s), the displayed speed is exactly 0. *(unit)*
-- **R8** The displayed value is the filtered speed rounded to the nearest whole unit (km/h or mph). It is never negative. *(unit)*
+- **R8** The displayed value is the filtered speed rounded to the nearest whole unit (km/h or mph). It is never negative. *(unit)* **Amended** by `specs/speed-accuracy/spec.md` R15: 0.6-unit hysteresis.
 
 ### Smoothness
-- **R9** Each new valid sample passes through a jitter filter before display: an exponential moving average with smoothing factor α, where α is a named constant (initial value 0.6). *(unit: for a known input sequence, the output equals the hand-computed EMA)*
-- **R10** The filter must not lag real driving. After a step change in true speed (e.g. 0 → 60 km/h, or 60 → 0 for hard braking), the displayed value is within 5% of the step size (e.g. within 3 km/h for a 60 km/h step) of the new speed no later than the 4th valid sample after the change. At ~1 Hz that is about 4 seconds. With α = 0.6 the remaining error after 4 samples is 0.4⁴ ≈ 2.6%. *(unit)*
-- **R11** The filter resets when updates resume after an Acquiring period, so a stale value is never blended into a new fix. *(unit)*
-- **R12** When the displayed number changes, it animates digit by digit (numeric content transition) instead of jumping. Digits use a monospaced form so the layout does not shift as the value changes. *(manual: simulator Freeway Drive)*
+- **R9** Each new valid sample passes through a jitter filter before display: an exponential moving average with smoothing factor α, where α is a named constant (initial value 0.6). *(unit: for a known input sequence, the output equals the hand-computed EMA)* **Superseded** by `specs/speed-accuracy/spec.md` R4–R5 (Kalman filter weighted by speed accuracy).
+- **R10** The filter must not lag real driving. After a step change in true speed (e.g. 0 → 60 km/h, or 60 → 0 for hard braking), the displayed value is within 5% of the step size (e.g. within 3 km/h for a 60 km/h step) of the new speed no later than the 4th valid sample after the change. At ~1 Hz that is about 4 seconds. With α = 0.6 the remaining error after 4 samples is 0.4⁴ ≈ 2.6%. *(unit)* **Superseded** by `specs/speed-accuracy/spec.md` R5, R27.
+- **R11** The filter resets when updates resume after an Acquiring period, so a stale value is never blended into a new fix. *(unit)* **Superseded** by `specs/speed-accuracy/spec.md` R19.
+- **R12** When the displayed number changes, it animates digit by digit (numeric content transition) instead of jumping. Digits use a monospaced form so the layout does not shift as the value changes. *(manual: simulator Freeway Drive)* **Amended** by `specs/speed-accuracy/spec.md` R16: at most 0.1 s, linear.
 
 ### Units
 - **R13** Supported units are km/h and mph. The default on first launch is mph if the device locale's measurement system is US or UK, and km/h otherwise. *(unit: injected `Locale`)*
@@ -62,7 +62,7 @@ In landscape the number and unit stay centred. The number scales to the screen h
 |---|---|---|---|
 | **Acquiring** (loading): no fix yet, fix older than 5 s, or permission just granted | `--` | "Searching for GPS…" | none |
 | **Live** (success) | filtered speed, e.g. `54` | hidden | none |
-| **Live, weak signal** (degraded): valid sample but speed accuracy > 2 m/s (~7 km/h) | filtered speed | "Weak GPS signal" | none |
+| **Live, weak signal** (degraded): valid sample but speed accuracy > 2 m/s (~7 km/h). **Superseded** by `specs/speed-accuracy/spec.md` R20: estimate σ > 0.5 m/s, or a gap | filtered speed | "Weak GPS signal" | none |
 | **Unavailable** (error): denied, restricted or Location Services off | `--` | reason text (R17) | "Open Settings" button when denied |
 
 There is no empty state. "No fix yet" is the Acquiring state.
@@ -85,12 +85,12 @@ No network. `APIClient` and `Core/Networking/` are removed because nothing uses 
 
 ## Non-functional
 - **Privacy:**
-  - Location is used only in memory to compute the current speed. It is never stored, logged or sent anywhere.
+  - Location is used only in memory to compute the current speed. It is never stored, logged or sent anywhere. **Exception** (`specs/speed-accuracy/spec.md` R22): Debug builds launched with `-XpeetRecordDrives YES` record drives to the phone.
   - Add `INFOPLIST_KEY_NSLocationWhenInUseUsageDescription` in `project.yml` with this string: "Xpeet uses your location only to show your current speed. It never leaves your device."
   - No ATT, no analytics, no third-party code.
 - **Performance:**
   - Show the first Live value within one sample of the first valid fix. There is no extra warm-up delay beyond R9's filter.
-  - The view does nothing per frame. It redraws only on a new sample. **Exception** (`specs/speed-mascot/spec.md` R9): the mascot blinks every 3–6 s.
+  - The view does nothing per frame. It redraws only on a new sample. **Exception** (`specs/speed-mascot/spec.md` R9): the mascot blinks every 3–6 s. **Exception** (`specs/speed-accuracy/spec.md` R14): with fusion on, the shown value refreshes about 10 times a second.
   - Battery cost is that of foreground GPS. Updates stop in the background (R20).
 - **Localization:** English UI strings for v1, written in a String Catalog-friendly form (`String(localized:)`/`Text("…")`). Number formatting uses the current locale.
 - **Orientation:** `project.yml` adds `UIInterfaceOrientationLandscapeLeft` and `UIInterfaceOrientationLandscapeRight` to the iPhone orientations.

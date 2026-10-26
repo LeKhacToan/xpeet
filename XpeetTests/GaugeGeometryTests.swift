@@ -26,6 +26,7 @@ final class GaugeGeometryTests: XCTestCase {
     func testNeedleAngleWithoutReadingIsZero() {
         let viewModel = SpeedometerViewModel(
             provider: FakeSpeedProvider(),
+            motionProvider: FakeMotionProvider(),
             defaults: UserDefaults(suiteName: "GaugeGeometryTests-\(UUID().uuidString)") ?? .standard,
             locale: Locale(identifier: "fr_FR"),
             setIdleTimerDisabled: { _ in },
@@ -73,6 +74,7 @@ final class GaugeGeometryTests: XCTestCase {
     func testLitSegmentsNoReading() {
         let viewModel = SpeedometerViewModel(
             provider: FakeSpeedProvider(),
+            motionProvider: FakeMotionProvider(),
             defaults: UserDefaults(suiteName: "GaugeGeometryTests-\(UUID().uuidString)") ?? .standard,
             locale: Locale(identifier: "fr_FR"),
             setIdleTimerDisabled: { _ in },

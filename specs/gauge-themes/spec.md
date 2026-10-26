@@ -115,7 +115,7 @@ Every other requirement in both specs stays in force. They are cited below as "s
 ### Kept on every face
 - **R14** "199" is never truncated or clipped, on every face, in portrait, landscape left and landscape right (speedometer R3, gauge R12). The number may only shrink to fit. *(manual; a landscape preview per face)*
 
-- **R15** Motion is the same on every face:
+- **R15** Motion is the same on every face (**amended** by `specs/speed-accuracy/spec.md` R16: the animation is linear, at most 0.1 s):
   - By default, the number keeps its numeric transition, and the arc, the needle or the lit segments animate to a new sample with the same smooth animation (about 0.6 s).
   - With Reduce Motion on, everything changes instantly (gauge R10, R11).
   - Nothing animates between samples, except the mascot's periodic blink (`specs/speed-mascot/spec.md` R9).
