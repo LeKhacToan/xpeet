@@ -31,7 +31,7 @@ Changes to earlier specs (each gets a note when this ships):
 ### Measuring
 - **R1** **What is measured.** While the speed screen is running (`run()`), each time the shown reading updates — every accepted fix and every tick — the time since the previous update is added to the current trip:
   - **Moving:** the shown estimate is at or above the zero clamp (1 km/h, speedometer R7). The time is added to *moving time*, and distance grows by the trapezoid of the shown estimate (in m/s) over that time.
-  - **Stopped:** the reading shows 0 (below the clamp, or the stationary flag). The time is added to *stopped time*; distance does not grow.
+  - **Stopped:** the reading shows 0 (below the clamp, or the stationary flag). The time is added to *stopped time*. Distance grows only by the trapezoid down to 0 when the car was moving at the previous update (braking to a stop still covers ground). *(Clarified in build.)*
   - **Weak signal / gap:** while the state is still Live (with "Weak GPS signal"), the shown estimate counts exactly as above (intent Decisions).
   - **Not measured:** Acquiring, Unavailable, and any time the screen is not running (app in background, phone locked). Nothing is added.
 
