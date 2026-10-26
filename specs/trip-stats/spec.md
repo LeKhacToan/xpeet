@@ -1,6 +1,6 @@
 # Spec: Trip statistics
 
-**Intent:** intent/2026-10-26-trip-stats.md  **Status:** draft
+**Intent:** intent/2026-10-26-trip-stats.md  **Status:** approved
 
 This spec adds a running trip — distance, moving and stopped time, average moving speed — to the speed screen, a trip sheet with details and the last 10 trips, and local storage of trip totals. It builds on the speed estimate from `specs/speed-accuracy/spec.md`; no new sensor, permission or network use.
 
