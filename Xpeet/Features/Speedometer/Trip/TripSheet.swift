@@ -68,18 +68,22 @@ struct TripSheet: View {
                 .monospacedDigit()
                 .accessibilityElement(children: .combine)
                 .accessibilityLabel("Distance")
-                .accessibilityValue("\(display.distanceValue) \(display.distanceUnit)")
+                .accessibilityValue(display.distanceSpoken)
             }
             if display.isApproximate {
-                Label("GPS was lost for part of this trip", systemImage: "info.circle")
-                    .font(.footnote)
-                    .foregroundStyle(.secondary)
+                Label {
+                    Text("Approximate").fontWeight(.semibold) + Text(" · ") + Text("GPS was lost for part of this trip")
+                } icon: {
+                    Image(systemName: "info.circle")
+                }
+                .font(.footnote)
+                .foregroundStyle(.secondary)
             }
             LazyVGrid(columns: columns, spacing: 10) {
-                metric("Moving time", display.movingTime)
-                metric("Stopped time", display.stoppedTime)
-                metric("Total time", display.totalTime)
-                metric("Average speed", display.averageSpeed)
+                metric("Moving time", display.movingTime, spoken: display.movingTimeSpoken)
+                metric("Stopped time", display.stoppedTime, spoken: display.stoppedTimeSpoken)
+                metric("Total time", display.totalTime, spoken: display.totalTimeSpoken)
+                metric("Average speed", display.averageSpeed, spoken: display.averageSpeedSpoken)
             }
         }
         .padding(16)
@@ -92,7 +96,7 @@ struct TripSheet: View {
 
     private var card: RoundedRectangle { RoundedRectangle(cornerRadius: 16, style: .continuous) }
 
-    private func metric(_ label: LocalizedStringKey, _ value: String) -> some View {
+    private func metric(_ label: LocalizedStringKey, _ value: String, spoken: String) -> some View {
         VStack(alignment: .leading, spacing: 6) {
             Text(label)
                 .font(.caption2.weight(.semibold))
@@ -105,7 +109,9 @@ struct TripSheet: View {
         }
         .padding(12)
         .background(.black.opacity(0.18), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
-        .accessibilityElement(children: .combine)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(Text(label))
+        .accessibilityValue(spoken)
     }
 
     private var newTripButton: some View {
@@ -149,34 +155,50 @@ struct TripSheet: View {
         }
     }
 
+    /// Values on one line beside the day when they fit; otherwise stacked under it, wrapping between words
+    /// rather than truncating (R14, R17).
     private func historyRow(_ row: TripDisplay.Row) -> some View {
-        HStack(alignment: .center, spacing: 12) {
-            VStack(alignment: .leading, spacing: 4) {
-                HStack(spacing: 6) {
-                    Text(row.day)
-                    Text(row.startTime)
-                        .foregroundStyle(.secondary)
-                }
-                if row.isApproximate {
-                    Label("Approximate", systemImage: "info.circle")
-                        .font(.caption2)
-                        .foregroundStyle(.secondary)
-                        .padding(.horizontal, 6)
-                        .padding(.vertical, 2)
-                        .overlay(Capsule().strokeBorder(.secondary.opacity(0.5)))
-                }
+        ViewThatFits(in: .horizontal) {
+            HStack(alignment: .center, spacing: 12) {
+                dayAndTag(row)
+                Spacer(minLength: 8)
+                Text(row.values)
+                    .monospacedDigit()
+                    .fixedSize()
             }
-            Spacer(minLength: 8)
-            Text(row.values)
-                .monospacedDigit()
-                .lineLimit(1)
-                .minimumScaleFactor(0.75)
+            VStack(alignment: .leading, spacing: 6) {
+                dayAndTag(row)
+                Text(row.values)
+                    .monospacedDigit()
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
         }
         .font(.subheadline)
         .padding(14)
         .background { GlassBackground(shape: card, tint: theme.color(theme.chipFill), colorScheme: theme.colorScheme) }
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(row.accessibilityLabel)
+    }
+
+    private func dayAndTag(_ row: TripDisplay.Row) -> some View {
+        VStack(alignment: .leading, spacing: 4) {
+            HStack(spacing: 6) {
+                Text(row.day)
+                Text(row.startTime)
+                    .foregroundStyle(.secondary)
+            }
+            .fixedSize()
+            if row.isApproximate {
+                Label("Approximate", systemImage: "info.circle")
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+                    .padding(.horizontal, 6)
+                    .padding(.vertical, 2)
+                    .overlay(Capsule().strokeBorder(.secondary.opacity(0.5)))
+                    .fixedSize()
+            }
+        }
     }
 }
 

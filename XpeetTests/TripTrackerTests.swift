@@ -212,6 +212,15 @@ final class TripTrackerTests: XCTestCase {
         XCTAssertEqual(tracker.history.last?.startedAt, start + 200)
     }
 
+    // MARK: - Shared thresholds
+
+    @MainActor
+    func testThresholdsMatchTheSpeedometer() {
+        // Moving vs stopped must match the "0" on screen, and the interval cap the stale rule.
+        XCTAssertEqual(TripTracker.movingThreshold, SpeedometerViewModel.zeroClampMetersPerSecond)
+        XCTAssertEqual(TripTracker.maxInterval, SpeedometerViewModel.staleInterval)
+    }
+
     // MARK: - R18, R19
 
     func testConstantSpeedDistanceWithinHalfPercent() {

@@ -9,27 +9,48 @@ struct TripLine: View {
 
     static let separator = " · "
 
+    /// Distance and time, for the two-line layouts.
+    private var parts: [String] { text.components(separatedBy: Self.separator) }
+
     var body: some View {
-        HStack(spacing: 8) {
-            Image(systemName: "point.topleft.down.curvedto.point.bottomright.up")
-                .imageScale(.small)
-                .accessibilityHidden(true)
-            // One line where it fits; distance over time in a narrow landscape space.
-            ViewThatFits(in: .horizontal) {
-                Text(text)
-                Text(text.replacingOccurrences(of: Self.separator, with: "\n"))
-                    .multilineTextAlignment(.leading)
-            }
-            .lineLimit(2)
-            Image(systemName: "chevron.right")
-                .imageScale(.small)
-                .opacity(0.6)
-                .accessibilityHidden(true)
+        // Widest layout that fits; the last one always fits because its lines shrink (specs/trip-stats R12).
+        ViewThatFits(in: .horizontal) {
+            capsule(glyphs: true) { Text(text).lineLimit(1) }
+            capsule(glyphs: true) { stacked(shrinks: false) }
+            capsule(glyphs: false) { stacked(shrinks: true) }
         }
         .font(Theme.captionFont(textStyle: .footnote, size: 13).monospacedDigit())
         .foregroundStyle(Color(hex: theme.secondaryText))
         .dynamicTypeSize(...DynamicTypeSize.accessibility2)
-        .padding(.horizontal, 16)
+    }
+
+    /// Distance over time, one line each, never wrapping inside a value.
+    private func stacked(shrinks: Bool) -> some View {
+        VStack(alignment: .leading, spacing: 0) {
+            ForEach(parts, id: \.self) { part in
+                Text(part)
+                    .lineLimit(1)
+                    .minimumScaleFactor(shrinks ? 0.5 : 1)
+            }
+        }
+    }
+
+    private func capsule(glyphs: Bool, @ViewBuilder content: () -> some View) -> some View {
+        HStack(spacing: 8) {
+            if glyphs {
+                Image(systemName: "point.topleft.down.curvedto.point.bottomright.up")
+                    .imageScale(.small)
+                    .accessibilityHidden(true)
+            }
+            content()
+            if glyphs {
+                Image(systemName: "chevron.right")
+                    .imageScale(.small)
+                    .opacity(0.6)
+                    .accessibilityHidden(true)
+            }
+        }
+        .padding(.horizontal, glyphs ? 16 : 12)
         .padding(.vertical, 6)
         .frame(minHeight: 44)
         .background {
@@ -50,9 +71,16 @@ struct TripLine: View {
     }
 }
 
-#Preview("Narrow, two lines") {
-    TripLine(text: "142 km · 1 h 05 min", theme: GaugeFace.minimalRing.theme)
-        .frame(width: 120)
-        .padding()
-        .background(GaugeFace.minimalRing.theme.backgroundGradient)
+#Preview("Narrow: iPhone SE and 15 Pro landscape, large text") {
+    VStack(spacing: 16) {
+        ForEach([CGFloat(118), 153], id: \.self) { width in
+            ForEach([DynamicTypeSize.large, .accessibility2], id: \.self) { size in
+                TripLine(text: "142 km · 1 h 05 min", theme: GaugeFace.minimalRing.theme)
+                    .frame(maxWidth: width)
+                    .environment(\.dynamicTypeSize, size)
+            }
+        }
+    }
+    .padding()
+    .background(GaugeFace.minimalRing.theme.backgroundGradient)
 }

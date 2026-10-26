@@ -94,8 +94,32 @@ final class AccuracyReportTests: XCTestCase {
         events.sort { lineTime($0) < lineTime($1) }
         let report = AccuracyReport(drive: DriveFile(name: "north", events: events))
 
-        XCTAssertEqual(report.positionDistance, 25 * 199, accuracy: 1)
-        XCTAssertEqual(report.tripDistance, report.positionDistance, accuracy: report.positionDistance * 0.005)
+        let (trip, positions) = report.tripAndPositionDistance
+        XCTAssertEqual(positions, 25 * 199, accuracy: 1)
+        XCTAssertEqual(trip, positions, accuracy: positions * 0.005)
+    }
+
+    func testGapIsLeftOutOnBothSides() {
+        // 100 s north at 25 m/s, a 30 s tunnel (no fixes; the app holds the speed for 5 s, then "--"), 100 s more.
+        let before = northbound(Array(repeating: 25, count: 100))
+        let after = northbound(Array(repeating: 25, count: 231)).suffix(100)
+        var events = before + after
+        for second in stride(from: 0.0, through: 230.5, by: 0.5) {
+            let inGap = second > 99 && second < 131
+            let held = second > 99 && second <= 104
+            let state = inGap && !held ? "acquiring" : "live"
+            events.append(.shown(DriveShown(
+                time: start + second + 0.2, displayed: state == "live" ? 90 : nil, unit: "kmh", state: state,
+                source: state == "live" ? .gpsOnly : nil,
+                gpsOnly: state == "live" ? .init(metersPerSecond: 25, sigma: 0.3) : nil, fused: nil, inGap: inGap
+            )))
+        }
+        events.sort { lineTime($0) < lineTime($1) }
+
+        let (trip, positions) = AccuracyReport(drive: DriveFile(name: "tunnel", events: events)).tripAndPositionDistance
+
+        XCTAssertEqual(positions, 25 * 99 * 2, accuracy: 1)
+        XCTAssertEqual(trip, positions, accuracy: positions * 0.005, "the held 5 s at the tunnel mouth is not counted")
     }
 
     private func lineTime(_ event: DriveEvent) -> Date {
@@ -113,11 +137,10 @@ final class AccuracyReportTests: XCTestCase {
         try XCTSkipIf(drives.isEmpty, "No recorded drives in build/drives.")
 
         for url in drives {
-            let report = AccuracyReport(drive: try DriveFile.load(url))
-            let positions = report.positionDistance
+            let (trip, positions) = AccuracyReport(drive: try DriveFile.load(url)).tripAndPositionDistance
             guard positions >= 5_000 else { continue }
             // R18: within 2% on drives of at least 5 km.
-            XCTAssertEqual(report.tripDistance, positions, accuracy: positions * 0.02, url.lastPathComponent)
+            XCTAssertEqual(trip, positions, accuracy: positions * 0.02, url.lastPathComponent)
         }
     }
 

@@ -22,6 +22,11 @@ struct TripFormatter {
             stoppedTime: duration(trip.stoppedTime),
             totalTime: duration(trip.totalTime(until: now)),
             averageSpeed: averageSpeed(trip, unit: unit) ?? "--",
+            distanceSpoken: spokenDistance(trip.distance, unit: unit),
+            movingTimeSpoken: spokenDuration(trip.movingTime),
+            stoppedTimeSpoken: spokenDuration(trip.stoppedTime),
+            totalTimeSpoken: spokenDuration(trip.totalTime(until: now)),
+            averageSpeedSpoken: trip.averageMovingSpeed.map { spokenSpeed($0, unit: unit) } ?? String(localized: "Not available yet"),
             isApproximate: trip.isApproximate,
             history: tracker.history.enumerated().map { index, trip in row(trip, id: index, unit: unit, now: now) }
         )

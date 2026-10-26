@@ -198,13 +198,7 @@ struct AccuracyReport {
 
     private func makeStretch(_ window: [SpeedSample]) -> Stretch? {
         guard let first = window.first, let last = window.last, last.timestamp > first.timestamp else { return nil }
-        var distance = 0.0
-        var anchor = first
-        for sample in window.dropFirst() where sample.timestamp.timeIntervalSince(anchor.timestamp) >= Self.chordInterval {
-            distance += SpeedEstimator.distance(from: anchor, to: sample)
-            anchor = sample
-        }
-        if anchor != last { distance += SpeedEstimator.distance(from: anchor, to: last) }
+        let distance = Self.chordDistance(window)
         guard distance >= Self.stretchMinimumDistance else { return nil }
 
         let elapsed = last.timestamp.timeIntervalSince(first.timestamp)
@@ -226,46 +220,51 @@ struct AccuracyReport {
 
     // MARK: trip-stats R18
 
-    /// The trip distance the app would have shown: the recorded `shown` lines fed through `TripTracker`, exactly
-    /// as the ViewModel feeds it (Live: the estimate behind the number; Acquiring; Unavailable).
-    var tripDistance: Double {
-        var tracker = TripTracker()
-        for line in drive.shown {
-            let reading: TripReading
-            switch line.state {
-            case "live", "liveWeak":
-                let estimate = line.source == .fused ? line.fused : line.gpsOnly
-                reading = .live(metersPerSecond: estimate?.metersPerSecond ?? 0)
-            case "acquiring":
-                reading = .acquiring
-            default:
-                reading = .notMeasured
-            }
-            tracker.update(at: line.time, reading: reading)
+    /// The trip distance the app computed and the distance from positions, over the same stretches. The drive is cut
+    /// at every silence longer than `TripTracker.maxInterval`; each stretch runs from its first fix to its last, so the
+    /// held speed the trip still counts at the start of a gap, and the gap itself, are left out on both sides.
+    var tripAndPositionDistance: (trip: Double, positions: Double) {
+        let fixes = drive.fixes.filter {
+            $0.sample.horizontalAccuracy >= 0 && $0.sample.metersPerSecond >= 0 && !$0.sample.isStationary
         }
-        return tracker.current.distance + tracker.history.reduce(0) { $0 + $1.distance }
+        var stretches: [[(sample: SpeedSample, arrival: Date)]] = []
+        for fix in fixes {
+            if let last = stretches.last?.last,
+               fix.sample.timestamp.timeIntervalSince(last.sample.timestamp) <= TripTracker.maxInterval {
+                stretches[stretches.count - 1].append(fix)
+            } else {
+                stretches.append([fix])
+            }
+        }
+        var trip = 0.0
+        var positions = 0.0
+        for stretch in stretches where stretch.count > 1 {
+            guard let first = stretch.first, let last = stretch.last else { continue }
+            positions += Self.chordDistance(stretch.map(\.sample))
+            // Exactly what the ViewModel fed the tracker: Live readings carry the estimate behind the number.
+            var tracker = TripTracker()
+            for line in drive.shown where line.time >= first.arrival && line.time <= last.arrival {
+                let estimate = line.source == .fused ? line.fused : line.gpsOnly
+                let reading: TripReading = line.state.hasPrefix("live")
+                    ? .live(metersPerSecond: estimate?.metersPerSecond ?? 0)
+                    : line.state == "acquiring" ? .acquiring : .notMeasured
+                tracker.update(at: line.time, reading: reading)
+            }
+            trip += tracker.current.distance + tracker.history.reduce(0) { $0 + $1.distance }
+        }
+        return (trip, positions)
     }
 
-    /// Distance along the road from positions: straight lines between fixes about `chordInterval` apart, restarting
-    /// after any silence longer than the stale interval, so gaps are left out as the trip leaves them out.
-    var positionDistance: Double {
-        var total = 0.0
-        var anchor: SpeedSample?
-        var last: SpeedSample?
-        for (sample, _) in drive.fixes where sample.horizontalAccuracy >= 0 && !sample.isStationary {
-            if let previous = last, sample.timestamp.timeIntervalSince(previous.timestamp) > TripTracker.maxInterval {
-                if let start = anchor { total += SpeedEstimator.distance(from: start, to: previous) }
-                anchor = sample
-            } else if let start = anchor, sample.timestamp.timeIntervalSince(start.timestamp) >= Self.chordInterval {
-                total += SpeedEstimator.distance(from: start, to: sample)
-                anchor = sample
-            } else if anchor == nil {
-                anchor = sample
-            }
-            last = sample
+    /// Straight lines between fixes about `chordInterval` apart, plus the last piece.
+    static func chordDistance(_ samples: [SpeedSample]) -> Double {
+        guard var anchor = samples.first, let last = samples.last else { return 0 }
+        var distance = 0.0
+        for sample in samples.dropFirst() where sample.timestamp.timeIntervalSince(anchor.timestamp) >= chordInterval {
+            distance += SpeedEstimator.distance(from: anchor, to: sample)
+            anchor = sample
         }
-        if let start = anchor, let end = last, end != start { total += SpeedEstimator.distance(from: start, to: end) }
-        return total
+        if anchor != last { distance += SpeedEstimator.distance(from: anchor, to: last) }
+        return distance
     }
 
     // MARK: Text
@@ -302,9 +301,8 @@ struct AccuracyReport {
                          + "accuracy after: \(String(format: "%.0f", gap.accuracyAfter)) m")
         }
         let stretches = steadyStretches
-        let positions = positionDistance
+        let (trip, positions) = tripAndPositionDistance
         if positions > 0 {
-            let trip = tripDistance
             lines.append(String(format: "- trip distance (trip-stats R18): %.2f km, from positions %.2f km (Δ %+.1f%%)",
                                 trip / 1_000, positions / 1_000, (trip - positions) / positions * 100))
         }

@@ -116,6 +116,15 @@ Each step: `xcodegen generate` when files are added, then `scripts/verify.sh` (B
 - **Test locale:** the ViewModel tests run in `fr_FR` (the existing helper's locale), so their expected lines use a decimal comma. The formatter tests cover `en_GB` and `fr_FR`.
 - **Visual check:** portrait, landscape (Minimal ring and Retro) and both sheet states were rendered with a temporary `ImageRenderer` test, not committed, and compared with the Stitch frames. `ImageRenderer` leaves a `ScrollView` blank, so the sheet was rendered once with a `VStack` in its place, which was then restored.
 
+- **Review fixes (reviewer agent, 2026-10-26):**
+  - **`TripLine`:** now picks the widest of three layouts that fits: one line; two lines with glyphs; two lines without glyphs that shrink (`minimumScaleFactor` 0.5). Nothing truncates at 118 pt (iPhone SE landscape) or 153 pt (15 Pro), up to AX2. The placement tests use the real container sizes (635×367, 702×364).
+  - **Sheet history rows:** values stay on one line beside the day when they fit, and stack under it otherwise. No row truncates or breaks inside a word, up to AX3.
+  - **VoiceOver:** the card values are spoken with units in full, through new `TripDisplay` fields (`distanceSpoken`, … `averageSpeedSpoken`).
+  - **Approximate note:** it now reads "Approximate · GPS was lost for part of this trip".
+  - **Total time:** while the reading is not Live, `tick()` still refreshes the trip, so total time keeps counting with the sheet open.
+  - **R18 measurement:** `AccuracyReport.tripAndPositionDistance` compares the trip and the positions over the same gap-free stretches, so the 5 s held speed at a tunnel mouth no longer biases it.
+  - **Shared thresholds:** `TripTrackerTests.testThresholdsMatchTheSpeedometer` pins `movingThreshold` and `maxInterval` to the ViewModel's zero clamp and stale interval.
+
 ## Risks
 - **The ViewModel keeps growing:** it is about 450 lines, and SwiftLint `--strict` may flag `type_body_length` / `file_length` (SwiftLint isn't installed locally). Keep the trip glue to a few calls into `TripTracker`. If it passes the limits, move the trip methods into an extension file, `SpeedometerViewModel+Trip.swift` (stored properties stay in the class), and record that under Deviations.
 - **Observation churn:** ticks run at 2 Hz. `trip` is assigned only when a formatted string changes, so the screen updates at most when the 0.1 km or minute values change.

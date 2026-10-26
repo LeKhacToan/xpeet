@@ -76,6 +76,22 @@ final class TripFormatterTests: XCTestCase {
 
     // MARK: - R17
 
+    func testCardValuesAreSpokenInFull() {
+        var tracker = TripTracker()
+        for second in 0...3_900 {
+            tracker.update(at: now.addingTimeInterval(TimeInterval(second - 4_000)), reading: .live(metersPerSecond: 10))
+        }
+
+        let display = formatter.display(of: tracker, unit: .kmh, now: now, showsLine: true)
+
+        XCTAssertEqual(display.distanceSpoken, "39.0 kilometres")
+        XCTAssertEqual(display.movingTimeSpoken, "1 hour 5 minutes")
+        XCTAssertEqual(display.stoppedTimeSpoken, "0 minutes")
+        XCTAssertEqual(display.averageSpeedSpoken, "36 kilometres per hour")
+        XCTAssertEqual(formatter.display(of: TripTracker(), unit: .kmh, now: now, showsLine: true).averageSpeedSpoken,
+                       "Not available yet")
+    }
+
     func testAccessibilityValue() {
         XCTAssertEqual(
             formatter.lineAccessibilityValue(for: trip(meters: 12_400, moving: 18 * 60), unit: .kmh),

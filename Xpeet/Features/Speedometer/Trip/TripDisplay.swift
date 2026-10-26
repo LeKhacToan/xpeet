@@ -28,6 +28,12 @@ struct TripDisplay: Equatable {
     var totalTime: String
     /// "41 km/h" or "--".
     var averageSpeed: String
+    /// VoiceOver versions of the card values, with units in full (R17).
+    var distanceSpoken: String
+    var movingTimeSpoken: String
+    var stoppedTimeSpoken: String
+    var totalTimeSpoken: String
+    var averageSpeedSpoken: String
     var isApproximate: Bool
     /// Newest first.
     var history: [Row]

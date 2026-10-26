@@ -353,7 +353,11 @@ final class SpeedometerViewModel {
     /// Falls back to Acquiring when the last fix is too old. iOS pauses updates while stationary, so a
     /// stationary fix never goes stale.
     func tick() {
-        guard case .live = state, let last = lastSample else { return }
+        guard case .live = state, let last = lastSample else {
+            // Total time keeps counting with the trip sheet open, even without a reading (trip-stats R4, R15).
+            refreshTrip()
+            return
+        }
         // Before the stationary guard: sleepy must start while iOS pauses updates. Assign only on change, so
         // the observed property does not invalidate the screen on every tick.
         let next = moodResolver.tick(at: now())
