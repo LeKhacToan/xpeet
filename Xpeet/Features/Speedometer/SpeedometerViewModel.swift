@@ -91,6 +91,8 @@ final class SpeedometerViewModel {
     static let tickInterval: Duration = .milliseconds(500)
     static let unitDefaultsKey = "speedUnit"
     static let faceDefaultsKey = "gaugeFace"
+    /// The current trip is saved at most this often while running (trip-stats R10).
+    static let tripSaveInterval: TimeInterval = 10
 
     private(set) var state: SpeedometerState = .acquiring
     private(set) var unit: SpeedUnit
@@ -106,6 +108,12 @@ final class SpeedometerViewModel {
     /// The current run's drive recorder (Debug, opt-in), with a token so an ending run can't clear a newer one.
     @ObservationIgnored private var recorder: DriveLogging?
     @ObservationIgnored private var recorderRun: UUID?
+    /// The trip line and sheet (specs/trip-stats), already formatted. Assigned only when a string changes.
+    private(set) var trip: TripDisplay
+    @ObservationIgnored private var tripTracker: TripTracker
+    @ObservationIgnored private var lastTripSave: Date?
+    private let tripStore: TripStore
+    private let tripFormatter: TripFormatter
 
     /// Plays a sound on engine start while stopped (specs/engine-sound-clip). Shares this screen's lifecycle.
     let engineSound: EngineSoundViewModel
@@ -123,6 +131,7 @@ final class SpeedometerViewModel {
         motionProvider: MotionProvider? = nil,
         defaults: UserDefaults = .standard,
         locale: Locale = .current,
+        calendar: Calendar = .current,
         now: @escaping () -> Date = Date.init,
         setIdleTimerDisabled: @escaping @MainActor (Bool) -> Void = { UIApplication.shared.isIdleTimerDisabled = $0 },
         engineSound: EngineSoundViewModel? = nil,
@@ -138,8 +147,16 @@ final class SpeedometerViewModel {
         self.locale = locale
         self.now = now
         self.setIdleTimerDisabled = setIdleTimerDisabled
-        self.unit = defaults.string(forKey: Self.unitDefaultsKey).flatMap(SpeedUnit.init(rawValue:))
+        let unit = defaults.string(forKey: Self.unitDefaultsKey).flatMap(SpeedUnit.init(rawValue:))
             ?? SpeedUnit.defaultUnit(for: locale)
+        self.unit = unit
+        let tripStore = TripStore(defaults: defaults)
+        let tripTracker = tripStore.load()
+        let tripFormatter = TripFormatter(locale: locale, calendar: calendar)
+        self.tripStore = tripStore
+        self.tripTracker = tripTracker
+        self.tripFormatter = tripFormatter
+        self.trip = tripFormatter.display(of: tripTracker, unit: unit, now: now(), showsLine: true)
         self.face = defaults.string(forKey: Self.faceDefaultsKey).flatMap(GaugeFace.init(rawValue:))
             ?? GaugeFace.defaultFace
         // No sound once the vehicle moves (R6). Read live when a detection fires; no reading counts as stopped.
@@ -212,6 +229,9 @@ final class SpeedometerViewModel {
         defer {
             setIdleTimerDisabled(false)
             stopRecording(run)
+            // Nothing is measured while the screen isn't running (trip-stats R1, R10).
+            tripTracker.endRun(at: now())
+            saveTrip()
         }
         resetFilter()
         // Core Motion's clock pauses while the phone sleeps, so the offset from the last run may be wrong now.
@@ -222,6 +242,9 @@ final class SpeedometerViewModel {
         } else {
             mood = moodResolver.lost()
         }
+        // After a long break this starts a new trip (trip-stats R6).
+        tripTracker.beginRun(at: now())
+        refreshTrip()
 
         let authorizations = provider.authorizationUpdates()
         let samples = provider.speedUpdates()
@@ -279,6 +302,7 @@ final class SpeedometerViewModel {
         }
         // The mic prompt waits until the location prompt is answered, so the two never stack (engine-sound R2).
         engineSound.handle(locationAuthorizationResolved: authorization != .notDetermined)
+        refreshTrip()
     }
 
     func handle(sample: SpeedSample) {
@@ -301,6 +325,7 @@ final class SpeedometerViewModel {
         lastSample = sample
         updateWeakSignal()
         updateShownSpeed()
+        updateTrip(liveTripReading)
         // Observed properties are assigned only on change, so a refresh never invalidates the view for nothing.
         let nextMood = moodResolver.sample(metersPerSecond: gpsOnly.metersPerSecond, timestamp: sample.timestamp, now: now())
         if nextMood != mood { mood = nextMood }
@@ -338,10 +363,13 @@ final class SpeedometerViewModel {
             resetFilter()
             state = .acquiring
             mood = moodResolver.lost()
+            updateTrip(.acquiring)
             return
         }
         estimator.tick(now: now())
         updateWeakSignal()
+        updateTrip(liveTripReading)
+        if lastTripSave.map({ now().timeIntervalSince($0) >= Self.tripSaveInterval }) ?? true { saveTrip() }
     }
 
     func toggleUnit() {
@@ -350,6 +378,14 @@ final class SpeedometerViewModel {
         // A new unit is a new number, not a small move: no hysteresis (speed-accuracy R15).
         shownSpeed = nil
         updateShownSpeed()
+        refreshTrip()
+    }
+
+    /// "New trip" in the trip sheet: the current trip goes to history (trip-stats R7).
+    func startNewTrip() {
+        tripTracker.newTrip()
+        saveTrip()
+        refreshTrip()
     }
 
     /// Switches the gauge face. Speed, unit, state and filter are untouched.
@@ -364,6 +400,32 @@ final class SpeedometerViewModel {
         resetFilter()
         state = .unavailable(reason)
         mood = moodResolver.unavailable()
+        updateTrip(.notMeasured)
+    }
+
+    // MARK: Trip (specs/trip-stats)
+
+    /// The estimate behind the shown number; 0 when stopped.
+    private var liveTripReading: TripReading {
+        .live(metersPerSecond: estimator.shown?.estimate.metersPerSecond ?? 0)
+    }
+
+    private func updateTrip(_ reading: TripReading) {
+        tripTracker.update(at: now(), reading: reading)
+        refreshTrip()
+    }
+
+    /// The line is hidden while location is off (trip-stats R11).
+    private func refreshTrip() {
+        var showsLine = true
+        if case .unavailable = state { showsLine = false }
+        let next = tripFormatter.display(of: tripTracker, unit: unit, now: now(), showsLine: showsLine)
+        if next != trip { trip = next }
+    }
+
+    private func saveTrip() {
+        tripStore.save(tripTracker)
+        lastTripSave = now()
     }
 
     private func resetFilter() {
