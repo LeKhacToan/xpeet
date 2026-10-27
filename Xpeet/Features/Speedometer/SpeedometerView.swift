@@ -6,6 +6,7 @@ struct SpeedometerView: View {
 
     @State private var viewModel: SpeedometerViewModel
     @State private var showsFacePicker = false
+    @State private var showsTrip = false
     @Environment(\.scenePhase) private var scenePhase
     @Environment(\.openURL) private var openURL
 
@@ -30,6 +31,9 @@ struct SpeedometerView: View {
                 withoutAnimation { viewModel.select(face) }
             }
         }
+        .sheet(isPresented: $showsTrip) {
+            TripSheet(display: viewModel.trip, theme: theme) { viewModel.startNewTrip() }
+        }
         .task(id: scenePhase) {
             if scenePhase == .active {
                 await viewModel.run()
@@ -48,7 +52,11 @@ struct SpeedometerView: View {
             }
             .frame(maxWidth: .infinity, minHeight: Self.topRowHeight)
             .overlay(alignment: .trailing) { faceButton }
-            gauge
+            gauge(tripBeside: false)
+            // Under the gauge; the gauge gives up height, never width (specs/trip-stats R12).
+            tripButton
+                .padding(.horizontal)
+                .padding(.vertical, 8)
         }
         .safeAreaInset(edge: .bottom, spacing: 0) {
             if viewModel.canOpenSettings {
@@ -59,7 +67,7 @@ struct SpeedometerView: View {
 
     /// Landscape keeps the status at the bottom edge (specs/ui-redesign R7).
     private var landscape: some View {
-        gauge
+        gauge(tripBeside: true)
             .safeAreaInset(edge: .bottom, spacing: 0) {
                 if viewModel.statusText != nil || viewModel.canOpenSettings {
                     VStack(spacing: 0) {
@@ -79,12 +87,16 @@ struct SpeedometerView: View {
     /// Width kept free beside the chip for the face button and its padding.
     private static let topRowButtonSpace: CGFloat = 64
 
-    private var gauge: some View {
+    /// `tripBeside`: landscape puts the trip line right of the gauge; portrait puts it underneath instead.
+    private func gauge(tripBeside: Bool) -> some View {
         GeometryReader { proxy in
             GaugeDisplay(face: viewModel.face, reading: reading, accessibilityLabel: viewModel.accessibilityLabel) {
                 unitButton
             }
             .overlay { mascot(in: proxy.size) }
+            .overlay {
+                if tripBeside { landscapeTrip(in: proxy.size) }
+            }
         }
         .padding(.horizontal)
         .padding(.top, 8)
@@ -106,6 +118,34 @@ struct SpeedometerView: View {
             MascotView(mood: viewModel.mood, theme: theme)
                 .frame(width: frame.width, height: frame.height)
                 .position(x: frame.midX, y: frame.midY)
+        }
+    }
+
+    /// Landscape only: right of the gauge, mirroring the mascot (specs/trip-stats R12).
+    @ViewBuilder
+    private func landscapeTrip(in container: CGSize) -> some View {
+        if let frame = TripLinePlacement.frame(in: container) {
+            tripButton
+                .frame(maxWidth: frame.width)
+                .position(x: frame.midX, y: frame.midY)
+        }
+    }
+
+    /// The trip line; tapping it opens the trip sheet. Hidden while location is off (specs/trip-stats R11, R13).
+    @ViewBuilder
+    private var tripButton: some View {
+        if let line = viewModel.trip.line {
+            Button {
+                showsTrip = true
+            } label: {
+                TripLine(text: line, theme: theme)
+            }
+            .buttonStyle(.plain)
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel("Trip")
+            .accessibilityValue(viewModel.trip.lineAccessibilityValue)
+            .accessibilityHint("Double-tap for trip details")
+            .accessibilityAddTraits(.isButton)
         }
     }
 
@@ -228,13 +268,22 @@ private extension SpeedometerViewModel {
         authorization: LocationAuthorization = .authorized,
         mic: MicAuthorization = .authorized,
         kmh: Double? = nil,
-        accuracy: Double = 0.5
+        accuracy: Double = 0.5,
+        tripMinutes: Int = 18
     ) -> SpeedometerViewModel {
+        let defaults = UserDefaults(suiteName: "SpeedometerPreview-\(face.rawValue)") ?? .standard
+        // A running trip, so the trip line shows real numbers (specs/trip-stats).
+        var tracker = TripTracker()
+        let tripStart = Date.now.addingTimeInterval(TimeInterval(-tripMinutes * 60))
+        for second in stride(from: 0, through: tripMinutes * 60, by: 1) where tripMinutes > 0 {
+            tracker.update(at: tripStart.addingTimeInterval(TimeInterval(second)), reading: .live(metersPerSecond: 11.5))
+        }
+        TripStore(defaults: defaults).save(tracker)
         let samples = kmh.map { [SpeedSample(metersPerSecond: $0 / 3.6, accuracy: accuracy, isStationary: false, timestamp: .now)] } ?? []
         let viewModel = SpeedometerViewModel(
             provider: FakeSpeedProvider(authorization: authorization, samples: samples),
             motionProvider: FakeMotionProvider(),
-            defaults: UserDefaults(suiteName: "SpeedometerPreview-\(face.rawValue)") ?? .standard,
+            defaults: defaults,
             locale: Locale(identifier: "fr_FR"),
             now: { .distantPast },
             setIdleTimerDisabled: { _ in },
@@ -315,6 +364,10 @@ private extension SpeedometerViewModel {
 
 #Preview("Searching, retro") {
     SpeedometerView(viewModel: .preview(face: .retro))
+}
+
+#Preview("New trip, landscape", traits: .landscapeLeft) {
+    SpeedometerView(viewModel: .preview(face: .retro, kmh: 0, tripMinutes: 0))
 }
 
 #Preview("Denied, landscape", traits: .landscapeLeft) {

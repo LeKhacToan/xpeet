@@ -80,7 +80,69 @@ final class AccuracyReportTests: XCTestCase {
         XCTAssertEqual(spread.p95, 95)
     }
 
+    // MARK: - trip-stats R18
+
+    func testTripDistanceMatchesPositionsOnStraightDrive() {
+        var events = northbound(Array(repeating: 25, count: 200))
+        // What the app showed at each fix: Live, with the GPS-only estimate behind the number.
+        events += (0..<200).map { index in
+            .shown(DriveShown(
+                time: start + TimeInterval(index) + 0.2, displayed: 90, unit: "kmh", state: "live", source: .gpsOnly,
+                gpsOnly: .init(metersPerSecond: 25, sigma: 0.3), fused: nil, inGap: false
+            ))
+        }
+        events.sort { lineTime($0) < lineTime($1) }
+        let report = AccuracyReport(drive: DriveFile(name: "north", events: events))
+
+        let (trip, positions) = report.tripAndPositionDistance
+        XCTAssertEqual(positions, 25 * 199, accuracy: 1)
+        XCTAssertEqual(trip, positions, accuracy: positions * 0.005)
+    }
+
+    func testGapIsLeftOutOnBothSides() {
+        // 100 s north at 25 m/s, a 30 s tunnel (no fixes; the app holds the speed for 5 s, then "--"), 100 s more.
+        let before = northbound(Array(repeating: 25, count: 100))
+        let after = northbound(Array(repeating: 25, count: 231)).suffix(100)
+        var events = before + after
+        for second in stride(from: 0.0, through: 230.5, by: 0.5) {
+            let inGap = second > 99 && second < 131
+            let held = second > 99 && second <= 104
+            let state = inGap && !held ? "acquiring" : "live"
+            events.append(.shown(DriveShown(
+                time: start + second + 0.2, displayed: state == "live" ? 90 : nil, unit: "kmh", state: state,
+                source: state == "live" ? .gpsOnly : nil,
+                gpsOnly: state == "live" ? .init(metersPerSecond: 25, sigma: 0.3) : nil, fused: nil, inGap: inGap
+            )))
+        }
+        events.sort { lineTime($0) < lineTime($1) }
+
+        let (trip, positions) = AccuracyReport(drive: DriveFile(name: "tunnel", events: events)).tripAndPositionDistance
+
+        XCTAssertEqual(positions, 25 * 99 * 2, accuracy: 1)
+        XCTAssertEqual(trip, positions, accuracy: positions * 0.005, "the held 5 s at the tunnel mouth is not counted")
+    }
+
+    private func lineTime(_ event: DriveEvent) -> Date {
+        switch event {
+        case .header(let header): header.startedAt
+        case .fix(_, let arrival), .unavailable(let arrival), .motion(_, let arrival): arrival
+        case .shown(let shown): shown.time
+        }
+    }
+
     // MARK: - On recorded drives (skipped until some are pulled into build/drives)
+
+    func testTripDistanceAgainstPositions() throws {
+        let drives = DriveFile.files(in: DriveFile.recordedDrivesDirectory)
+        try XCTSkipIf(drives.isEmpty, "No recorded drives in build/drives.")
+
+        for url in drives {
+            let (trip, positions) = AccuracyReport(drive: try DriveFile.load(url)).tripAndPositionDistance
+            guard positions >= 5_000 else { continue }
+            // R18: within 2% on drives of at least 5 km.
+            XCTAssertEqual(trip, positions, accuracy: positions * 0.02, url.lastPathComponent)
+        }
+    }
 
     func testReportOnRecordedDrives() throws {
         let drives = DriveFile.files(in: DriveFile.recordedDrivesDirectory)

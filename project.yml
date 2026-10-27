@@ -22,7 +22,7 @@ targets:
         INFOPLIST_KEY_UIApplicationSceneManifest_Generation: YES
         INFOPLIST_KEY_CFBundleDisplayName: Xpeet
         INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone: "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight"
-        INFOPLIST_KEY_NSLocationWhenInUseUsageDescription: "Xpeet uses your location only to show your current speed. It never leaves your device."
+        INFOPLIST_KEY_NSLocationWhenInUseUsageDescription: "Xpeet uses your location only to show your current speed and trip totals. It never leaves your device."
         # No prompt is shown for device motion today; the string is insurance (specs/speed-accuracy R33).
         INFOPLIST_KEY_NSMotionUsageDescription: "Xpeet uses motion sensors only to make the speed reading more accurate. Motion data never leaves your device."
         INFOPLIST_KEY_NSMicrophoneUsageDescription: "Xpeet listens for engine sounds to play a fun clip. Audio is analysed on your device and never recorded or sent anywhere."
