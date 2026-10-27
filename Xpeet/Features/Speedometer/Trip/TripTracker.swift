@@ -42,8 +42,9 @@ struct TripTracker: Equatable {
     private var lostSince: Date?
 
     init(current: Trip = Trip(), history: [Trip] = []) {
-        self.current = current
-        self.history = history
+        // Trips stored before trips had ids get one now; they have no route (specs/osm-map R19).
+        self.current = Self.identified(current)
+        self.history = history.map(Self.identified)
     }
 
     mutating func update(at time: Date, reading: TripReading) {
@@ -80,6 +81,24 @@ struct TripTracker: Equatable {
         lostSince = nil
     }
 
+    /// Deletes one earlier trip (specs/osm-map R24).
+    mutating func delete(id: UUID) {
+        history.removeAll { $0.id == id }
+    }
+
+    /// Deletes every earlier trip and the current one; an empty trip begins (specs/osm-map R25).
+    mutating func deleteAll() {
+        history = []
+        current = Trip()
+        previous = nil
+        lostSince = nil
+    }
+
+    /// Ids of the trips that may keep a route: the current one, once started, and the history.
+    var tripIDs: Set<UUID> {
+        Set(([current] + history).compactMap(\.id))
+    }
+
     // MARK: Private
 
     private mutating func live(_ metersPerSecond: Double, at time: Date) {
@@ -93,6 +112,7 @@ struct TripTracker: Equatable {
         if current.isEmpty {
             // The trip starts at its first moving update; time before it is not part of it (R5).
             guard update.isMoving else { return }
+            current.id = UUID()
             current.startedAt = time
             current.lastUpdateAt = time
             current.lastMovementAt = time
@@ -118,5 +138,12 @@ struct TripTracker: Equatable {
             if history.count > Self.historyLimit { history.removeLast(history.count - Self.historyLimit) }
         }
         current = Trip()
+    }
+
+    private static func identified(_ trip: Trip) -> Trip {
+        guard !trip.isEmpty, trip.id == nil else { return trip }
+        var trip = trip
+        trip.id = UUID()
+        return trip
     }
 }

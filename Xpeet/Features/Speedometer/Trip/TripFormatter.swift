@@ -28,7 +28,7 @@ struct TripFormatter {
             totalTimeSpoken: spokenDuration(trip.totalTime(until: now)),
             averageSpeedSpoken: trip.averageMovingSpeed.map { spokenSpeed($0, unit: unit) } ?? String(localized: "Not available yet"),
             isApproximate: trip.isApproximate,
-            history: tracker.history.enumerated().map { index, trip in row(trip, id: index, unit: unit, now: now) }
+            history: tracker.history.compactMap { trip in trip.id.map { row(trip, id: $0, unit: unit, now: now) } }
         )
     }
 
@@ -89,7 +89,7 @@ struct TripFormatter {
         date.formatted(dateStyle.hour().minute())
     }
 
-    private func row(_ trip: Trip, id: Int, unit: SpeedUnit, now: Date) -> TripDisplay.Row {
+    private func row(_ trip: Trip, id: UUID, unit: SpeedUnit, now: Date) -> TripDisplay.Row {
         let start = trip.startedAt ?? now
         let distance = distance(trip.distance, unit: unit)
         var values = "\(distance.value) \(distance.unit) · \(duration(trip.movingTime))"

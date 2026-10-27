@@ -4,7 +4,8 @@ import Foundation
 /// `SpeedometerViewModel` assigns a new one only when a string changes, so ticks don't redraw the screen.
 struct TripDisplay: Equatable {
     struct Row: Equatable, Identifiable {
-        var id: Int
+        /// The trip's id: opens its route and deletes it (specs/osm-map R22-R24).
+        var id: UUID
         /// "Today", "Yesterday" or a weekday with date.
         var day: String
         var startTime: String
