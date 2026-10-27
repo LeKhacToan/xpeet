@@ -38,10 +38,12 @@ final class MapFollowerTests: XCTestCase {
     func testHeadingFollowsValidCourse() {
         var follower = MapFollower()
         XCTAssertEqual(follower.heading, 0, "north-up before any course")
+        XCTAssertFalse(follower.hasHeading)
 
         follower.update(metersPerSecond: 50 / 3.6, course: 135, courseAccuracy: 10)
 
         XCTAssertEqual(follower.heading, 135)
+        XCTAssertTrue(follower.hasHeading)
     }
 
     func testHeadingHeldWhenSlowOrInaccurate() {

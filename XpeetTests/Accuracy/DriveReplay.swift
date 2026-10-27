@@ -100,7 +100,9 @@ enum DriveReplay {
             setIdleTimerDisabled: { _ in },
             engineSound: EngineSoundViewModel(detector: FakeSoundTriggerDetector(), player: FakeSoundPlayer(), now: { clock.now }),
             estimatorConfiguration: configuration,
-            makeRecorder: { nil }
+            makeRecorder: { nil },
+            routeStore: RouteStore(folder: FileManager.default.temporaryDirectory.appending(path: "Routes-\(UUID().uuidString)")),
+            tileFetcher: FakeTileFetcher()
         )
         viewModel.handle(authorization: .authorized)
         return viewModel

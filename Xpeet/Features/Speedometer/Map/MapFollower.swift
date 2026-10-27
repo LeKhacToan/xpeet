@@ -18,6 +18,8 @@ struct MapFollower: Equatable {
     private(set) var zoom = zoomLevels[0]
     /// Degrees from true north; north-up until the first valid course.
     private(set) var heading = 0.0
+    /// A valid course has been seen: the marker can be an arrow (R5).
+    private(set) var hasHeading = false
     private(set) var isFollowing = true
     private var lastGesture: Date?
 
@@ -27,6 +29,7 @@ struct MapFollower: Equatable {
         updateZoom(kmh: kmh)
         if course >= 0, courseAccuracy >= 0, courseAccuracy <= Self.headingMaxCourseAccuracy, kmh >= Self.headingMinimumKmh {
             heading = course
+            hasHeading = true
         }
     }
 

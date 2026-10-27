@@ -10,7 +10,7 @@ struct RouteRecorder: Equatable {
 
     private(set) var route: Route
     /// False after a break: the next point starts a new segment.
-    private var isSegmentOpen = false
+    private(set) var isSegmentOpen = false
 
     /// A stored route continues in a new segment: the run that recorded it has ended.
     init(route: Route = Route()) {

@@ -287,7 +287,9 @@ private extension SpeedometerViewModel {
             locale: Locale(identifier: "fr_FR"),
             now: { .distantPast },
             setIdleTimerDisabled: { _ in },
-            engineSound: EngineSoundViewModel(detector: FakeSoundTriggerDetector(authorization: mic), player: FakeSoundPlayer())
+            engineSound: EngineSoundViewModel(detector: FakeSoundTriggerDetector(authorization: mic), player: FakeSoundPlayer()),
+            routeStore: RouteStore(folder: FileManager.default.temporaryDirectory.appending(path: "PreviewRoutes")),
+            tileFetcher: FakeTileFetcher()
         )
         viewModel.select(face)
         return viewModel
