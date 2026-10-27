@@ -105,6 +105,9 @@ struct TripFormatter {
             day: day(start, now: now),
             startTime: time(start),
             values: values,
+            distance: "\(distance.value) \(distance.unit)",
+            movingTime: duration(trip.movingTime),
+            averageSpeed: averageSpeed(trip, unit: unit) ?? "--",
             isApproximate: trip.isApproximate,
             accessibilityLabel: spoken
         )

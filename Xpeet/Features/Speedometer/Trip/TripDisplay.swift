@@ -11,6 +11,10 @@ struct TripDisplay: Equatable {
         var startTime: String
         /// "8.6 km · 15 min · 34 km/h avg".
         var values: String
+        /// The same values one by one, for the route view (specs/osm-map R23): "8.6 km", "15 min", "34 km/h" or "--".
+        var distance: String
+        var movingTime: String
+        var averageSpeed: String
         var isApproximate: Bool
         var accessibilityLabel: String
     }

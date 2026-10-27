@@ -36,7 +36,18 @@ struct SpeedometerView: View {
             }
         }
         .sheet(isPresented: $showsTrip) {
-            TripSheet(display: viewModel.trip, theme: theme) { viewModel.startNewTrip() }
+            TripSheet(
+                display: viewModel.trip,
+                theme: theme,
+                onNewTrip: { viewModel.startNewTrip() },
+                onDelete: { viewModel.deleteTrip(id: $0) },
+                onDeleteAll: { viewModel.deleteAllTrips() },
+                route: { viewModel.route(for: $0) },
+                isMapNoticePending: viewModel.isMapNoticePending,
+                isMapOffline: viewModel.isMapOffline,
+                onAcceptNotice: { viewModel.acceptMapNotice() },
+                tileFetcher: viewModel.tileFetcher
+            )
         }
         .task(id: scenePhase) {
             if scenePhase == .active {

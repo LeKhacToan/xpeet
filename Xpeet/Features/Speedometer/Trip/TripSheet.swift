@@ -2,17 +2,62 @@ import SwiftUI
 
 /// Trip details and the last trips (specs/trip-stats R14-R17, frames `trip-sheet`, `trip-sheet-empty`).
 /// Same glass style as the face picker. Shows only what it is given: values stay live while it is open.
+/// Earlier trips open their route and can be deleted (specs/osm-map R22-R25, frames `trip-sheet-delete`, `route-view`).
 struct TripSheet: View {
     let display: TripDisplay
     let theme: Theme
     let onNewTrip: () -> Void
+    var onDelete: (UUID) -> Void = { _ in }
+    var onDeleteAll: () -> Void = {}
+    var route: (UUID) -> Route? = { _ in nil }
+    var isMapNoticePending = false
+    var isMapOffline = false
+    var onAcceptNotice: () -> Void = {}
+    var tileFetcher: TileFetcher?
 
     @Environment(\.dismiss) private var dismiss
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+    @State private var selected: (id: UUID, route: Route?)?
+    @State private var detent: PresentationDetent = .medium
+    @State private var confirmsDeleteAll = false
 
     private var accent: Color { Color(hex: theme.accent) }
 
     var body: some View {
+        content
+            // While a route shows, dragging the map must not drag the sheet (osm-map R23).
+            .presentationDetents(selected == nil ? [.medium, .large] : [.large], selection: $detent)
+            .interactiveDismissDisabled(selected != nil)
+            .presentationDragIndicator(.visible)
+            .presentationBackground(.ultraThinMaterial)
+            .confirmationDialog("Delete all trips?", isPresented: $confirmsDeleteAll, titleVisibility: .visible) {
+                Button("Delete All Trips", role: .destructive, action: onDeleteAll)
+                Button("Cancel", role: .cancel) {}
+            } message: {
+                Text("All trips and their routes will be deleted from this iPhone. This can't be undone.")
+            }
+    }
+
+    @ViewBuilder
+    private var content: some View {
+        if let selected, let row = display.history.first(where: { $0.id == selected.id }), let tileFetcher {
+            RouteView(
+                row: row,
+                route: selected.route,
+                theme: theme,
+                tileFetcher: tileFetcher,
+                isMapNoticePending: isMapNoticePending,
+                isMapOffline: isMapOffline,
+                onAcceptNotice: onAcceptNotice,
+                onBack: { self.selected = nil },
+                onDone: { dismiss() }
+            )
+        } else {
+            trips
+        }
+    }
+
+    private var trips: some View {
         VStack(spacing: 0) {
             HStack(alignment: .firstTextBaseline) {
                 VStack(alignment: .leading, spacing: 4) {
@@ -29,8 +74,9 @@ struct TripSheet: View {
             }
             .padding()
 
-            ScrollView {
-                VStack(alignment: .leading, spacing: 16) {
+            // A List, so earlier trips can be swiped to delete (osm-map R24); rows keep the card look.
+            List {
+                Group {
                     currentTrip
                     if display.isEmpty {
                         Text("The trip starts when the car moves.")
@@ -40,13 +86,16 @@ struct TripSheet: View {
                     }
                     newTripButton
                     history
+                    deleteAllButton
                 }
-                .padding([.horizontal, .bottom])
+                .listRowBackground(Color.clear)
+                .listRowSeparator(.hidden)
+                .listRowInsets(EdgeInsets(top: 4, leading: 16, bottom: 4, trailing: 16))
             }
+            .listStyle(.plain)
+            .listRowSpacing(8)
+            .scrollContentBackground(.hidden)
         }
-        .presentationDetents([.medium, .large])
-        .presentationDragIndicator(.visible)
-        .presentationBackground(.ultraThinMaterial)
     }
 
     // MARK: Current trip
@@ -129,35 +178,84 @@ struct TripSheet: View {
 
     // MARK: History
 
+    @ViewBuilder
     private var history: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Text("Earlier trips")
-                .font(.caption.weight(.semibold))
-                .textCase(.uppercase)
-                .foregroundStyle(.secondary)
-                .accessibilityAddTraits(.isHeader)
-            if display.history.isEmpty {
-                VStack(spacing: 10) {
-                    Image(systemName: "car.side")
-                        .font(.title2)
-                        .accessibilityHidden(true)
-                    Text("No earlier trips")
-                }
-                .foregroundStyle(.secondary)
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, 28)
-                .background(.black.opacity(0.18), in: card)
-            } else {
-                ForEach(display.history) { row in
+        Text("Earlier trips")
+            .font(.caption.weight(.semibold))
+            .textCase(.uppercase)
+            .foregroundStyle(.secondary)
+            .padding(.top, 8)
+            .accessibilityAddTraits(.isHeader)
+        if display.history.isEmpty {
+            VStack(spacing: 10) {
+                Image(systemName: "car.side")
+                    .font(.title2)
+                    .accessibilityHidden(true)
+                Text("No earlier trips")
+            }
+            .foregroundStyle(.secondary)
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 28)
+            .background(.black.opacity(0.18), in: card)
+        } else {
+            ForEach(display.history) { row in
+                Button {
+                    selected = (row.id, route(row.id))
+                    detent = .large
+                } label: {
                     historyRow(row)
+                }
+                .buttonStyle(.plain)
+                .accessibilityHint("Double-tap to show the route")
+                .swipeActions(edge: .trailing, allowsFullSwipe: true) {
+                    Button(role: .destructive) {
+                        onDelete(row.id)
+                    } label: {
+                        Label("Delete", systemImage: "trash")
+                    }
                 }
             }
         }
     }
 
+    /// Deletes every trip and route, after one confirmation (osm-map R25).
+    private var deleteAllButton: some View {
+        Button {
+            confirmsDeleteAll = true
+        } label: {
+            Label("Delete all trips", systemImage: "trash")
+                .font(.body.weight(.semibold))
+                .foregroundStyle(.red)
+                .frame(maxWidth: .infinity, minHeight: 48)
+                .background { GlassBackground(shape: card, tint: theme.color(theme.chipFill), colorScheme: theme.colorScheme) }
+                .contentShape(card)
+        }
+        .buttonStyle(.plain)
+        .disabled(display.history.isEmpty && display.isEmpty)
+        .opacity(display.history.isEmpty && display.isEmpty ? 0.4 : 1)
+        .padding(.top, 8)
+    }
+
     /// Values on one line beside the day when they fit; otherwise stacked under it, wrapping between words
     /// rather than truncating (R14, R17).
     private func historyRow(_ row: TripDisplay.Row) -> some View {
+        HStack(spacing: 10) {
+            rowValues(row)
+            // Each row opens its route (osm-map R22).
+            Image(systemName: "chevron.right")
+                .font(.footnote.weight(.semibold))
+                .foregroundStyle(.tertiary)
+                .accessibilityHidden(true)
+        }
+        .font(.subheadline)
+        .padding(14)
+        .background { GlassBackground(shape: card, tint: theme.color(theme.chipFill), colorScheme: theme.colorScheme) }
+        .contentShape(card)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(row.accessibilityLabel)
+    }
+
+    private func rowValues(_ row: TripDisplay.Row) -> some View {
         ViewThatFits(in: .horizontal) {
             HStack(alignment: .center, spacing: 12) {
                 dayAndTag(row)
@@ -174,11 +272,6 @@ struct TripSheet: View {
             }
             .frame(maxWidth: .infinity, alignment: .leading)
         }
-        .font(.subheadline)
-        .padding(14)
-        .background { GlassBackground(shape: card, tint: theme.color(theme.chipFill), colorScheme: theme.colorScheme) }
-        .accessibilityElement(children: .ignore)
-        .accessibilityLabel(row.accessibilityLabel)
     }
 
     private func dayAndTag(_ row: TripDisplay.Row) -> some View {
@@ -233,7 +326,13 @@ private extension TripDisplay {
 
 #Preview("Running, with history") {
     Color.black.sheet(isPresented: .constant(true)) {
-        TripSheet(display: .preview(minutes: 24, trips: 4, lost: true), theme: GaugeFace.minimalRing.theme) {}
+        TripSheet(
+            display: .preview(minutes: 24, trips: 4, lost: true),
+            theme: GaugeFace.minimalRing.theme,
+            onNewTrip: {},
+            route: { _ in Route(segments: [(0..<60).map { RoutePoint(latitude: 45 + Double($0) * 0.0004, longitude: 120) }]) },
+            tileFetcher: FakeTileFetcher()
+        )
     }
     .preferredColorScheme(.dark)
 }
