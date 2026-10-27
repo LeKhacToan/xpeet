@@ -141,6 +141,22 @@ extension SpeedometerViewModelTests {
         XCTAssertNotNil(viewModel.mapScene.camera)
     }
 
+    // MARK: - R26
+
+    func testMapAccessibilityStrings() {
+        let clock = TestClock()
+        let viewModel = makeViewModel(clock: clock)
+        viewModel.handle(authorization: .authorized)
+        XCTAssertEqual(viewModel.modeButtonLabel, "Show map")
+        viewModel.toggleScreenMode()
+        XCTAssertEqual(viewModel.modeButtonLabel, "Show gauge")
+
+        driveNorth(viewModel, clock: clock, seconds: 2)
+        XCTAssertEqual(viewModel.mapAccessibilityValue, "Following your position")
+        viewModel.mapWasMovedByHand()
+        XCTAssertEqual(viewModel.mapAccessibilityValue, "Not following")
+    }
+
     // MARK: - R13
 
     func testMapOfflineLabelFollowsTileStatus() async {
@@ -189,6 +205,66 @@ extension SpeedometerViewModelTests {
         driveNorth(viewModel, clock: clock, seconds: 20, from: north + 200)
 
         XCTAssertEqual(viewModel.routeRecorder.route.segments.count, 3, "Acquiring and Unavailable each break the route")
+    }
+
+    func testRouteBreaksAtRunEnd() async {
+        let clock = TestClock()
+        let provider = FakeSpeedProvider()
+        let viewModel = makeViewModel(provider: provider, clock: clock)
+        var north = 0.0
+        func send(count: Int) async {
+            for _ in 0..<count {
+                let points = viewModel.routeRecorder.route.segments.joined().count
+                provider.send(fix(kmh: 50, north: north, at: clock))
+                await waitUntil { viewModel.routeRecorder.route.segments.joined().count == points + 1 }
+                north += 50 / 3.6
+                clock.advance(by: 1)
+            }
+        }
+
+        let first = Task { await viewModel.run() }
+        await waitUntil { provider.speedSubscriberCount > 0 }
+        provider.send(.authorized)
+        await send(count: 3)
+        first.cancel()
+        await first.value
+
+        let second = Task { await viewModel.run() }
+        await waitUntil { provider.speedSubscriberCount > 0 }
+        await send(count: 2)
+        second.cancel()
+        await second.value
+
+        XCTAssertEqual(viewModel.routeRecorder.route.segments.map(\.count), [3, 2], "each run starts a new segment")
+    }
+
+    func testRouteBreaksAfterAStallWithoutTicks() {
+        let clock = TestClock()
+        let viewModel = makeViewModel(clock: clock)
+        viewModel.handle(authorization: .authorized)
+        let north = driveNorth(viewModel, clock: clock, seconds: 5)
+
+        clock.advance(by: 6)
+        driveNorth(viewModel, clock: clock, seconds: 3, from: north + 80)
+
+        XCTAssertEqual(viewModel.routeRecorder.route.segments.count, 2, "more than 5 s between updates breaks the route")
+    }
+
+    func testNoPointsBeforeTheTripStartsOrWhileUnavailable() {
+        let clock = TestClock()
+        let viewModel = makeViewModel(clock: clock)
+        viewModel.handle(authorization: .authorized)
+
+        driveNorth(viewModel, clock: clock, seconds: 5, kmh: 0)
+        XCTAssertTrue(viewModel.routeRecorder.route.isEmpty, "the trip hasn't started")
+
+        viewModel.handle(authorization: .denied)
+        viewModel.handle(sample: fix(kmh: 50, north: 0, at: clock))
+        XCTAssertTrue(viewModel.routeRecorder.route.isEmpty, "nothing while location is off")
+
+        viewModel.handle(authorization: .authorized)
+        driveNorth(viewModel, clock: clock, seconds: 5)
+        XCTAssertFalse(viewModel.routeRecorder.route.isEmpty)
     }
 
     // MARK: - R19, R20
@@ -243,14 +319,19 @@ extension SpeedometerViewModelTests {
     func testDeleteAllClearsTripsRoutesAndTileCache() async throws {
         let clock = TestClock()
         let tiles = FakeTileFetcher()
-        let viewModel = makeViewModel(clock: clock, tileFetcher: tiles)
+        let store = makeRouteStore()
+        let viewModel = makeViewModel(clock: clock, routeStore: store, tileFetcher: tiles)
         viewModel.handle(authorization: .authorized)
         driveNorth(viewModel, clock: clock, seconds: 30)
         viewModel.startNewTrip()
         driveNorth(viewModel, clock: clock, seconds: 30, from: 2_000)
         let earlier = try XCTUnwrap(viewModel.trip.history.first?.id)
+        let current = try XCTUnwrap(viewModel.tripTracker.current.id)
+        XCTAssertNotNil(store.load(id: current))
 
         viewModel.deleteAllTrips()
+
+        XCTAssertNil(store.load(id: current), "the current trip's route goes too")
 
         XCTAssertEqual(viewModel.trip.history, [])
         XCTAssertTrue(viewModel.trip.isEmpty, "the current trip goes too")
@@ -279,6 +360,32 @@ extension SpeedometerViewModelTests {
         let id = try XCTUnwrap(viewModel.tripTracker.current.id)
         XCTAssertGreaterThan(disk.attempts, 1)
         XCTAssertNotNil(store.load(id: id), "the next save wrote the whole route")
+    }
+
+    func testUnchangedRouteIsNotRewritten() {
+        final class Disk {
+            var writes = 0
+        }
+        let disk = Disk()
+        let folder = FileManager.default.temporaryDirectory.appending(path: "Routes-\(UUID().uuidString)")
+        let store = RouteStore(folder: folder) { data, url, options in
+            disk.writes += 1
+            try data.write(to: url, options: options)
+        }
+        let clock = TestClock()
+        let viewModel = makeViewModel(clock: clock, routeStore: store)
+        viewModel.handle(authorization: .authorized)
+        let north = driveNorth(viewModel, clock: clock, seconds: 15)
+        // Stopped at a light. The first save after stopping still writes the last few points.
+        let stop = north - 50 / 3.6
+        driveNorth(viewModel, clock: clock, seconds: 12, kmh: 0, from: stop)
+        let writes = disk.writes
+        XCTAssertGreaterThan(writes, 0)
+
+        // The trip keeps saving every 10 s, but the route has no new point.
+        driveNorth(viewModel, clock: clock, seconds: 30, kmh: 0, from: stop)
+
+        XCTAssertEqual(disk.writes, writes)
     }
 
     func testRouteContinuesAfterRelaunch() throws {

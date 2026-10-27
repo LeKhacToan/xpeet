@@ -131,6 +131,22 @@ final class TileFetcherTests: XCTestCase {
         XCTAssertEqual(data, Data("tile".utf8))
     }
 
+    func testRefusedWithCopyServesStaleAndGoesOffline() async throws {
+        await server.queue(.status(200, headers: ["Cache-Control": "max-age=60"]))
+        await server.queue(.status(429))
+        var statuses = await fetcher.statusUpdates().makeAsyncIterator()
+        _ = try await fetcher.tile(key)
+        let ok = await statuses.next()
+
+        clock.now += 120
+        let data = try await fetcher.tile(key)
+        let refused = await statuses.next()
+
+        XCTAssertEqual(ok, .ok)
+        XCTAssertEqual(data, Data("tile".utf8), "a refused request still shows the cached tile")
+        XCTAssertEqual(refused, .offline)
+    }
+
     func testRefusedWithoutCopyThrows() async {
         await server.queue(.status(503))
 

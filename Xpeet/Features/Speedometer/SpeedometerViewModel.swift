@@ -137,6 +137,8 @@ final class SpeedometerViewModel {
     @ObservationIgnored var routeRecorder: RouteRecorder
     /// The trip the recorder's route belongs to; nil while the trip is empty.
     @ObservationIgnored var routeTripID: UUID?
+    /// The route last written, so an unchanged route isn't rewritten every 10 s.
+    @ObservationIgnored var lastSavedRoute: (id: UUID, route: Route)?
     @ObservationIgnored var mapFollower = MapFollower()
     let routeStore: RouteStore
     let tileFetcher: TileFetcher

@@ -39,7 +39,6 @@ struct MapCanvas: UIViewRepresentable {
         map.isPitchEnabled = false
         // MapKit ignores a camera heading while rotation is off, so the live map keeps it on (R8, amended).
         map.isRotateEnabled = style == .live
-        map.cameraZoomRange = MKMapView.CameraZoomRange(minCenterCoordinateDistance: 120)
         context.coordinator.attach(to: map, style: style, fetcher: tileFetcher)
         return map
     }
@@ -68,6 +67,9 @@ struct MapCanvas: UIViewRepresentable {
         private var distancePerVisibleHeight = CameraMath.defaultDistancePerVisibleHeight
         private var calibratedSize: CGSize = .zero
         private var hasFittedRoute = false
+        /// Where the z3-z19 zoom range was last worked out: it changes with latitude and view size (R8).
+        private var zoomRangeBasis: (latitude: Double, height: CGFloat)?
+        private var lastGestureReport = Date.distantPast
 
         func attach(to map: MKMapView, style: Style, fetcher: TileFetcher) {
             self.style = style
@@ -166,10 +168,22 @@ struct MapCanvas: UIViewRepresentable {
             true
         }
 
+        /// Reports the start and end of a gesture, and about once a second while it lasts, so following resumes 10 s
+        /// after the last touch rather than the first (R8).
         @objc private func gestureBegan(_ recognizer: UIGestureRecognizer) {
-            if recognizer.state == .began || recognizer is UITapGestureRecognizer && recognizer.state == .ended {
-                onUserGesture()
+            switch recognizer.state {
+            case .began, .ended, .cancelled:
+                report()
+            case .changed where Date().timeIntervalSince(lastGestureReport) >= 1:
+                report()
+            default:
+                break
             }
+        }
+
+        private func report() {
+            lastGestureReport = Date()
+            onUserGesture()
         }
 
         private static func tap(touches: Int, taps: Int, target: Coordinator) -> UITapGestureRecognizer {
@@ -250,9 +264,11 @@ struct MapCanvas: UIViewRepresentable {
                 // Measure at street level: set once with the current ratio, measure, then set the corrected camera.
                 map.setCamera(makeCamera(camera, for: map), animated: false)
                 calibrate(map)
+                applyZoomRange(latitude: camera.center.latitude, to: map)
                 map.setCamera(makeCamera(camera, for: map), animated: false)
                 return
             }
+            applyZoomRange(latitude: camera.center.latitude, to: map)
             let next = makeCamera(camera, for: map)
             guard animated else {
                 map.setCamera(next, animated: false)
@@ -272,6 +288,18 @@ struct MapCanvas: UIViewRepresentable {
             return MKMapCamera(lookingAtCenter: camera.center.location, fromDistance: distance, pitch: 0, heading: camera.heading)
         }
 
+        /// Keeps pinch-zoom within z3-z19 (R8). Recomputed when the view size or latitude (by over a degree) changes.
+        private func applyZoomRange(latitude: Double, to map: MKMapView) {
+            let height = map.bounds.height
+            guard height > 0 else { return }
+            if let basis = zoomRangeBasis, basis.height == height, abs(basis.latitude - latitude) < 1 { return }
+            let range = CameraMath.distanceRange(latitude: latitude, viewHeight: height, distancePerVisibleHeight: distancePerVisibleHeight)
+            map.cameraZoomRange = MKMapView.CameraZoomRange(
+                minCenterCoordinateDistance: range.lowerBound, maxCenterCoordinateDistance: range.upperBound
+            )
+            zoomRangeBasis = (latitude, height)
+        }
+
         /// Camera distance over visible ground height, measured on the live map for this view size.
         private func calibrate(_ map: MKMapView) {
             let size = map.bounds.size
@@ -286,6 +314,7 @@ struct MapCanvas: UIViewRepresentable {
         private func fitRoute(_ trail: [[MapCoordinate]], to map: MKMapView) {
             guard !hasFittedRoute, !polylines.isEmpty, map.bounds.height > 0 else { return }
             let rect = polylines.dropFirst().reduce(polylines[0].boundingMapRect) { $0.union($1.boundingMapRect) }
+            applyZoomRange(latitude: MKMapPoint(x: rect.midX, y: rect.midY).coordinate.latitude, to: map)
             map.setVisibleMapRect(rect, edgePadding: UIEdgeInsets(top: 40, left: 32, bottom: 40, right: 32), animated: false)
             if let first = trail.first?.first, let last = trail.last?.last {
                 routeEnds = [RouteEndAnnotation(coordinate: first.location, isStart: true),

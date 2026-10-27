@@ -21,7 +21,8 @@ actor TileCache {
 
     private let folder: URL
     private let capacity: Int
-    private var bytesSinceTrim = 0
+    /// Starts full, so the first new tile of each launch trims: the cap holds across launches (R12).
+    private var bytesSinceTrim = TileCache.trimEvery
 
     init(folder: URL, capacity: Int = TileCache.capacity) {
         self.folder = folder
@@ -69,9 +70,11 @@ actor TileCache {
         bytesSinceTrim = 0
         let keys: [URLResourceKey] = [.fileSizeKey, .contentModificationDateKey]
         let files = (try? FileManager.default.contentsOfDirectory(at: folder, includingPropertiesForKeys: keys)) ?? []
-        let tiles = files.filter { $0.pathExtension == "tile" }.compactMap { url -> (url: URL, size: Int, used: Date)? in
-            let values = try? url.resourceValues(forKeys: Set(keys))
-            return (url, values?.fileSize ?? 0, values?.contentModificationDate ?? .distantPast)
+        let sizes = Dictionary(files.map { ($0, (try? $0.resourceValues(forKeys: Set(keys)))?.fileSize ?? 0) }) { first, _ in first }
+        let tiles = files.filter { $0.pathExtension == "tile" }.map { url -> (url: URL, size: Int, used: Date) in
+            let meta = url.deletingPathExtension().appendingPathExtension("meta")
+            let used = (try? url.resourceValues(forKeys: [.contentModificationDateKey]))?.contentModificationDate
+            return (url, (sizes[url] ?? 0) + (sizes[meta] ?? 0), used ?? .distantPast)
         }
         var total = tiles.reduce(0) { $0 + $1.size }
         guard total > capacity else { return }

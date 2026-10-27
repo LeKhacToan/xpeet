@@ -155,7 +155,7 @@ struct SpeedometerView: View {
             Button {
                 showsTrip = true
             } label: {
-                TripLine(text: line, theme: theme)
+                TripLine(text: line, theme: theme, isOpaque: viewModel.screenMode == .map)
             }
             .buttonStyle(.plain)
             .accessibilityElement(children: .ignore)
@@ -208,7 +208,9 @@ struct SpeedometerView: View {
 
     /// Frosted-glass status chip: accent dot, icon and wrapping text (specs/ui-redesign R7).
     var statusChip: StatusChip? {
-        viewModel.statusText.map { StatusChip(text: $0, symbol: viewModel.statusSymbol, theme: theme) }
+        viewModel.statusText.map {
+            StatusChip(text: $0, symbol: viewModel.statusSymbol, theme: theme, isOpaque: viewModel.screenMode == .map)
+        }
     }
 
     /// Denied only: a full-width button and a one-line hint (specs/ui-redesign R17).
@@ -244,6 +246,8 @@ struct StatusChip: View {
     let text: String
     let symbol: String?
     let theme: Theme
+    /// Over the map the chip is opaque, so tiles never show behind the text (specs/osm-map R4).
+    var isOpaque = false
 
     var body: some View {
         HStack(spacing: 8) {
@@ -267,11 +271,15 @@ struct StatusChip: View {
         .padding(.horizontal, 14)
         .padding(.vertical, 9)
         .background {
-            GlassBackground(
-                shape: RoundedRectangle(cornerRadius: 18, style: .continuous),
-                tint: theme.color(theme.chipFill),
-                colorScheme: theme.colorScheme
-            )
+            if isOpaque {
+                MapCardBackground(shape: RoundedRectangle(cornerRadius: 18, style: .continuous), theme: theme)
+            } else {
+                GlassBackground(
+                    shape: RoundedRectangle(cornerRadius: 18, style: .continuous),
+                    tint: theme.color(theme.chipFill),
+                    colorScheme: theme.colorScheme
+                )
+            }
         }
         .accessibilityElement(children: .combine)
     }

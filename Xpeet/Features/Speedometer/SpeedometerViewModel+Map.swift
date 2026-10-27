@@ -14,6 +14,16 @@ extension SpeedometerViewModel {
         return false
     }
 
+    /// VoiceOver label of the mode button (R26).
+    var modeButtonLabel: String {
+        screenMode == .gauge ? String(localized: "Show map") : String(localized: "Show gauge")
+    }
+
+    /// VoiceOver value of the live map, which is one element (R26).
+    var mapAccessibilityValue: String {
+        mapScene.isFollowing ? String(localized: "Following your position") : String(localized: "Not following")
+    }
+
     // MARK: Actions
 
     /// The mode button (R1).
@@ -56,6 +66,7 @@ extension SpeedometerViewModel {
     func deleteAllTrips() {
         tripTracker.deleteAll()
         routeStore.removeAll()
+        lastSavedRoute = nil
         routeRecorder.reset()
         routeTripID = nil
         saveTrip()
@@ -97,11 +108,13 @@ extension SpeedometerViewModel {
     }
 
     /// Saves the current trip's route under its id and deletes routes whose trip is gone (R19, R20).
-    /// A failed write needs nothing: the next save writes the whole route again.
+    /// An unchanged route isn't written again. A failed write needs nothing: the next save writes the whole route.
     func saveRoute() {
         syncRouteTrip()
-        if let id = routeTripID, !routeRecorder.route.isEmpty {
-            routeStore.save(routeRecorder.route, id: id)
+        let route = routeRecorder.route
+        if let id = routeTripID, !route.isEmpty, lastSavedRoute.map({ $0.id != id || $0.route != route }) ?? true,
+           routeStore.save(route, id: id) {
+            lastSavedRoute = (id, route)
         }
         routeStore.prune(keeping: tripTracker.tripIDs)
     }

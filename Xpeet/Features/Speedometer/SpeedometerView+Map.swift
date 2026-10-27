@@ -20,7 +20,7 @@ extension SpeedometerView {
         .dynamicTypeSize(...DynamicTypeSize.accessibility2)
         .padding(.leading)
         .padding(.top, 4)
-        .accessibilityLabel(showsMap ? "Show map" : "Show gauge")
+        .accessibilityLabel(viewModel.modeButtonLabel)
     }
 
     @ViewBuilder
@@ -57,7 +57,7 @@ extension SpeedometerView {
             // One element: the map is not read tile by tile (R26).
             .accessibilityElement(children: .ignore)
             .accessibilityLabel("Map")
-            .accessibilityValue(viewModel.mapScene.isFollowing ? "Following your position" : "Not following")
+            .accessibilityValue(viewModel.mapAccessibilityValue)
         }
     }
 

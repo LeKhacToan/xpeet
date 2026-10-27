@@ -20,8 +20,9 @@ final class OSMTileOverlay: MKTileOverlay {
 
     override func loadTile(at path: MKTileOverlayPath) async throws -> Data {
         #if DEBUG
-        // Which zoom MapKit asks for at which screen scale (plan risk: Retina screens may ask for z + 1).
-        Self.log.debug("tile z\(path.z) x\(path.x) y\(path.y) scale \(path.contentScaleFactor)")
+        // Which zoom MapKit asks for at which screen scale (plan risk: Retina screens may ask for z + 1). No x/y: a
+        // tile's column and row are a location.
+        Self.log.debug("tile z\(path.z) scale \(path.contentScaleFactor)")
         #endif
         return try await fetcher.tile(TileKey(z: path.z, x: path.x, y: path.y))
     }
@@ -54,5 +55,17 @@ enum CameraMath {
 
     static func distance(zoom: Int, latitude: Double, viewHeight: Double, distancePerVisibleHeight: Double) -> Double {
         metersPerPoint(zoom: zoom, latitude: latitude) * viewHeight * distancePerVisibleHeight
+    }
+
+    /// Pinch-zoom stays within these levels (specs/osm-map R8).
+    static let zoomLimits = 3...19
+
+    /// Camera distances for `zoomLimits`: closest at the highest zoom.
+    static func distanceRange(latitude: Double, viewHeight: Double, distancePerVisibleHeight: Double) -> ClosedRange<Double> {
+        let closest = distance(zoom: zoomLimits.upperBound, latitude: latitude, viewHeight: viewHeight,
+                               distancePerVisibleHeight: distancePerVisibleHeight)
+        let farthest = distance(zoom: zoomLimits.lowerBound, latitude: latitude, viewHeight: viewHeight,
+                                distancePerVisibleHeight: distancePerVisibleHeight)
+        return closest...farthest
     }
 }

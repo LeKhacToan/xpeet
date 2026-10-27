@@ -27,15 +27,15 @@ The only code that imports MapKit or uses `URLSession`, like `Core/Audio`.
   - `url(z:x:y:)`;
   - `userAgent(version:)` → `Xpeet/<version> (+https://github.com/LeKhacToan/xpeet)` (R11).
 - **`TileCache.swift`**: an `actor`, a small HTTP-aware disk cache.
-  - Files live under `Caches/Tiles/<z>/<x>/<y>`, each with a metadata sidecar: ETag, Last-Modified, expiry.
-  - The base folder and the clock are injected.
+  - Files live flat in `Caches/Tiles` as `z-x-y.tile`, each with a `z-x-y.meta` sidecar: ETag, Last-Modified, expiry.
+  - The base folder is injected. Freshness uses the fetcher's injected clock; last-use times use the file dates.
   - Freshness:
     - from `Cache-Control: max-age` or `Expires`;
     - with neither, 7 days (R12).
   - Size: 150 MB, evicting the least recently used tiles. `removeAll()` backs R25.
 - **`TileFetcher.swift`**:
   - the `protocol TileFetcher: Sendable` with:
-    - `func tile(z:x:y:) async throws -> Data`;
+    - `func tile(_ key: TileKey) async throws -> Data`;
     - `func statusUpdates() -> AsyncStream<TileStatus>`, where `TileStatus` is `.ok` or `.offline`;
     - `func clearCache() async`.
   - **`URLSessionTileFetcher`**, the production implementation:
@@ -51,7 +51,7 @@ The only code that imports MapKit or uses `URLSession`, like `Core/Audio`.
   - a nonisolated `MKTileOverlay` subclass: `canReplaceMapContent = true`, `maximumZ = 19`, `tileSize` 256;
   - it overrides only the async `loadTile(at:) async throws -> Data` (the SDK form; MapKit calls it on background queues) and calls `TileFetcher` (R10, R11);
   - no main-actor hop inside.
-- **`DimOverlay.swift`**: an `MKPolygon` covering `MKMapRect.world`. An `MKPolygonRenderer` draws it with fill black at `MapStyle.dimOpacity` (0.35). It is inserted just above the tiles and below the trail, and added or removed when the face changes (R15). This is the pattern from Apple's overlay sample; a renderer subclass or alpha was avoided (research).
+- **`DimOverlay`** (in `OSMTileOverlay.swift`, with `CameraMath`): an `MKPolygon` covering `MKMapRect.world`. An `MKPolygonRenderer` draws it with fill black at `MapStyle.dimOpacity` (0.35). It is inserted just above the tiles and below the trail, and added or removed when the face changes (R15). This is the pattern from Apple's overlay sample; a renderer subclass or alpha was avoided (research).
 - **`MapCanvas.swift`**: the `UIViewRepresentable` around `MKMapView` (R5–R8, R14, R18, R23).
   - **Settings:**
     - POIs off, buildings off, pitch off, compass hidden;
@@ -126,11 +126,11 @@ Pure logic plus views, with no MapKit import. Coordinates are plain doubles.
   - a "Delete all trips" button with a `confirmationDialog`;
   - `@State selectedTrip: UUID?` swaps in `RouteView`;
   - while a route is shown, the detents are `[.large]` with `interactiveDismissDisabled()`, so dragging the map doesn't drag the sheet;
-  - new inputs: `onDelete`, `onDeleteAll`, `route(for:)`, `showsMapNotice`, `onAcceptNotice`, `tileFetcher`.
+  - new inputs: `onDelete`, `onDeleteAll`, `route`, `isMapNoticePending`, `isMapOffline`, `onAcceptNotice`, `tileFetcher`.
 - **`SpeedometerViewModel.swift`:**
   - **New stored properties:**
-    - `screenMode`, `showsMapNotice`, `mapScene` (all observed);
-    - `isMapOffline`, `hasFix` (observed);
+    - `screenMode`, `isMapNoticePending`, `mapScene` (all observed);
+    - `isMapOffline`, `hasPosition` (observed);
     - `@ObservationIgnored`: `routeRecorder`, `mapFollower`, `routeStore`, `tileFetcher`, `lastTripUpdate`.
   - **Init:** new parameters `routeStore: RouteStore = .standard` and `tileFetcher: TileFetcher? = nil` (production `URLSessionTileFetcher`).
   - **`run()`:**
@@ -174,7 +174,7 @@ Pure logic plus views, with no MapKit import. Coordinates are plain doubles.
   - `TripTrackerTests` + `delete(id:)`, `deleteAll`, and the id being set at start;
   - `TripStoreTests`: "id" joins the allowed keys (spec R9 amendment), and a legacy JSON without an id still loads;
   - `GaugeFaceTests` + the map-card contrast;
-  - `AccuracyReportTests` + `testRouteLengthMatchesTripDistance` (synthetic straight + 90° curve, and recorded drives, skipping without drives).
+  - `AccuracyReportTests` + `testRouteLengthAgainstTripDistance` (recorded drives, skipping without drives); the synthetic straight + 90° curve check is `RouteRecorderTests.testRouteLengthOnStraightAndCurve`.
 
 ## Order of work
 Each step: `xcodegen generate` when files are added, then `scripts/verify.sh` (sandbox off, `SIM_DEVICE="iPhone 15 Pro"`), then a commit.
@@ -223,6 +223,24 @@ Each step: `xcodegen generate` when files are added, then `scripts/verify.sh` (s
 - **R4 card colour:**
   - `MapStyle.cardColor(for:)` uses the theme background plus the chip tint, unless the tint would break a contrast target. Then it drops the tint: Analog sport's "--" came to 6.86:1 with it.
   - Tested in `GaugeFaceTests.testMapCardContrastForEveryFace`.
+- **Review and verifier fixes (step 10):**
+  - **R4:** in map mode the status chip and the trip line use the opaque map card (`isOpaque`), not glass.
+  - **R8:** `MapCanvas` sets `cameraZoomRange` from `CameraMath.distanceRange` (z3-z19). It is recomputed when the view size changes or the latitude moves by over a degree, and the route view uses the route's latitude. Gestures report their start, their end and about once a second in between, so following resumes 10 s after the last touch.
+  - **R26:** `modeButtonLabel` and `mapAccessibilityValue` now come from the ViewModel and are unit-tested. "Route map" stays in the view (manual).
+  - The tile log line no longer includes x/y.
+  - **`TileCache`:** it trims on the first store of each launch, and counts the `.meta` sidecars.
+  - **Route writes:** an unchanged route isn't rewritten on the 10 s save (`lastSavedRoute`, `testUnchangedRouteIsNotRewritten`).
+  - **New tests** for:
+    - the R16 gates;
+    - the R17 run-end and stall breaks;
+    - R13 HTTP refusal;
+    - R25 deleting the current route.
+- **Other files:**
+  - `FakeTileFetcher.swift` is its own file;
+  - `CameraMathTests.swift` is new;
+  - `DriveReplayTests.swift` injects the fakes;
+  - `AccuracyReport.swift` shares its stretches with `routeLength`.
+- **No in-memory tile cache:** MapKit keeps its own cache of drawn tiles, so the spec's "20 MB in memory" is MapKit's, not ours.
 - **Simulator check (step 6–7):**
   - This Mac's network resolves `tile.openstreetmap.org` to 127.0.0.1, so tiles fail here and "Map offline" shows, which is R13 working. Tiles are checked on the device.
   - The Simulator reports `speedAccuracy = -1`, which the estimator rightly ignores, so simulated drives never go Live. The visual check used a throwaway local patch, which was reverted and never committed.
@@ -249,33 +267,33 @@ Each step: `xcodegen generate` when files are added, then `scripts/verify.sh` (s
 | R1 | `SpeedometerViewModelTests.testScreenModeDefaultsToGaugeAndPersists`; manual: button in both modes and orientations |
 | R2 | `testMapNoticeShowsUntilAccepted`; manual: frame `map-notice` |
 | R3 | manual: frames `map-portrait`, `map-landscape-weak-signal`, every face, largest text |
-| R4 | `GaugeFaceTests.testMapCardContrastForEveryFace` |
+| R4 | `GaugeFaceTests.testMapCardContrastForEveryFace`; the chip and trip line use the same opaque card in map mode |
 | R5 | `testMarkerFollowsAcceptedFixes`, `testMarkerDimsWhileAcquiringAndHidesWhenUnavailable` |
 | R6 | `MapFollowerTests.testHeadingFollowsValidCourse`, `testHeadingHeldWhenSlowOrInaccurate` |
 | R7 | `MapFollowerTests.testZoomLevelsByShownSpeed`, `testZoomHysteresis` |
-| R8 | `MapFollowerTests.testGesturePausesFollowing`, `testFollowResumesAfterTenSeconds`, `testRecentreResumesAtOnce`; manual: drag, pinch, rotate and tap-zoom all show re-centre |
+| R8 | `MapFollowerTests.testGesturePausesFollowing`, `testFollowResumesAfterTenSeconds`, `testRecentreResumesAtOnce`; `SpeedometerViewModelTests.testGesturePausesFollowingAndResumes`; `CameraMathTests.testZoomLimitsSpanThreeToNineteen`; manual: drag, pinch, rotate and tap-zoom all show re-centre, zoom stops at z3/z19 |
 | R9 | `testPlaceholderUntilFirstFix`; manual |
-| R10 | `TileSourceTests.testDefaultTemplate`, `testOverrideNeedsHTTPSAndPlaceholders`, `testTileURL` |
+| R10 | `TileSourceTests.testDefaultTemplate`, `testOverrideNeedsHTTPSAndPlaceholders`; review: `OSMTileOverlay` replaces Apple's content, z0-19, 256 px |
 | R11 | `TileFetcherTests.testRequestsCarryUserAgentAndNoNoCache`; review: no other fetch path, no prefetch |
 | R12 | `TileFetcherTests.testFreshTileServedWithoutRequest`, `testStaleTileRevalidatesConditionally`, `testNoHeadersFreshForSevenDays`, `testOfflineServesStaleCopy`, `testCacheEvictsOverLimit` |
-| R13 | `TileFetcherTests.testStatusOfflineThenOk`; `testMapOfflineLabelFollowsTileStatus`; manual: Airplane Mode |
+| R13 | `TileFetcherTests.testStatusOfflineThenOk`, `testRefusedWithCopyServesStaleAndGoesOffline`; `testMapOfflineLabelFollowsTileStatus`; manual: Airplane Mode |
 | R14 | manual: credit visible and tappable on every map |
 | R15 | `GaugeFaceTests.testDimmingOnlyOnDarkFaces`; manual: trail and marker not dimmed |
-| R16 | `RouteRecorderTests.testSkipsInaccurateFixes`, `testKeepsPointsTenMetresApart`, `testFirstPointOfSegmentAlwaysKept`, `testStoresOnlyRoundedCoordinates` |
-| R17 | `RouteRecorderTests.testBreakStartsNewSegment`; `testRouteBreaksOnAcquiringUnavailableAndRunEnd` |
+| R16 | `RouteRecorderTests.testSkipsInaccurateFixes`, `testKeepsPointsTenMetresApart`, `testFirstPointOfSegmentAlwaysKept`, `testStoresOnlyRoundedCoordinates`; `SpeedometerViewModelTests.testNoPointsBeforeTheTripStartsOrWhileUnavailable` |
+| R17 | `RouteRecorderTests.testBreakStartsNewSegment`; `testRouteBreaksOnAcquiringAndUnavailable`, `testRouteBreaksAtRunEnd`, `testRouteBreaksAfterAStallWithoutTicks` |
 | R18 | `testTrailIsCurrentTripAndClearsOnNewTrip`; manual |
 | R19 | `RouteStoreTests.testPruneKeepsOnlyKnownTrips`; `TripTrackerTests.testIdSetWhenTripStarts`; `TripStoreTests.testLegacyTripWithoutIdLoads`; `testDroppedTripLosesRoute` |
 | R20 | `RouteStoreTests.testRoundTrip`, `testWritesRequestCompleteProtection`, `testFolderExcludedFromBackup`, `testCorruptFileIsNoRoute`, `testFailedWriteRetriesAtNextSave`; `testRouteSavedWithTrip`; device: `.protectionKey` is `.complete` |
 | R21 | `RouteRecorderTests.testHourAtFiftyIsUnder200KB` |
 | R22 | manual: rows open the route view |
-| R23 | `testRouteForTripLoadsStoredRoute`; manual: frame `route-view`, no-route state |
+| R23 | `testRouteSavedWithTrip` (`route(for:)` loads the stored route); manual: frame `route-view`, no-route state |
 | R24 | `TripTrackerTests.testDeleteById`; `testDeleteTripRemovesRoute`; manual: swipe + VoiceOver action |
-| R25 | `TripTrackerTests.testDeleteAll`; `testDeleteAllClearsTripsRoutesAndTileCache`; manual: dialog |
-| R26 | manual: Accessibility Inspector; unit: label strings in the ViewModel tests |
+| R25 | `TripTrackerTests.testDeleteAll`; `testDeleteAllClearsTripsRoutesAndTileCache` (including the current trip's route file); manual: dialog |
+| R26 | `SpeedometerViewModelTests.testMapAccessibilityStrings`; manual: Accessibility Inspector |
 | R27 | review: `URLSession` only in `URLSessionTileFetcher` (grep) |
 | R28 | review `project.yml` |
 | R29 | existing suite unchanged; `evals/run.sh` + `scripts/check-bands.sh` |
-| R30 | `AccuracyReportTests.testRouteLengthMatchesTripDistance` (synthetic); recorded drives (manual, skips without drives) |
+| R30 | `RouteRecorderTests.testRouteLengthOnStraightAndCurve` (synthetic); `AccuracyReportTests.testRouteLengthAgainstTripDistance` on recorded drives (manual, skips without drives) |
 | R31 | manual test drive → `specs/osm-map/results.md` |
 | R32 | review CLAUDE.md, supersede notes; evals re-run |
 

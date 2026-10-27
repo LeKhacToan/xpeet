@@ -14,6 +14,13 @@ final class CameraMathTests: XCTestCase {
         XCTAssertEqual(ratio, 0.5, accuracy: 0.01, "Mercator about halves the ground per point at 60° (MapKit's ellipsoid)")
     }
 
+    func testZoomLimitsSpanThreeToNineteen() {
+        let range = CameraMath.distanceRange(latitude: 21, viewHeight: 852, distancePerVisibleHeight: 1.866)
+
+        XCTAssertEqual(range.lowerBound, CameraMath.distance(zoom: 19, latitude: 21, viewHeight: 852, distancePerVisibleHeight: 1.866))
+        XCTAssertEqual(range.upperBound / range.lowerBound, 65_536, accuracy: 1e-6, "16 zoom levels apart")
+    }
+
     func testEachZoomLevelHalvesTheDistance() {
         let z16 = CameraMath.distance(zoom: 16, latitude: 45, viewHeight: 700, distancePerVisibleHeight: 1.866)
         let z17 = CameraMath.distance(zoom: 17, latitude: 45, viewHeight: 700, distancePerVisibleHeight: 1.866)
