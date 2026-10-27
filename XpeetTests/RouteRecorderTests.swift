@@ -81,6 +81,33 @@ final class RouteRecorderTests: XCTestCase {
         XCTAssertEqual(resumed.route.segments.map(\.count), [2, 1])
     }
 
+    // MARK: - R30
+
+    func testRouteLengthOnStraightAndCurve() {
+        // 500 m north, a 90° right turn of radius 50 m, 500 m east; a fix every 14 m (50 km/h at 1 Hz).
+        let radius = 50.0
+        let arc = Double.pi / 2 * radius
+        let total = 500 + arc + 500
+        func position(at distance: Double) -> (north: Double, east: Double) {
+            if distance <= 500 { return (distance, 0) }
+            if distance <= 500 + arc {
+                let angle = (distance - 500) / radius
+                return (500 + radius * sin(angle), radius - radius * cos(angle))
+            }
+            return (500 + radius, radius + distance - 500 - arc)
+        }
+        var recorder = RouteRecorder()
+        let metresPerDegreeLongitude = metresPerDegree * cos(originLatitude * .pi / 180)
+
+        for distance in stride(from: 0.0, through: total, by: 14) + [total] {
+            let point = position(at: distance)
+            recorder.add(latitude: originLatitude + point.north / metresPerDegree,
+                         longitude: originLongitude + point.east / metresPerDegreeLongitude, horizontalAccuracy: 5)
+        }
+
+        XCTAssertEqual(recorder.route.length, total, accuracy: total * 0.01)
+    }
+
     // MARK: - R21
 
     func testHourAtFiftyIsUnder200KB() throws {

@@ -48,7 +48,7 @@ Since speed-accuracy shipped, the speed estimate is good enough to build on.
 ## Constraints
 - iOS 17+, native SwiftUI, Apple frameworks only, no networking, no new permissions.
 - Foreground only, as today (speedometer R20). No background location just to keep counting distance.
-- Privacy: no route, no coordinates and no addresses are stored, only totals. Nothing leaves the phone.
+- Privacy: no route, no coordinates and no addresses are stored, only totals. Nothing leaves the phone. *(Superseded by `intent/2026-10-27-osm-map.md`: routes are stored on the device, and map tiles are fetched from OpenStreetMap.)*
 - **Must not encourage speeding:**
   - no top or peak speed;
   - no records, streaks or "fastest trip";

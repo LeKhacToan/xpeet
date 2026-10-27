@@ -62,7 +62,7 @@ Changes to earlier specs (each gets a note when this ships):
 - **R8** **Finishing a trip.** A finished trip goes to the front of the history if its distance is at least 100 m (a named constant); a shorter one is dropped. The history keeps the 10 newest trips (a named constant); older ones are deleted. *(unit)*
 
 ### Storage
-- **R9** **What is stored.** The current trip and the history are saved in the injected `UserDefaults`, as JSON, under `trip.current` and `trip.history`. Each trip stores only:
+- **R9** **What is stored.** The current trip and the history are saved in the injected `UserDefaults`, as JSON, under `trip.current` and `trip.history`. Each trip stores only: **Amended** by `specs/osm-map/spec.md` R19-R20: each trip also stores an `id`, and its route is stored in a separate file.
   - start time, last-update time and last-movement time;
   - distance (m), moving time, stopped time and lost time (s);
   - nothing else — no coordinates, course, addresses or speeds over time.
@@ -97,7 +97,7 @@ Changes to earlier specs (each gets a note when this ships):
 - **R13** **Tapping the line** opens the trip sheet. The hit area is at least 44 × 44 pt. Nothing else on the main screen changes; there is no trip control on the main screen besides the line. *(manual)*
 
 ### Trip sheet
-- **R14** **Contents** (frames `trip-sheet`, `trip-sheet-empty`). A modal sheet titled "Trip", with "Done", in the face picker's glass style (ui-redesign R18):
+- **R14** **Contents** (frames `trip-sheet`, `trip-sheet-empty`). A modal sheet titled "Trip", with "Done", in the face picker's glass style (ui-redesign R18): **Amended** by `specs/osm-map/spec.md` R22-R25: earlier trips open a route view and can be deleted, one by one or all at once.
   - **Header:** a start time under the title ("Started 08:42", or "Not started" for an empty trip).
   - **Current trip card:** a "Current distance" label over the large distance, then a 2 × 2 grid: moving time, stopped time, total time, and average moving speed (R4) in the selected speed unit.
   - **Approximate:** when R3 applies, a neutral "Approximate" note with a short reason ("GPS was lost for part of this trip"). It is never red.
@@ -175,9 +175,9 @@ There is no loading state: storage is read synchronously at start.
 ## Out of scope
 - Top, peak or maximum speed; records, streaks, rankings, achievements (R16).
 - Showing the trip sheet or history while location is off.
-- Exporting or sharing trips; deleting single history entries.
+- Exporting or sharing trips; ~~deleting single history entries~~ (now in `specs/osm-map/spec.md` R24).
 - Fuel or cost estimates; odometer calibration against the car.
-- Route, map or position history.
+- ~~Route, map or position history~~ (now in `specs/osm-map/spec.md`).
 - Background measurement, Live Activity, widgets, CarPlay.
 - Mascot reactions to trips (intent Decisions).
 

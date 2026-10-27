@@ -224,18 +224,6 @@ struct AccuracyReport {
     /// at every silence longer than `TripTracker.maxInterval`; each stretch runs from its first fix to its last, so the
     /// held speed the trip still counts at the start of a gap, and the gap itself, are left out on both sides.
     var tripAndPositionDistance: (trip: Double, positions: Double) {
-        let fixes = drive.fixes.filter {
-            $0.sample.horizontalAccuracy >= 0 && $0.sample.metersPerSecond >= 0 && !$0.sample.isStationary
-        }
-        var stretches: [[(sample: SpeedSample, arrival: Date)]] = []
-        for fix in fixes {
-            if let last = stretches.last?.last,
-               fix.sample.timestamp.timeIntervalSince(last.sample.timestamp) <= TripTracker.maxInterval {
-                stretches[stretches.count - 1].append(fix)
-            } else {
-                stretches.append([fix])
-            }
-        }
         var trip = 0.0
         var positions = 0.0
         for stretch in stretches where stretch.count > 1 {
@@ -253,6 +241,37 @@ struct AccuracyReport {
             trip += tracker.current.distance + tracker.history.reduce(0) { $0 + $1.distance }
         }
         return (trip, positions)
+    }
+
+    /// The route the app would store over the same stretches (specs/osm-map R30): each stretch is a segment, thinned
+    /// and filtered by `RouteRecorder`.
+    var routeLength: Double {
+        var recorder = RouteRecorder()
+        for stretch in stretches where stretch.count > 1 {
+            recorder.breakSegment()
+            for fix in stretch {
+                recorder.add(latitude: fix.sample.latitude, longitude: fix.sample.longitude,
+                             horizontalAccuracy: fix.sample.horizontalAccuracy)
+            }
+        }
+        return recorder.route.length
+    }
+
+    /// Moving fixes with a position, cut at every silence longer than `TripTracker.maxInterval`.
+    private var stretches: [[(sample: SpeedSample, arrival: Date)]] {
+        let fixes = drive.fixes.filter {
+            $0.sample.horizontalAccuracy >= 0 && $0.sample.metersPerSecond >= 0 && !$0.sample.isStationary
+        }
+        var stretches: [[(sample: SpeedSample, arrival: Date)]] = []
+        for fix in fixes {
+            if let last = stretches.last?.last,
+               fix.sample.timestamp.timeIntervalSince(last.sample.timestamp) <= TripTracker.maxInterval {
+                stretches[stretches.count - 1].append(fix)
+            } else {
+                stretches.append([fix])
+            }
+        }
+        return stretches
     }
 
     /// Straight lines between fixes about `chordInterval` apart, plus the last piece.

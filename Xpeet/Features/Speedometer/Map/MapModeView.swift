@@ -10,8 +10,7 @@ struct MapCardBackground<S: InsettableShape>: View {
 
     var body: some View {
         shape
-            .fill(Color(hex: theme.backgroundCenter))
-            .overlay { shape.fill(theme.color(theme.chipFill)) }
+            .fill(Color(hex: MapStyle.cardColor(for: theme)))
             .overlay {
                 shape.strokeBorder(
                     LinearGradient(colors: [.white.opacity(0.2), .white.opacity(0.03)], startPoint: .top, endPoint: .bottom),

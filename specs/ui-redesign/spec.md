@@ -76,12 +76,13 @@ It supersedes these approved requirements (each earlier spec gets a note in the 
     - Landscape: at the bottom edge, as today.
     - The portrait top row is always reserved, so the gauge never changes size when the chip appears or goes away.
     - **Amended** by `specs/trip-stats/spec.md` R12: the trip line sits under the gauge in portrait and right of the gauge in landscape; the chip keeps its place.
+    - **Amended** by `specs/osm-map/spec.md` R3: in map mode the chip keeps the same positions, over the map.
   - Look: a frosted-glass rounded rectangle, 18 pt radius, so wrapped text reads well (amended in build; was "capsule") (system material tinted with the theme's chip fill, with a 1 pt hairline that is brighter at the top). It holds a small accent status dot, the SF Symbol icon and the text.
   - The text wraps to as many lines as it needs and is never truncated. The chip never overlaps the face button.
 
   *(manual: frames "searching", "weak-signal", "mic-off", "retro-location-off")*
 
-- **R8** **Face button**: a 44 pt frosted-glass circle with the accent palette glyph, top trailing, vertically centred in the top row in portrait. *(manual)*
+- **R8** **Face button**: a 44 pt frosted-glass circle with the accent palette glyph, top trailing, vertically centred in the top row in portrait. *(manual)* **Amended** by `specs/osm-map/spec.md` R1, R3: a mode button mirrors it top leading; in map mode the face button and the mascot are hidden.
 
 - **R9** **Minimal ring palette** becomes Nocturne Precision:
 

@@ -52,6 +52,30 @@ final class GaugeFaceTests: XCTestCase {
         XCTAssertEqual(Theme.blend(0xFFFFFF, over: 0x000000, opacity: 0.5), 0x808080)
     }
 
+    // MARK: - specs/osm-map R4, R15
+
+    /// Map-mode cards are opaque: the theme background with the chip tint, never the map.
+    func testMapCardContrastForEveryFace() {
+        for face in GaugeFace.allCases {
+            let theme = face.theme
+            let card = MapStyle.cardColor(for: theme)
+
+            XCTAssertGreaterThanOrEqual(Theme.contrastRatio(theme.number, card), 7, "\(face) speed digits")
+            XCTAssertGreaterThanOrEqual(Theme.contrastRatio(theme.placeholder, card), 7, "\(face) --")
+            XCTAssertGreaterThanOrEqual(Theme.contrastRatio(theme.secondaryText, card), 4.5, "\(face) trip line")
+            XCTAssertGreaterThanOrEqual(Theme.contrastRatio(theme.chipText, card), 4.5, "\(face) notice text")
+            XCTAssertGreaterThanOrEqual(Theme.contrastRatio(theme.accent, card), 4.5, "\(face) OK and re-centre")
+            XCTAssertGreaterThanOrEqual(Theme.contrastRatio(theme.chipText, theme.backgroundCenter), 4.5, "\(face) credit")
+        }
+    }
+
+    func testDimmingOnlyOnDarkFaces() {
+        XCTAssertTrue(MapStyle.dimsTiles(for: .minimalRing))
+        XCTAssertTrue(MapStyle.dimsTiles(for: .analogSport))
+        XCTAssertTrue(MapStyle.dimsTiles(for: .digitalHUD))
+        XCTAssertFalse(MapStyle.dimsTiles(for: .retro))
+    }
+
     func testContrastMeetsMinimumsForEveryFace() {
         for face in GaugeFace.allCases {
             let theme = face.theme

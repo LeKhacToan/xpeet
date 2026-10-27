@@ -217,6 +217,12 @@ Each step: `xcodegen generate` when files are added, then `scripts/verify.sh` (s
 - **`MapCanvas`** gets its size from a small `MKMapView` subclass that reports layout. Until the map has a size, the camera and route fitting wait for it.
 - **`SpeedEstimator.distance(fromLatitude:longitude:toLatitude:longitude:)`**: the same formula, now also taking plain coordinates. The sample overload calls it, so estimation is unchanged (R29).
 - **Map ViewModel state:** it is internal `var`s rather than `private(set)`, because the extension in another file sets them.
+- **R30 tests:**
+  - the synthetic straight + curve check is `RouteRecorderTests.testRouteLengthOnStraightAndCurve`;
+  - the recorded-drive check is `AccuracyReportTests.testRouteLengthAgainstTripDistance`, through `AccuracyReport.routeLength` over the same stretches as the trip check. It skips without drives.
+- **R4 card colour:**
+  - `MapStyle.cardColor(for:)` uses the theme background plus the chip tint, unless the tint would break a contrast target. Then it drops the tint: Analog sport's "--" came to 6.86:1 with it.
+  - Tested in `GaugeFaceTests.testMapCardContrastForEveryFace`.
 - **Simulator check (step 6–7):**
   - This Mac's network resolves `tile.openstreetmap.org` to 127.0.0.1, so tiles fail here and "Map offline" shows, which is R13 working. Tiles are checked on the device.
   - The Simulator reports `speedAccuracy = -1`, which the estimator rightly ignores, so simulated drives never go Live. The visual check used a throwaway local patch, which was reverted and never committed.

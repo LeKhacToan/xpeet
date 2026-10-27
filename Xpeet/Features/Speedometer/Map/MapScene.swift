@@ -54,4 +54,14 @@ enum MapStyle {
     static func dimsTiles(for face: GaugeFace) -> Bool {
         face.theme.colorScheme == .dark
     }
+
+    /// The opaque map-card fill (R4): the theme background with the chip tint, or without the tint for a face where
+    /// the tint would take the speed below 7:1 or other text below 4.5:1.
+    static func cardColor(for theme: Theme) -> UInt32 {
+        let tinted = Theme.blend(theme.chipFill.hex, over: theme.backgroundCenter, opacity: theme.chipFill.opacity)
+        let readable = Theme.contrastRatio(theme.number, tinted) >= 7
+            && Theme.contrastRatio(theme.placeholder, tinted) >= 7
+            && [theme.secondaryText, theme.chipText, theme.accent].allSatisfy { Theme.contrastRatio($0, tinted) >= 4.5 }
+        return readable ? tinted : theme.backgroundCenter
+    }
 }
