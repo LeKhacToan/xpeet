@@ -209,7 +209,17 @@ Each step: `xcodegen generate` when files are added, then `scripts/verify.sh` (s
 10. `scripts/verify.sh`, `evals/run.sh` + `scripts/check-bands.sh`, the `reviewer` and `verifier` agents, the PR text, then `scripts/install-device.sh` for a test drive (R31: data per hour → `specs/osm-map/results.md`).
 
 ## Deviations
-None yet.
+- **View files:**
+  - `MapModeView.swift` holds the map-mode pieces: `MapCardBackground`, `SpeedCard`, `MapNotice`, `MapCredit`, `RecentreButton`, `MapPlaceholder`.
+  - The layout lives in `SpeedometerView+Map.swift`, which reuses the speed screen's chip, unit pill, trip line and Open Settings.
+  - So `SpeedometerView.viewModel`, `theme`, `showsTrip` and those pieces lost `private`; `StatusChip` is internal.
+- **`MapScene.swift`** (new, not in the file list): `ScreenMode`, `MapCoordinate`, `MapScene` and `MapStyle`, which keep MapKit out of `Features/`.
+- **`MapCanvas`** gets its size from a small `MKMapView` subclass that reports layout. Until the map has a size, the camera and route fitting wait for it.
+- **`SpeedEstimator.distance(fromLatitude:longitude:toLatitude:longitude:)`**: the same formula, now also taking plain coordinates. The sample overload calls it, so estimation is unchanged (R29).
+- **Map ViewModel state:** it is internal `var`s rather than `private(set)`, because the extension in another file sets them.
+- **Simulator check (step 6–7):**
+  - This Mac's network resolves `tile.openstreetmap.org` to 127.0.0.1, so tiles fail here and "Map offline" shows, which is R13 working. Tiles are checked on the device.
+  - The Simulator reports `speedAccuracy = -1`, which the estimator rightly ignores, so simulated drives never go Live. The visual check used a throwaway local patch, which was reverted and never committed.
 
 ## Risks
 - **Own tile cache instead of `URLCache`** (choice): `URLCache` doesn't expose the 7-day default or a deterministic offline fallback, and its disk writes are asynchronous, which makes tests flaky. A small actor cache with an injected clock makes R12 testable. The cost is about 150 lines; eviction is by last access.

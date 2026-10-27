@@ -6,8 +6,12 @@ extension SpeedometerViewModel {
     /// The map area shows a placeholder, and requests no tiles, until there is a position and while location is
     /// off (R9).
     var showsMapPlaceholder: Bool {
+        isLocationOff || !hasPosition
+    }
+
+    var isLocationOff: Bool {
         if case .unavailable = state { return true }
-        return !hasPosition
+        return false
     }
 
     // MARK: Actions

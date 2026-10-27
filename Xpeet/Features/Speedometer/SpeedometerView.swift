@@ -4,21 +4,25 @@ struct SpeedometerView: View {
     static let faceButtonLabel = String(localized: "Gauge style")
     static let faceButtonHint = String(localized: "Double-tap to choose a gauge face")
 
-    @State private var viewModel: SpeedometerViewModel
+    // Internal, not private: SpeedometerView+Map.swift lays out map mode with the same pieces (specs/osm-map).
+    @State var viewModel: SpeedometerViewModel
     @State private var showsFacePicker = false
-    @State private var showsTrip = false
+    @State var showsTrip = false
     @Environment(\.scenePhase) private var scenePhase
     @Environment(\.openURL) private var openURL
+    @Environment(\.accessibilityReduceMotion) var reduceMotion
 
     init(viewModel: SpeedometerViewModel? = nil) {
         _viewModel = State(initialValue: viewModel ?? SpeedometerViewModel())
     }
 
-    private var theme: Theme { viewModel.face.theme }
+    var theme: Theme { viewModel.face.theme }
 
     var body: some View {
         GeometryReader { root in
-            if root.size.height >= root.size.width {
+            if viewModel.screenMode == .map {
+                mapMode(isLandscape: root.size.width > root.size.height)
+            } else if root.size.height >= root.size.width {
                 portrait
             } else {
                 landscape
@@ -52,6 +56,7 @@ struct SpeedometerView: View {
             }
             .frame(maxWidth: .infinity, minHeight: Self.topRowHeight)
             .overlay(alignment: .trailing) { faceButton }
+            .overlay(alignment: .leading) { modeButton }
             gauge(tripBeside: false)
             // Under the gauge; the gauge gives up height, never width (specs/trip-stats R12).
             tripButton
@@ -80,12 +85,13 @@ struct SpeedometerView: View {
                 }
             }
             .overlay(alignment: .topTrailing) { faceButton }
+            .overlay(alignment: .topLeading) { modeButton }
     }
 
     /// Fits a three-line chip at the default text size (the mic chip wraps to three lines on 375–393 pt phones).
-    private static let topRowHeight: CGFloat = 76
-    /// Width kept free beside the chip for the face button and its padding.
-    private static let topRowButtonSpace: CGFloat = 64
+    static let topRowHeight: CGFloat = 76
+    /// Width kept free beside the chip for the face and mode buttons and their padding.
+    static let topRowButtonSpace: CGFloat = 64
 
     /// `tripBeside`: landscape puts the trip line right of the gauge; portrait puts it underneath instead.
     private func gauge(tripBeside: Bool) -> some View {
@@ -133,7 +139,7 @@ struct SpeedometerView: View {
 
     /// The trip line; tapping it opens the trip sheet. Hidden while location is off (specs/trip-stats R11, R13).
     @ViewBuilder
-    private var tripButton: some View {
+    var tripButton: some View {
         if let line = viewModel.trip.line {
             Button {
                 showsTrip = true
@@ -150,13 +156,13 @@ struct SpeedometerView: View {
     }
 
     /// Unit and face switches are instant; only new samples animate.
-    private func withoutAnimation(_ change: () -> Void) {
+    func withoutAnimation(_ change: () -> Void) {
         var transaction = Transaction()
         transaction.disablesAnimations = true
         withTransaction(transaction, change)
     }
 
-    private var unitButton: some View {
+    var unitButton: some View {
         Button {
             withoutAnimation { viewModel.toggleUnit() }
         } label: {
@@ -190,12 +196,12 @@ struct SpeedometerView: View {
     }
 
     /// Frosted-glass status chip: accent dot, icon and wrapping text (specs/ui-redesign R7).
-    private var statusChip: StatusChip? {
+    var statusChip: StatusChip? {
         viewModel.statusText.map { StatusChip(text: $0, symbol: viewModel.statusSymbol, theme: theme) }
     }
 
     /// Denied only: a full-width button and a one-line hint (specs/ui-redesign R17).
-    private var openSettings: some View {
+    var openSettings: some View {
         VStack(spacing: 8) {
             Button {
                 if let url = URL(string: UIApplication.openSettingsURLString) {
@@ -223,7 +229,7 @@ struct SpeedometerView: View {
     }
 }
 
-private struct StatusChip: View {
+struct StatusChip: View {
     let text: String
     let symbol: String?
     let theme: Theme
@@ -269,7 +275,8 @@ private extension SpeedometerViewModel {
         mic: MicAuthorization = .authorized,
         kmh: Double? = nil,
         accuracy: Double = 0.5,
-        tripMinutes: Int = 18
+        tripMinutes: Int = 18,
+        mapMode: Bool = false
     ) -> SpeedometerViewModel {
         let defaults = UserDefaults(suiteName: "SpeedometerPreview-\(face.rawValue)") ?? .standard
         // A running trip, so the trip line shows real numbers (specs/trip-stats).
@@ -279,7 +286,12 @@ private extension SpeedometerViewModel {
             tracker.update(at: tripStart.addingTimeInterval(TimeInterval(second)), reading: .live(metersPerSecond: 11.5))
         }
         TripStore(defaults: defaults).save(tracker)
-        let samples = kmh.map { [SpeedSample(metersPerSecond: $0 / 3.6, accuracy: accuracy, isStationary: false, timestamp: .now)] } ?? []
+        defaults.set(mapMode ? ScreenMode.map.rawValue : ScreenMode.gauge.rawValue, forKey: SpeedometerViewModel.screenModeDefaultsKey)
+        // A synthetic position, so map mode has a marker (specs/osm-map).
+        let samples = kmh.map {
+            [SpeedSample(metersPerSecond: $0 / 3.6, accuracy: accuracy, isStationary: false, timestamp: .now,
+                         latitude: 45, longitude: 120, horizontalAccuracy: 5, course: 30, courseAccuracy: 5)]
+        } ?? []
         let viewModel = SpeedometerViewModel(
             provider: FakeSpeedProvider(authorization: authorization, samples: samples),
             motionProvider: FakeMotionProvider(),
@@ -370,6 +382,18 @@ private extension SpeedometerViewModel {
 
 #Preview("New trip, landscape", traits: .landscapeLeft) {
     SpeedometerView(viewModel: .preview(face: .retro, kmh: 0, tripMinutes: 0))
+}
+
+#Preview("Map mode") {
+    SpeedometerView(viewModel: .preview(kmh: 72, mapMode: true))
+}
+
+#Preview("Map mode, landscape", traits: .landscapeLeft) {
+    SpeedometerView(viewModel: .preview(face: .analogSport, kmh: 64, accuracy: 9, mapMode: true))
+}
+
+#Preview("Map mode, searching, retro") {
+    SpeedometerView(viewModel: .preview(face: .retro, mapMode: true))
 }
 
 #Preview("Denied, landscape", traits: .landscapeLeft) {
