@@ -201,11 +201,17 @@ struct SpeedEstimator: Equatable {
 
     /// Ground distance in metres. Equirectangular: exact enough over the few hundred metres used here.
     static func distance(from start: SpeedSample, to end: SpeedSample) -> Double {
+        distance(fromLatitude: start.latitude, longitude: start.longitude, toLatitude: end.latitude, longitude: end.longitude)
+    }
+
+    /// The same distance for plain coordinates in degrees (also used by routes, specs/osm-map).
+    static func distance(fromLatitude startLatitude: Double, longitude startLongitude: Double,
+                         toLatitude endLatitude: Double, longitude endLongitude: Double) -> Double {
         let earthRadius = 6_371_000.0
         let toRadians = Double.pi / 180
-        let meanLatitude = (start.latitude + end.latitude) / 2 * toRadians
-        let north = (end.latitude - start.latitude) * toRadians * earthRadius
-        let east = (end.longitude - start.longitude) * toRadians * earthRadius * cos(meanLatitude)
+        let meanLatitude = (startLatitude + endLatitude) / 2 * toRadians
+        let north = (endLatitude - startLatitude) * toRadians * earthRadius
+        let east = (endLongitude - startLongitude) * toRadians * earthRadius * cos(meanLatitude)
         return (north * north + east * east).squareRoot()
     }
 }
