@@ -197,7 +197,7 @@ final class SpeedometerViewModel {
         // A trip that continues after a relaunch keeps drawing onto its stored route (osm-map R19).
         self.routeTripID = tripTracker.current.id
         self.routeRecorder = RouteRecorder(route: tripTracker.current.id.flatMap(routeStore.load(id:)) ?? Route())
-        self.mapScene = MapScene(dimsTiles: MapStyle.dimsTiles(for: face))
+        self.mapScene = MapScene()
         // No sound once the vehicle moves (R6). Read live when a detection fires; no reading counts as stopped.
         self.engineSound.isMoving = { [weak self] in (self?.displayedSpeed ?? 0) > 0 }
     }

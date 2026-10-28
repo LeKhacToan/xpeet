@@ -1,9 +1,9 @@
 import MapKit
 import SwiftUI
 
-/// `MKMapView` showing OpenStreetMap tiles (specs/osm-map R5-R8, R10, R15, R18, R23). It only applies a
-/// `MapScene` decided by the ViewModel: camera, marker, trail and dimming. Used live (following, heading-up) and
-/// for a past trip's route (fitted, north-up).
+/// `MKMapView` showing OpenStreetMap tiles in the light style (specs/osm-map R5-R8, R10, R18, R23, R33, R34). It only
+/// applies a `MapScene` decided by the ViewModel: camera, marker and trail. Used live (following, heading-up) and for
+/// a past trip's route (fitted, north-up).
 struct MapCanvas: UIViewRepresentable {
     enum Style: Equatable {
         /// The live map: rotation on, so the camera heading is applied (R6, R8).
@@ -37,6 +37,8 @@ struct MapCanvas: UIViewRepresentable {
         map.showsCompass = false
         map.showsScale = false
         map.isPitchEnabled = false
+        // The tiles are light on every face (R33): MapKit's own background, logo and "Legal" link match them.
+        map.overrideUserInterfaceStyle = .light
         // MapKit ignores a camera heading while rotation is off, so the live map keeps it on (R8, amended).
         map.isRotateEnabled = style == .live
         context.coordinator.attach(to: map, style: style, fetcher: tileFetcher)
@@ -55,10 +57,12 @@ struct MapCanvas: UIViewRepresentable {
         static let chunkSize = 200
 
         var onUserGesture: () -> Void = {}
+        private var fetcher: TileFetcher?
         private var tiles: OSMTileOverlay?
-        private var dim: DimOverlay?
         private var chunks: [[MapCoordinate]] = []
         private var polylines: [MKPolyline] = []
+        /// The dark edge under each polyline, at the same index (R18).
+        private var edges: [TrailEdge] = []
         private let marker = MarkerAnnotation()
         private var routeEnds: [RouteEndAnnotation] = []
         private var applied: MapScene?
@@ -73,7 +77,9 @@ struct MapCanvas: UIViewRepresentable {
 
         func attach(to map: MKMapView, style: Style, fetcher: TileFetcher) {
             self.style = style
-            let tiles = OSMTileOverlay(fetcher: fetcher)
+            self.fetcher = fetcher
+            // Above labels: at a lower level MapKit still draws Apple's road names over the tiles.
+            let tiles = OSMTileOverlay()
             map.addOverlay(tiles, level: .aboveLabels)
             self.tiles = tiles
             let recognizers: [UIGestureRecognizer] = [
@@ -100,7 +106,6 @@ struct MapCanvas: UIViewRepresentable {
                 self.trailColor = trailColor
                 polylines.forEach { (map.renderer(for: $0) as? MKPolylineRenderer)?.strokeColor = trailColor }
             }
-            applyDimming(scene.dimsTiles, to: map)
             applyTrail(scene.trail, to: map)
             applyMarker(scene.marker, previous: previous?.marker, reduceMotion: reduceMotion, to: map)
             if style == .route { fitRoute(scene.trail, to: map) }
@@ -119,19 +124,14 @@ struct MapCanvas: UIViewRepresentable {
 
         func mapView(_ mapView: MKMapView, rendererFor overlay: MKOverlay) -> MKOverlayRenderer {
             switch overlay {
-            case let tiles as MKTileOverlay:
-                return MKTileOverlayRenderer(tileOverlay: tiles)
-            case let dim as DimOverlay:
-                let renderer = MKPolygonRenderer(polygon: dim)
-                renderer.fillColor = UIColor.black.withAlphaComponent(MapStyle.dimOpacity)
-                return renderer
+            case let tiles as OSMTileOverlay:
+                guard let fetcher else { return MKOverlayRenderer(overlay: tiles) }
+                return TileRenderer(overlay: tiles, fetcher: fetcher)
+            case let edge as TrailEdge:
+                return Self.lineRenderer(edge, colour: UIColor(Color(hex: MapStyle.trailEdge)),
+                                         width: MapStyle.trailWidth + 2 * MapStyle.trailEdgeWidth)
             case let line as MKPolyline:
-                let renderer = MKPolylineRenderer(polyline: line)
-                renderer.strokeColor = trailColor
-                renderer.lineWidth = MapStyle.trailWidth
-                renderer.lineCap = .round
-                renderer.lineJoin = .round
-                return renderer
+                return Self.lineRenderer(line, colour: trailColor, width: MapStyle.trailWidth)
             default:
                 return MKOverlayRenderer(overlay: overlay)
             }
@@ -195,17 +195,6 @@ struct MapCanvas: UIViewRepresentable {
 
         // MARK: Applying
 
-        private func applyDimming(_ dims: Bool, to map: MKMapView) {
-            if dims, dim == nil, let tiles {
-                let dim = DimOverlay.world()
-                map.insertOverlay(dim, above: tiles)
-                self.dim = dim
-            } else if !dims, let dim {
-                map.removeOverlay(dim)
-                self.dim = nil
-            }
-        }
-
         /// Replaces only the chunks that changed: normally just the last one (R18).
         private func applyTrail(_ trail: [[MapCoordinate]], to map: MKMapView) {
             let next = trail.flatMap(Self.chunked)
@@ -215,18 +204,40 @@ struct MapCanvas: UIViewRepresentable {
                 let new = index < next.count ? next[index] : nil
                 if old != new {
                     if index < polylines.count {
-                        map.removeOverlay(polylines[index])
+                        map.removeOverlays([edges[index], polylines[index]])
                     }
                     if let new {
-                        let line = MKPolyline(coordinates: new.map(\.location), count: new.count)
+                        let coordinates = new.map(\.location)
+                        let edge = TrailEdge(coordinates: coordinates, count: coordinates.count)
+                        let line = MKPolyline(coordinates: coordinates, count: coordinates.count)
+                        // Edges right above the tiles, lines on top: no edge crosses over a line.
+                        if let tiles { map.insertOverlay(edge, above: tiles) } else { map.addOverlay(edge, level: .aboveLabels) }
                         map.addOverlay(line, level: .aboveLabels)
-                        if index < polylines.count { polylines[index] = line } else { polylines.append(line) }
+                        if index < polylines.count {
+                            edges[index] = edge
+                            polylines[index] = line
+                        } else {
+                            edges.append(edge)
+                            polylines.append(line)
+                        }
                     }
                 }
                 index += 1
             }
-            if polylines.count > next.count { polylines.removeLast(polylines.count - next.count) }
+            if polylines.count > next.count {
+                edges.removeLast(polylines.count - next.count)
+                polylines.removeLast(polylines.count - next.count)
+            }
             chunks = next
+        }
+
+        private static func lineRenderer(_ polyline: MKPolyline, colour: UIColor, width: Double) -> MKPolylineRenderer {
+            let renderer = MKPolylineRenderer(polyline: polyline)
+            renderer.strokeColor = colour
+            renderer.lineWidth = width
+            renderer.lineCap = .round
+            renderer.lineJoin = .round
+            return renderer
         }
 
         /// Consecutive chunks share their joining point, so the line has no gaps inside a segment.
@@ -338,6 +349,10 @@ private final class LayoutReportingMapView: MKMapView {
         onSizeChange?()
     }
 }
+
+/// The dark edge drawn under a trail polyline, so the accent line shows on the light map in every face's colour
+/// (R18). A separate, wider line: MapKit sizes both the same way.
+private final class TrailEdge: MKPolyline {}
 
 // MARK: - Annotations
 

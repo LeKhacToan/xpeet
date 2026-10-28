@@ -12,7 +12,7 @@ struct MapCoordinate: Equatable {
     var longitude: Double
 }
 
-/// Everything the live map draws, already decided by `SpeedometerViewModel` (specs/osm-map R5-R8, R15, R18).
+/// Everything the live map draws, already decided by `SpeedometerViewModel` (specs/osm-map R5-R8, R18).
 /// `MapCanvas` only applies it.
 struct MapScene: Equatable {
     struct Marker: Equatable {
@@ -36,24 +36,19 @@ struct MapScene: Equatable {
     var camera: Camera?
     /// The current trip's segments, the last one ending at a live marker (R18).
     var trail: [[MapCoordinate]] = []
-    /// Night dimming for dark faces (R15).
-    var dimsTiles = false
 
     var isFollowing: Bool { camera != nil }
 }
 
-/// Map styling that depends on the face (specs/osm-map R15).
+/// Map styling over the light tiles (specs/osm-map R4, R5, R18, R33).
 enum MapStyle {
-    /// Black over the tiles under dark faces.
-    static let dimOpacity = 0.35
     /// The marker's opacity while Acquiring (R5).
     static let dimmedMarkerOpacity = 0.5
     /// Trail and route line width, pt (R18).
     static let trailWidth = 5.0
-
-    static func dimsTiles(for face: GaugeFace) -> Bool {
-        face.theme.colorScheme == .dark
-    }
+    /// The dark edge on each side of the trail, so a light accent still shows on the light map (R18).
+    static let trailEdge: UInt32 = 0x0D121C
+    static let trailEdgeWidth = 1.5
 
     /// The opaque map-card fill (R4): the theme background with the chip tint, or without the tint for a face where
     /// the tint would take the speed below 7:1 or other text below 4.5:1.

@@ -141,7 +141,7 @@ extension SpeedometerViewModel {
         let camera = mapFollower.isFollowing ? lastPosition.map {
             MapScene.Camera(center: $0, zoom: mapFollower.zoom, heading: mapFollower.heading)
         } : nil
-        let next = MapScene(marker: marker, camera: camera, trail: trail, dimsTiles: MapStyle.dimsTiles(for: face))
+        let next = MapScene(marker: marker, camera: camera, trail: trail)
         if next != mapScene { mapScene = next }
     }
 

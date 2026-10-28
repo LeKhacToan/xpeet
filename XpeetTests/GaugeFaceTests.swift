@@ -52,7 +52,7 @@ final class GaugeFaceTests: XCTestCase {
         XCTAssertEqual(Theme.blend(0xFFFFFF, over: 0x000000, opacity: 0.5), 0x808080)
     }
 
-    // MARK: - specs/osm-map R4, R15
+    // MARK: - specs/osm-map R4, R18
 
     /// Map-mode cards are opaque: the theme background with the chip tint, never the map.
     func testMapCardContrastForEveryFace() {
@@ -69,11 +69,20 @@ final class GaugeFaceTests: XCTestCase {
         }
     }
 
-    func testDimmingOnlyOnDarkFaces() {
-        XCTAssertTrue(MapStyle.dimsTiles(for: .minimalRing))
-        XCTAssertTrue(MapStyle.dimsTiles(for: .analogSport))
-        XCTAssertTrue(MapStyle.dimsTiles(for: .digitalHUD))
-        XCTAssertFalse(MapStyle.dimsTiles(for: .retro))
+    /// The trail shows on the light tiles (R18, R33): the dark edge stands out from land and white roads, and each
+    /// face's accent stands out either from the land or from that edge.
+    func testTrailShowsOnTheLightMapForEveryFace() {
+        let land = TilePalette.land * 255
+        let landHex = UInt32(land.x.rounded()) << 16 | UInt32(land.y.rounded()) << 8 | UInt32(land.z.rounded())
+
+        XCTAssertGreaterThanOrEqual(Theme.contrastRatio(MapStyle.trailEdge, landHex), 3, "edge on land")
+        XCTAssertGreaterThanOrEqual(Theme.contrastRatio(MapStyle.trailEdge, 0xFFFFFF), 3, "edge on white roads")
+        for face in GaugeFace.allCases {
+            let accent = face.theme.accent
+            XCTAssertTrue(
+                Theme.contrastRatio(accent, landHex) >= 3 || Theme.contrastRatio(accent, MapStyle.trailEdge) >= 3, "\(face)"
+            )
+        }
     }
 
     func testContrastMeetsMinimumsForEveryFace() {

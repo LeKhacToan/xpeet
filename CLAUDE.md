@@ -30,7 +30,7 @@ Single-screen speedometer with a map mode: no tabs, no navigation; networking on
 - `Xpeet/Core/Motion/` the only code that imports CoreMotion: `MotionProvider` + `MotionSample`, `CoreMotionProvider` (50 Hz, batched), `FakeMotionProvider` (`#if DEBUG`).
 - `Xpeet/Core/Map/` the only code that imports MapKit or uses `URLSession` (specs/osm-map):
   - `TileSource` (OSM tile URL, User-Agent), `TileFetcher` + `URLSessionTileFetcher` (own `TileCache`) + `FakeTileFetcher` (`#if DEBUG`);
-  - `OSMTileOverlay`, `DimOverlay`, `CameraMath`, and `MapCanvas` (`UIViewRepresentable` around `MKMapView`).
+  - `OSMTileOverlay`, `TileRenderer` + `TileGrid`, `TileImages` (memory, load queue, recolouring) + `TilePalette` (light style), `CameraMath`, and `MapCanvas` (`UIViewRepresentable` around `MKMapView`).
 - `Xpeet/Core/Recording/` drive recording (specs/speed-accuracy): `DriveEvent` in every build; `DriveRecorder` is `#if DEBUG` and off unless launched with `-XpeetRecordDrives YES`.
 - `Xpeet/Features/<Name>/` one folder per feature: `<Name>View.swift` + `<Name>ViewModel.swift`.
   - The ViewModel is `@Observable @MainActor`. Dependencies (provider, `UserDefaults`, `Locale`, clock) are injected through `init` with production defaults.

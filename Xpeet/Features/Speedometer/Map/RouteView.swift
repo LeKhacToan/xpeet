@@ -51,7 +51,7 @@ struct RouteView: View {
     private var map: some View {
         if let route, !route.isEmpty {
             MapCanvas(
-                scene: MapScene(trail: route.coordinates, dimsTiles: theme.colorScheme == .dark),
+                scene: MapScene(trail: route.coordinates),
                 style: .route,
                 tileFetcher: tileFetcher,
                 trailColor: UIColor(accent)

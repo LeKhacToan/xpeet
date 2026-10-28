@@ -41,7 +41,7 @@ Known differences, where the spec wins:
   - "Delete all trips" is cut off at the frame's bottom edge; it sits under the history (R25).
 - **Gauge mode:** no frame shows the map button there. It mirrors the face button at top leading (R1). Stitch updated the gauge screen `25e56725f1184a5fbe872019cf0ed8c0`, but its screenshot was not regenerated.
 - **Faces and chrome:**
-  - other faces use their own theme tokens, and Retro is not dimmed (R15);
+  - other faces use their own theme tokens; the map itself is the light style on every face (R33);
   - the phone mock-up and the status bar are not part of the design.
 
 Research (researcher agent, 2026-10-27):
@@ -172,7 +172,7 @@ Changes to earlier specs (each gets a note when this ships):
   *(unit: stubbed responses: fresh hit, conditional revalidation, 7-day default, offline fallback)*
 
 - **R13** **Tile errors** (error state).
-  - A tile that can't be loaded and isn't cached shows as plain background, never an error image.
+  - A tile that can't be loaded and isn't cached shows as the light land colour, or a coarser tile from memory (R34), never an error image.
   - While the most recent tile request has failed (no network, HTTP 4xx/5xx), a small "Map offline" label shows next to the credit. It goes away after the next successful tile.
   - No alert, no retry button. The marker, trail, speed and trip keep working.
 
@@ -185,13 +185,23 @@ Changes to earlier specs (each gets a note when this ships):
 
   *(manual: every face, both orientations, largest text size)*
 
-- **R15** **Night dimming.**
-  - Under faces with a dark colour scheme (Minimal ring, Analog sport, Digital HUD), tiles are darkened by a 35% black layer, so a bright map doesn't glare at night.
-  - The trail, route, marker and overlays are drawn above it and are not dimmed.
-  - Retro (light) shows the tiles as they are. The 35% is a named constant.
-  - *Clarified in planning:* the dimming is a map overlay that covers the world, drawn just above the tiles and below the trail.
+- ~~**R15** **Night dimming.**~~ *Superseded by R33 (owner, 2026-10-28): the map stays light like Grab's on every face, so tiles are no longer darkened under dark faces.*
 
-  *(unit: dimming per face; manual)*
+- **R33** **Light map style** (owner, 2026-10-28: "white like Grab, not OSM's default colours").
+  - OSM's standard tiles are recoloured on the phone; the tile source, requests and cache (R10–R12) don't change.
+  - The palette: near-white cool grey land; white minor and secondary roads with grey edges; pale amber motorway, trunk and primary roads; light blue water; light green parks and woods; dark slate labels. Shops, offices and buildings stay neutral grey.
+  - The same style on every face, in map mode and the route view. MapKit's own background and "Legal" link use the light appearance.
+  - The recolouring is one colour function in sRGB, applied to each tile through a colour cube.
+
+  *(unit: OSM Carto colours through the palette; the recoloured image; manual: real tiles)*
+
+- **R34** **Smooth loading.**
+  - Decoded, recoloured tiles are kept in memory (40 MB per map), so a tile seen before draws at once.
+  - A tile that isn't in memory yet never shows as a dark or empty square. Its area shows the land colour, then the nearest coarser tile in memory (up to 5 levels up) enlarged, then any finer tiles in memory, until its own tile arrives.
+  - Loads go through the fetcher and its cache (R11, R12): newest request first, at most 6 at a time. A queued tile two or more zoom levels away from what the map last drew is dropped before it starts. A tile that failed isn't asked for again for 15 s.
+  - The tile zoom follows MapKit's drawing scale, which is twice the screen's points per map point: one level above the camera zoom of R7, so tiles are sharp and shown at half size (measured on the simulator, 2026-10-28).
+
+  *(unit: tile grid, stand-in tiles, queue order, dropping, retry delay; manual: pinch in and out on the device)*
 
 ### Trail and routes
 - **R16** **Recording points.**
@@ -218,7 +228,7 @@ Changes to earlier specs (each gets a note when this ships):
 
 - **R18** **Trail.**
   - In map mode, the current trip's segments are drawn as a line in the theme's accent colour, 5 pt wide. The last segment continues to the marker.
-  - The line is the same colour everywhere, never coloured by speed. It sits above the tiles and dimming, under the marker.
+  - The line is the same colour everywhere, never coloured by speed. It has a dark edge (1.5 pt each side) so every face's accent shows on the light map (R33). It sits above the tiles, under the marker.
   - "New trip" and "Delete all trips" clear the trail.
 
   *(unit: trail data; manual)*
@@ -259,7 +269,7 @@ Changes to earlier specs (each gets a note when this ships):
     - north-up, fitted to the whole route with padding;
     - drag and pinch work, but there is no rotation;
     - the route's segments are drawn in the accent colour, with a hollow start dot and a filled end dot;
-    - credit (R14) and dimming (R15) apply, and the notice (R2) appears if it hasn't been accepted yet;
+    - credit (R14) and the light style (R33) apply, and the notice (R2) appears if it hasn't been accepted yet;
     - no live marker.
   - **Below the map:** distance, moving time and average speed, plus the "Approximate" tag when it applies. They use the same values and spoken strings as the row.
   - A trip with no route shows "No route saved for this trip" in place of the map, and no tiles are requested.
@@ -337,7 +347,7 @@ Changes to earlier specs (each gets a note when this ships):
 
 **Turning the map on.** On the gauge screen, tap the map button (top leading). The map appears centred on the car, heading-up, with the speed card, the trip line and the status chip. The first time, the OpenStreetMap notice shows until "OK". Next launch opens in map mode. Tap the gauge button to go back.
 
-**Driving in map mode.** The marker and trail move with each fix. Zoom widens on faster roads. In a tunnel, the marker dims and the chip says "Searching for GPS…". After the tunnel, the trail starts a new segment. Without signal, seen tiles still show, and new areas stay blank with "Map offline".
+**Driving in map mode.** The marker and trail move with each fix. Zoom widens on faster roads. In a tunnel, the marker dims and the chip says "Searching for GPS…". After the tunnel, the trail starts a new segment. Without signal, seen tiles still show, and new areas show the plain light land colour with "Map offline".
 
 **Looking around.** Drag or pinch → following stops, and re-centre appears. Tap it, or wait 10 s → back to following.
 
@@ -351,7 +361,7 @@ Changes to earlier specs (each gets a note when this ships):
 | **Not following** (after a gesture) | map where I left it, re-centre button | n/a |
 | **Acquiring after a fix** | map kept, marker dimmed, trail breaks | n/a |
 | **Unavailable** (location off) | placeholder, chip, "Open Settings" if denied | sheet not reachable (trip-stats) |
-| **Tiles failing** (error) | blank where uncached, "Map offline" | same |
+| **Tiles failing** (error) | land colour where uncached, "Map offline" | same |
 | **Trip with no route** (empty) | n/a | "No route saved for this trip", no tiles |
 | **No earlier trips** (empty) | n/a | not reachable; list shows "No earlier trips", "Delete all trips" still deletes the current trip |
 
@@ -363,9 +373,11 @@ Changes to earlier specs (each gets a note when this ships):
   - `TileFetcher` protocol, plus:
     - `URLSessionTileFetcher` (production): its own `URLSession` and `URLCache` (R12), the User-Agent, offline fallback, and the last-result status for "Map offline";
     - `FakeTileFetcher` (`#if DEBUG`).
-  - `OSMTileOverlay`: an `MKTileOverlay` subclass that fetches through `TileFetcher` (`loadTile(at:) async`), with `canReplaceMapContent = true`, z 0–19 and 256 px tiles.
+  - `OSMTileOverlay`: an `MKTileOverlay` subclass that marks the layer, with `canReplaceMapContent = true`, z 0–19 and 256 px tiles, above labels.
+  - `TileRenderer` (`MKOverlayRenderer`): draws the layer from `TileImages`, with stand-in tiles while loading (R34). `TileGrid`: tile maths in map points.
+  - `TileImages`: one map's decoded tiles in memory, the load queue, and the recolouring through Core Image (R33, R34). `TilePalette`: the colour function and cube, Foundation only.
   - `MapCanvas`: a `UIViewRepresentable` around `MKMapView`.
-    - It draws a `MapScene` value: camera target, heading, zoom, marker, segments, dimming and interaction mode.
+    - It draws a `MapScene` value: camera target, heading, zoom, marker, segments and interaction mode.
     - It reports drags and pinches back.
     - The SwiftUI `Map` can't show custom tiles (research), so this is the app's first UIKit view wrapper.
 - **`Xpeet/Features/Speedometer/Map/`**: pure logic with no MapKit import (plain latitude/longitude doubles), plus views:
@@ -386,7 +398,7 @@ Changes to earlier specs (each gets a note when this ships):
   - unchanged: `speedUnit`, `gaugeFace`, `trip.current`, `trip.history`.
 - **Route file format:** JSON `{"segments": [[[lat, lon], …], …]}` with 5-decimal numbers. Nothing else.
 - **Network:** HTTPS to the tile host only. No App Transport Security exceptions.
-- **Offline:** speed, trip, trail and route history work fully offline. Tiles show from cache, otherwise blank (R12–R13).
+- **Offline:** speed, trip, trail and route history work fully offline. Tiles show from cache, otherwise the land colour (R12–R13).
 
 ## Non-functional
 - **Performance:**
@@ -396,7 +408,7 @@ Changes to earlier specs (each gets a note when this ships):
 - **Battery and data:**
   - Map mode costs map drawing plus tile fetches (target ≤ 20 MB/h, R31).
   - Gauge mode adds only route recording (one distance check per fix) and a small file write every 10 s.
-- **Memory:** the tile cache holds 20 MB in memory and 150 MB on disk.
+- **Memory:** decoded tiles take up to 40 MB in memory per map (R34); the tile cache holds 150 MB on disk.
 - **Privacy:**
   - **Stored on the device:** trip routes (R16–R20), protected while locked and kept out of backups, plus a tile cache that shows which areas were viewed. "Delete all trips" clears both (R25).
   - **Sent off the device:** tile requests to tile.openstreetmap.org (OSMF and its CDN). They reveal the IP address and the tiles being viewed, about 300 m across at z17. OSMF logs them (OSMF Privacy Policy). Nothing else is sent.
@@ -416,7 +428,7 @@ Changes to earlier specs (each gets a note when this ships):
 - Exporting or sharing routes (GPX and the like); showing all routes at once; heatmaps (intent).
 - Times, speeds or a top speed along a route (intent, trip-stats R16).
 - A route view for the current trip (its trail is on the live map); deleting from inside the route view.
-- Vector tiles, MapLibre, other tile providers or map styles. The tile URL override (R10) leaves the door open.
+- Vector tiles, MapLibre, other tile providers, and map styles other than R33 (such as a dark map at night). The tile URL override (R10) leaves the door open.
 - A settings screen for the tile address.
 - Placing the marker below centre ("look-ahead"), 3D or pitched maps.
 - CarPlay, background recording, Live Activity (intent).
@@ -440,14 +452,14 @@ Changes to earlier specs (each gets a note when this ships):
   - The User-Agent uses the GitHub repo as its contact. The owner should confirm the repo is public, or give a contact email instead.
 - **Apple MapKit:**
   - Apple's logo and "Legal" link stay visible over OSM tiles (HIG).
-  - Whether `MKMapView` still contacts Apple servers with `canReplaceMapContent` is unverified.
+  - Whether `MKMapView` still contacts Apple servers with `canReplaceMapContent` is unverified. *2026-10-28:* with the tiles not drawn, the simulator showed only MapKit's empty grid, with no Apple map or labels; below the label level, Apple's road names do show, so the tiles stay above labels.
   - Raster tiles rotate with heading-up, so labels can appear upside down when heading south. This is a known limitation, accepted.
 - **Unverified here:**
   - the tile server's real `Cache-Control` (tile.openstreetmap.org was unreachable from this machine);
   - data use per hour (R31);
-  - how sharp 256 px tiles look on 3× screens.
+  - how sharp 256 px tiles look on 3× screens. *2026-10-28:* MapKit draws at twice the point scale, so tiles come one level above the camera zoom, shown at half size (R34).
 
-  All three get checked on the device during build.
+  The first two get checked on the device during build.
 - **App Store (not binding while sideloaded):** if Xpeet is ever distributed, it needs:
   - a privacy label (likely "Coarse Location, app functionality, not linked");
   - a privacy policy naming OSMF (5.1.1, 5.1.2);
@@ -458,7 +470,7 @@ Changes to earlier specs (each gets a note when this ships):
 - **Spec amendments and repo:**
   - the speedometer, ui-redesign and trip-stats amendments listed at the top need owner sign-off;
   - R32 changes CLAUDE.md, which needs owner approval and an eval re-run;
-  - the night dimming (R15) is a spec addition for driving at night.
+  - the night dimming (R15) was a spec addition for driving at night; the owner replaced it with the light style (R33), so a bright map at night is accepted.
 
 ## Open questions
 Carried from the intent (all answered by the owner, 2026-10-27):
@@ -486,7 +498,7 @@ Raised by this spec (defaults chosen here; the owner may change them in review):
   - follow resumes after 10 s (R8);
   - route points need accuracy ≤ 30 m and 10 m spacing (R16);
   - tile cache 150 MB (R12);
-  - night dimming 35% (R15).
+  - ~~night dimming 35% (R15)~~ replaced by the light style (R33).
 - *"The first point of a segment is always kept":* the 10 m spacing only applies within a segment (R16).
 - *Times not stored:* the intent said "positions with times". Nothing on screen needs times, so routes store positions only. That is less data with the same features (R16).
 - *Delete all also clears the tile cache* (R25, Flagged concerns).

@@ -1,43 +1,14 @@
 import MapKit
-import os
 
-/// OpenStreetMap raster tiles in place of Apple's map content (specs/osm-map R10-R11). MapKit calls `loadTile` on
-/// background queues, only for tiles it needs to draw; this class adds no prefetching.
+/// The OpenStreetMap layer, in place of Apple's map content (specs/osm-map R10, R11). It only marks the layer:
+/// `TileRenderer` draws it and loads just the tiles it draws, with no prefetching.
 final class OSMTileOverlay: MKTileOverlay {
-    private let fetcher: TileFetcher
-    #if DEBUG
-    private static let log = Logger(subsystem: "app.plouton.xpeet", category: "tiles")
-    #endif
-
-    init(fetcher: TileFetcher) {
-        self.fetcher = fetcher
+    init() {
         super.init(urlTemplate: nil)
         canReplaceMapContent = true
         minimumZ = TileSource.zoomRange.lowerBound
         maximumZ = TileSource.zoomRange.upperBound
         tileSize = CGSize(width: 256, height: 256)
-    }
-
-    override func loadTile(at path: MKTileOverlayPath) async throws -> Data {
-        #if DEBUG
-        // Which zoom MapKit asks for at which screen scale (plan risk: Retina screens may ask for z + 1). No x/y: a
-        // tile's column and row are a location.
-        Self.log.debug("tile z\(path.z) scale \(path.contentScaleFactor)")
-        #endif
-        return try await fetcher.tile(TileKey(z: path.z, x: path.x, y: path.y))
-    }
-}
-
-/// A black veil over the whole world, drawn just above the tiles, so a bright map doesn't glare at night
-/// (specs/osm-map R15). The trail and marker are drawn above it.
-final class DimOverlay: MKPolygon {
-    static func world() -> DimOverlay {
-        let world = MKMapRect.world
-        let corners = [
-            MKMapPoint(x: world.minX, y: world.minY), MKMapPoint(x: world.maxX, y: world.minY),
-            MKMapPoint(x: world.maxX, y: world.maxY), MKMapPoint(x: world.minX, y: world.maxY),
-        ]
-        return DimOverlay(points: corners, count: corners.count)
     }
 }
 

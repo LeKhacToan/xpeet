@@ -240,7 +240,23 @@ Each step: `xcodegen generate` when files are added, then `scripts/verify.sh` (s
   - `CameraMathTests.swift` is new;
   - `DriveReplayTests.swift` injects the fakes;
   - `AccuracyReport.swift` shares its stretches with `routeLength`.
-- **No in-memory tile cache:** MapKit keeps its own cache of drawn tiles, so the spec's "20 MB in memory" is MapKit's, not ours.
+- ~~**No in-memory tile cache:** MapKit keeps its own cache of drawn tiles, so the spec's "20 MB in memory" is MapKit's, not ours.~~ Replaced on 2026-10-28, below.
+- **Light style and smooth loading (owner, 2026-10-28; spec R33, R34; R15 superseded):**
+  - **Why:** zooming showed dark squares before tiles arrived, and the owner wants a white map like Grab's instead of OSM's colours. The owner picked recolouring OSM's tiles on the phone over CARTO Voyager (needs an API key) and MapLibre + OpenFreeMap (a new dependency and a rewrite).
+  - **Cause of the dark squares:** `MKTileOverlayRenderer` leaves a tile's area empty until it loads, and in dark mode the empty `MKMapView` grid is near black. There was no memory cache, so even a tile seen a moment ago came back through the actor and disk.
+  - **New in `Core/Map/`:**
+    - `TilePalette.swift`: the colour function and the 32³ cube (Foundation only). Tuned on 106 real tiles copied from the owner's phone cache into the session scratchpad (never committed).
+    - `TileImages.swift`: decodes and recolours tiles with `CIColorCubeWithColorSpace`, keeps them in an `NSCache` (40 MB), and queues loads (newest first, 6 at a time, far-zoom requests dropped, 15 s retry delay).
+    - `TileRenderer.swift`: an `MKOverlayRenderer` that draws from memory, with stand-ins from a coarser or finer zoom while loading; and `TileGrid`.
+  - **Changed:**
+    - `OSMTileOverlay` only marks the layer: no `loadTile` override, no fetcher, no debug log;
+    - `DimOverlay`, `MapScene.dimsTiles` and `MapStyle.dimOpacity`/`dimsTiles` are removed;
+    - `MapCanvas` sets `overrideUserInterfaceStyle = .light`, returns `TileRenderer` for the tiles, and draws each trail chunk as two polylines: a dark `TrailEdge` inserted just above the tiles, and the accent line on top.
+  - **Trail edge:** an `MKPolylineRenderer` subclass that stroked its own edge in `draw` came out narrower than the line, because MapKit sizes its own stroke differently. Two polylines, both sized by MapKit, stay consistent.
+  - **Tile level:** the tiles stay `.aboveLabels`. At `.aboveRoads`, MapKit drew Apple's road names over them (seen on the simulator).
+  - **Retina tile zoom, answered:** on the 3× simulator MapKit draws overlays at zoom scale 0.25 with the camera at z17. That is twice the point scale, so z18 tiles are shown at half size. `TileGrid.zoom(forScale:)` takes the scale as given, which matches the z+1 reported for `MKTileOverlayRenderer`: tiles stay sharp, and labels are small. The R7 camera levels are not lowered. Data use is still measured on the device (R31).
+  - **Tests:** `TilePaletteTests`, `TileGridTests` and `TileImagesTests` are new. `GaugeFaceTests.testDimmingOnlyOnDarkFaces` is replaced by `testTrailShowsOnTheLightMapForEveryFace`.
+  - **Simulator check:** the app's tile cache was seeded with the phone's tiles and fresh `.meta` files, so no network was needed. The location patch was throwaway and reverted.
 - **Simulator check (step 6–7):**
   - This Mac's network resolves `tile.openstreetmap.org` to 127.0.0.1, so tiles fail here and "Map offline" shows, which is R13 working. Tiles are checked on the device.
   - The Simulator reports `speedAccuracy = -1`, which the estimator rightly ignores, so simulated drives never go Live. The visual check used a throwaway local patch, which was reverted and never committed.
@@ -248,7 +264,7 @@ Each step: `xcodegen generate` when files are added, then `scripts/verify.sh` (s
 ## Risks
 - **Own tile cache instead of `URLCache`** (choice): `URLCache` doesn't expose the 7-day default or a deterministic offline fallback, and its disk writes are asynchronous, which makes tests flaky. A small actor cache with an injected clock makes R12 testable. The cost is about 150 lines; eviction is by last access.
 - **Zoom ↔ camera distance:** MapKit doesn't document its field of view; one measurement puts it near 30°. `CameraMath` works the ratio out from the live map instead of hard-coding it. The zoom levels are approximate, which the spec accepts.
-- **Retina tile zoom:** MapKit may request z+1 tiles on 2×/3× screens (reported, not confirmed). That would double the data and show z18 tiles at our z17. In step 6, log `path.z` and the request count on the simulator, then on the device. If confirmed, lower the R7 levels by one so the tiles shown match the spec, and record it under Deviations.
+- **Retina tile zoom** (answered 2026-10-28 under Deviations): MapKit may request z+1 tiles on 2×/3× screens (reported, not confirmed). That would double the data and show z18 tiles at our z17. In step 6, log `path.z` and the request count on the simulator, then on the device. If confirmed, lower the R7 levels by one so the tiles shown match the spec, and record it under Deviations.
 - **Rotation (decided 2026-10-27):** rotation stays enabled so heading-up works, and a rotation by hand pauses following like a drag (R8 amended). The compass is hidden, because tapping it would turn the map north with no drag or pinch.
 - **Gesture coverage:** our recognisers cover pan, pinch, rotation and both tap-zooms. Any MapKit gesture they miss only means following resumes late; it never breaks anything.
 - **Tile loads can't be cancelled:** merging duplicate in-flight requests limits waste. Tiles are fetched only while a `MapCanvas` exists.
@@ -278,10 +294,10 @@ Each step: `xcodegen generate` when files are added, then `scripts/verify.sh` (s
 | R12 | `TileFetcherTests.testFreshTileServedWithoutRequest`, `testStaleTileRevalidatesConditionally`, `testNoHeadersFreshForSevenDays`, `testOfflineServesStaleCopy`, `testCacheEvictsOverLimit` |
 | R13 | `TileFetcherTests.testStatusOfflineThenOk`, `testRefusedWithCopyServesStaleAndGoesOffline`; `testMapOfflineLabelFollowsTileStatus`; manual: Airplane Mode |
 | R14 | manual: credit visible and tappable on every map |
-| R15 | `GaugeFaceTests.testDimmingOnlyOnDarkFaces`; manual: trail and marker not dimmed |
+| R15 | superseded by R33 (no dimming) |
 | R16 | `RouteRecorderTests.testSkipsInaccurateFixes`, `testKeepsPointsTenMetresApart`, `testFirstPointOfSegmentAlwaysKept`, `testStoresOnlyRoundedCoordinates`; `SpeedometerViewModelTests.testNoPointsBeforeTheTripStartsOrWhileUnavailable` |
 | R17 | `RouteRecorderTests.testBreakStartsNewSegment`; `testRouteBreaksOnAcquiringAndUnavailable`, `testRouteBreaksAtRunEnd`, `testRouteBreaksAfterAStallWithoutTicks` |
-| R18 | `testTrailIsCurrentTripAndClearsOnNewTrip`; manual |
+| R18 | `testTrailIsCurrentTripAndClearsOnNewTrip`; `GaugeFaceTests.testTrailShowsOnTheLightMapForEveryFace`; manual |
 | R19 | `RouteStoreTests.testPruneKeepsOnlyKnownTrips`; `TripTrackerTests.testIdSetWhenTripStarts`; `TripStoreTests.testLegacyTripWithoutIdLoads`; `testDroppedTripLosesRoute` |
 | R20 | `RouteStoreTests.testRoundTrip`, `testWritesRequestCompleteProtection`, `testFolderExcludedFromBackup`, `testCorruptFileIsNoRoute`, `testFailedWriteRetriesAtNextSave`; `testRouteSavedWithTrip`; device: `.protectionKey` is `.complete` |
 | R21 | `RouteRecorderTests.testHourAtFiftyIsUnder200KB` |
@@ -296,6 +312,8 @@ Each step: `xcodegen generate` when files are added, then `scripts/verify.sh` (s
 | R30 | `RouteRecorderTests.testRouteLengthOnStraightAndCurve` (synthetic); `AccuracyReportTests.testRouteLengthAgainstTripDistance` on recorded drives (manual, skips without drives) |
 | R31 | manual test drive → `specs/osm-map/results.md` |
 | R32 | review CLAUDE.md, supersede notes; evals re-run |
+| R33 | `TilePaletteTests` (OSM Carto colours: land, roads, major roads, shops, water, parks, labels; cube layout); `TileImagesTests.testRecolouredTileUsesTheLightPalette`; manual: real tiles on the simulator (seeded) and the device |
+| R34 | `TileGridTests` (zoom, keys, stand-in ancestors and children); `TileImagesTests` (memory, shared loads, newest first, far-zoom drop, retry delay); manual: pinch in and out on the device |
 
 ## Verification
 - After every step: `SIM_DEVICE="iPhone 15 Pro" scripts/verify.sh` with the Bash sandbox off; paste the tail (`** TEST SUCCEEDED **`).
