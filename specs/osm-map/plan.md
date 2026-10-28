@@ -49,9 +49,9 @@ The only code that imports MapKit or uses `URLSession`, like `Core/Audio`.
   - **`FakeTileFetcher`** (`#if DEBUG`): a flat-colour PNG, with a switchable failure. Previews and tests use it.
 - **`OSMTileOverlay.swift`**:
   - a nonisolated `MKTileOverlay` subclass: `canReplaceMapContent = true`, `maximumZ = 19`, `tileSize` 256;
-  - it overrides only the async `loadTile(at:) async throws -> Data` (the SDK form; MapKit calls it on background queues) and calls `TileFetcher` (R10, R11);
+  - ~~it overrides only the async `loadTile(at:) async throws -> Data` (the SDK form; MapKit calls it on background queues) and calls `TileFetcher` (R10, R11);~~ *(Replaced 2026-10-28: see Deviations, "Light style and smooth loading".)*
   - no main-actor hop inside.
-- **`DimOverlay`** (in `OSMTileOverlay.swift`, with `CameraMath`): an `MKPolygon` covering `MKMapRect.world`. An `MKPolygonRenderer` draws it with fill black at `MapStyle.dimOpacity` (0.35). It is inserted just above the tiles and below the trail, and added or removed when the face changes (R15). This is the pattern from Apple's overlay sample; a renderer subclass or alpha was avoided (research).
+- ~~**`DimOverlay`** (in `OSMTileOverlay.swift`, with `CameraMath`): an `MKPolygon` covering `MKMapRect.world`. An `MKPolygonRenderer` draws it with fill black at `MapStyle.dimOpacity` (0.35). It is inserted just above the tiles and below the trail, and added or removed when the face changes (R15). This is the pattern from Apple's overlay sample; a renderer subclass or alpha was avoided (research).~~ *(Replaced 2026-10-28: see Deviations, "Light style and smooth loading".)*
 - **`MapCanvas.swift`**: the `UIViewRepresentable` around `MKMapView` (R5–R8, R14, R18, R23).
   - **Settings:**
     - POIs off, buildings off, pitch off, compass hidden;
@@ -61,7 +61,7 @@ The only code that imports MapKit or uses `URLSession`, like `Core/Audio`.
     - the camera (centre, zoom, heading), or nil when not following;
     - the marker (coordinate, heading, dimmed);
     - the segments;
-    - the dimming;
+    - ~~the dimming;~~ (removed 2026-10-28)
     - a fit-to-route mode;
     - Reduce Motion.
   - **Coordinator:** applies only what changed.
@@ -93,7 +93,7 @@ Pure logic plus views, with no MapKit import. Coordinates are plain doubles.
   - `load(id:)`, `save(_:id:)`, `prune(keeping:)`, `removeAll()`;
   - an unreadable file is deleted and counts as no route;
   - a write that fails is reported, so the ViewModel retries at the next save.
-- **`MapStyle.swift`**: the dimming per face (dark faces only), the card fill, the trail width (5 pt), and the dimmed marker opacity (0.5).
+- **`MapStyle.swift`**: ~~the dimming per face (dark faces only),~~ the card fill, the trail width (5 pt) and its edge per face (2026-10-28), and the dimmed marker opacity (0.5).
 - **`MapModeView.swift`** (R3, R9, R13, R14, R2 banner): the map-mode layout from the frames.
   - The placeholder shows until the first fix (no `MapCanvas`, so no tiles are requested).
   - Portrait:
@@ -198,7 +198,7 @@ Each step: `xcodegen generate` when files are added, then `scripts/verify.sh` (s
    - delete one / all;
    - tile status → "Map offline";
    - follow pause/resume.
-6. `OSMTileOverlay`, `DimOverlay`, `MapCanvas`, `CameraMath`. A manual check in the simulator:
+6. `OSMTileOverlay`, ~~`DimOverlay`~~, `MapCanvas`, `CameraMath`. A manual check in the simulator:
    - tiles load with the User-Agent;
    - heading-up rotation works with rotation enabled;
    - zoom levels look right;
@@ -257,6 +257,16 @@ Each step: `xcodegen generate` when files are added, then `scripts/verify.sh` (s
   - **Retina tile zoom, answered:** on the 3× simulator MapKit draws overlays at zoom scale 0.25 with the camera at z17. That is twice the point scale, so z18 tiles are shown at half size. `TileGrid.zoom(forScale:)` takes the scale as given, which matches the z+1 reported for `MKTileOverlayRenderer`: tiles stay sharp, and labels are small. The R7 camera levels are not lowered. Data use is still measured on the device (R31).
   - **Tests:** `TilePaletteTests`, `TileGridTests` and `TileImagesTests` are new. `GaugeFaceTests.testDimmingOnlyOnDarkFaces` is replaced by `testTrailShowsOnTheLightMapForEveryFace`.
   - **Simulator check:** the app's tile cache was seeded with the phone's tiles and fresh `.meta` files, so no network was needed. The location patch was throwaway and reverted.
+  - **Review and verifier fixes:**
+    - **R11:** the renderer's `deinit` calls `TileImages.stop()`, so nothing queued is fetched once the map is gone. The queue keeps the newest 64.
+    - **R34:** `noteDrawn(zoom:)` runs on every draw, not only when a tile is missing.
+    - **Failed tiles:** the wait doubles from 15 s to at most 2 min, so a refusing server isn't asked for every hole every 15 s. The renderer redraws the area when the wait is over, so a hole doesn't stay land-coloured until the next pan.
+    - **Events, not callbacks:** loads report through `TileImages.events` (an `AsyncStream`), which the renderer reads on the main actor (CLAUDE.md: no completion handlers).
+    - **Recolouring on the CPU:** Core Image uses the software renderer (1.7 ms a tile on the Mac), because a load that finishes in the background can't use the GPU.
+    - **R18:** the edge is per face: dark under a light accent, white under Retro's dark one (`MapStyle.trailEdge(for:)`). The test now checks the line against its edge, and the line or edge against land and white roads.
+    - **Tests:** `TileRendererTests` (new) draws into a bitmap flipped like MapKit's. It checks north-up tiles, the coarser crop, finer tiles, plain land, and that a draw asks only for its own tiles. `TileImagesTests` adds the 2-level and 1-level drop boundary, `stop()`, the queue limit and the doubling wait.
+    - **Size:** the marker and route-end annotations moved to `MapMarkers.swift`, which keeps `MapCanvas.swift` under 400 lines.
+    - **R25:** "Delete all trips" clears the disk cache. Tiles already in the open map's memory go when that map closes.
 - **Simulator check (step 6–7):**
   - This Mac's network resolves `tile.openstreetmap.org` to 127.0.0.1, so tiles fail here and "Map offline" shows, which is R13 working. Tiles are checked on the device.
   - The Simulator reports `speedAccuracy = -1`, which the estimator rightly ignores, so simulated drives never go Live. The visual check used a throwaway local patch, which was reverted and never committed.
@@ -313,7 +323,7 @@ Each step: `xcodegen generate` when files are added, then `scripts/verify.sh` (s
 | R31 | manual test drive → `specs/osm-map/results.md` |
 | R32 | review CLAUDE.md, supersede notes; evals re-run |
 | R33 | `TilePaletteTests` (OSM Carto colours: land, roads, major roads, shops, water, parks, labels; cube layout); `TileImagesTests.testRecolouredTileUsesTheLightPalette`; manual: real tiles on the simulator (seeded) and the device |
-| R34 | `TileGridTests` (zoom, keys, stand-in ancestors and children); `TileImagesTests` (memory, shared loads, newest first, far-zoom drop, retry delay); manual: pinch in and out on the device |
+| R34 | `TileGridTests` (zoom, keys, stand-in ancestors and children); `TileRendererTests` (north-up, coarser crop, finer tiles, land, only its own tiles requested); `TileImagesTests` (memory, shared loads, newest first, queue limit, 2-level drop, stop, doubling retry delay); manual: pinch in and out on the device |
 
 ## Verification
 - After every step: `SIM_DEVICE="iPhone 15 Pro" scripts/verify.sh` with the Bash sandbox off; paste the tail (`** TEST SUCCEEDED **`).

@@ -51,6 +51,7 @@ extension SpeedometerView {
                 style: .live,
                 tileFetcher: viewModel.tileFetcher,
                 trailColor: UIColor(Color(hex: theme.accent)),
+                trailEdgeColor: UIColor(Color(hex: MapStyle.trailEdge(for: theme))),
                 reduceMotion: reduceMotion,
                 onUserGesture: { viewModel.mapWasMovedByHand() }
             )

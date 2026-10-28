@@ -3,21 +3,47 @@ import MapKit
 /// Draws `OSMTileOverlay` from `TileImages` in place of `MKTileOverlayRenderer` (specs/osm-map R33, R34): recoloured,
 /// straight from memory, and never as a hole. While a tile loads, its area shows the land colour, then the nearest
 /// coarser tile in memory enlarged, then any finer tiles in memory: zooming shows a soft map, not dark squares.
-/// MapKit calls `draw` on background queues.
+/// MapKit calls `draw` on background queues. A tile's area is drawn again when it loads, or when a failed one may be
+/// asked for again; once the map is gone, nothing queued is fetched (R11).
 final class TileRenderer: MKOverlayRenderer, @unchecked Sendable {
     private static let land = CGColor(
         srgbRed: TilePalette.land.x, green: TilePalette.land.y, blue: TilePalette.land.z, alpha: 1
     )
 
     private let images: TileImages
+    private var redraws: Task<Void, Never>?
 
-    init(overlay: OSMTileOverlay, fetcher: TileFetcher) {
-        images = TileImages(fetcher: fetcher)
+    convenience init(overlay: OSMTileOverlay, fetcher: TileFetcher) {
+        self.init(overlay: overlay, images: TileImages(fetcher: fetcher))
+    }
+
+    init(overlay: OSMTileOverlay, images: TileImages) {
+        self.images = images
         super.init(overlay: overlay)
+        redraws = Task { @MainActor [weak self, events = images.events] in
+            for await event in events {
+                switch event {
+                case let .loaded(key):
+                    self?.setNeedsDisplay(TileGrid.mapRect(for: key))
+                case let .failed(key, retryIn):
+                    Task { @MainActor [weak self] in
+                        // A moment past the wait, so the request isn't still held back.
+                        try? await Task.sleep(for: .seconds(retryIn + 1))
+                        self?.setNeedsDisplay(TileGrid.mapRect(for: key))
+                    }
+                }
+            }
+        }
+    }
+
+    deinit {
+        redraws?.cancel()
+        images.stop()
     }
 
     override func draw(_ mapRect: MKMapRect, zoomScale: MKZoomScale, in context: CGContext) {
         let zoom = TileGrid.zoom(forScale: zoomScale)
+        images.noteDrawn(zoom: zoom)
         context.interpolationQuality = .high
         for key in TileGrid.keys(covering: mapRect, zoom: zoom) {
             let area = TileGrid.mapRect(for: key)
@@ -33,9 +59,7 @@ final class TileRenderer: MKOverlayRenderer, @unchecked Sendable {
             for child in TileGrid.children(of: key) {
                 if let image = images.image(child) { draw(image, in: TileGrid.mapRect(for: child), zoomScale: zoomScale, context) }
             }
-            images.request(key, drawnZoom: zoom) { [weak self] in
-                DispatchQueue.main.async { self?.setNeedsDisplay(area) }
-            }
+            images.request(key)
         }
     }
 

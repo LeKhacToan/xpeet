@@ -16,6 +16,8 @@ struct MapCanvas: UIViewRepresentable {
     let style: Style
     let tileFetcher: TileFetcher
     let trailColor: UIColor
+    /// The edge around the trail (R18), from `MapStyle.trailEdge(for:)`.
+    let trailEdgeColor: UIColor
     var reduceMotion = false
     /// A drag, pinch, rotation or tap-zoom by hand (R8).
     var onUserGesture: () -> Void = {}
@@ -47,7 +49,7 @@ struct MapCanvas: UIViewRepresentable {
 
     func updateUIView(_ map: MKMapView, context: Context) {
         context.coordinator.onUserGesture = onUserGesture
-        context.coordinator.apply(scene, trailColor: trailColor, reduceMotion: reduceMotion, to: map)
+        context.coordinator.apply(scene, trailColors: (trailColor, trailEdgeColor), reduceMotion: reduceMotion, to: map)
     }
 
     // MARK: - Coordinator
@@ -61,12 +63,13 @@ struct MapCanvas: UIViewRepresentable {
         private var tiles: OSMTileOverlay?
         private var chunks: [[MapCoordinate]] = []
         private var polylines: [MKPolyline] = []
-        /// The dark edge under each polyline, at the same index (R18).
+        /// The edge under each polyline, at the same index (R18).
         private var edges: [TrailEdge] = []
         private let marker = MarkerAnnotation()
         private var routeEnds: [RouteEndAnnotation] = []
         private var applied: MapScene?
         private var trailColor = UIColor.cyan
+        private var trailEdgeColor = UIColor.black
         private var style = Style.live
         private var distancePerVisibleHeight = CameraMath.defaultDistancePerVisibleHeight
         private var calibratedSize: CGSize = .zero
@@ -97,14 +100,18 @@ struct MapCanvas: UIViewRepresentable {
             }
         }
 
-        func apply(_ scene: MapScene, trailColor: UIColor, reduceMotion: Bool, to map: MKMapView) {
+        func apply(_ scene: MapScene, trailColors: (line: UIColor, edge: UIColor), reduceMotion: Bool, to map: MKMapView) {
             // The route view's sheet refreshes twice a second; skip when nothing changed.
-            guard scene != applied || trailColor != self.trailColor else { return }
+            guard scene != applied || trailColors.line != trailColor || trailColors.edge != trailEdgeColor else { return }
             let previous = applied
             applied = scene
-            if trailColor != self.trailColor {
-                self.trailColor = trailColor
+            if trailColors.line != trailColor {
+                trailColor = trailColors.line
                 polylines.forEach { (map.renderer(for: $0) as? MKPolylineRenderer)?.strokeColor = trailColor }
+            }
+            if trailColors.edge != trailEdgeColor {
+                trailEdgeColor = trailColors.edge
+                edges.forEach { (map.renderer(for: $0) as? MKPolylineRenderer)?.strokeColor = trailEdgeColor }
             }
             applyTrail(scene.trail, to: map)
             applyMarker(scene.marker, previous: previous?.marker, reduceMotion: reduceMotion, to: map)
@@ -128,8 +135,7 @@ struct MapCanvas: UIViewRepresentable {
                 guard let fetcher else { return MKOverlayRenderer(overlay: tiles) }
                 return TileRenderer(overlay: tiles, fetcher: fetcher)
             case let edge as TrailEdge:
-                return Self.lineRenderer(edge, colour: UIColor(Color(hex: MapStyle.trailEdge)),
-                                         width: MapStyle.trailWidth + 2 * MapStyle.trailEdgeWidth)
+                return Self.lineRenderer(edge, colour: trailEdgeColor, width: MapStyle.trailWidth + 2 * MapStyle.trailEdgeWidth)
             case let line as MKPolyline:
                 return Self.lineRenderer(line, colour: trailColor, width: MapStyle.trailWidth)
             default:
@@ -350,79 +356,6 @@ private final class LayoutReportingMapView: MKMapView {
     }
 }
 
-/// The dark edge drawn under a trail polyline, so the accent line shows on the light map in every face's colour
-/// (R18). A separate, wider line: MapKit sizes both the same way.
+/// The edge drawn under a trail polyline, so the accent line shows on the light map in every face's colour (R18). A
+/// separate, wider line: MapKit sizes both the same way.
 private final class TrailEdge: MKPolyline {}
-
-// MARK: - Annotations
-
-private extension MapCoordinate {
-    var location: CLLocationCoordinate2D { CLLocationCoordinate2D(latitude: latitude, longitude: longitude) }
-}
-
-private final class MarkerAnnotation: NSObject, MKAnnotation {
-    @objc dynamic var coordinate = CLLocationCoordinate2D()
-    var heading: Double?
-    var isDimmed = false
-}
-
-private final class RouteEndAnnotation: NSObject, MKAnnotation {
-    let coordinate: CLLocationCoordinate2D
-    let isStart: Bool
-
-    init(coordinate: CLLocationCoordinate2D, isStart: Bool) {
-        self.coordinate = coordinate
-        self.isStart = isStart
-    }
-}
-
-/// The car: an arrow along the course in a white-rimmed disc, or a dot before any course (R5).
-private final class MarkerView: MKAnnotationView {
-    static let reuseID = "marker"
-    private let disc = UIView()
-    private let arrow = UIImageView()
-    private let dot = UIView()
-
-    override init(annotation: MKAnnotation?, reuseIdentifier: String?) {
-        super.init(annotation: annotation, reuseIdentifier: reuseIdentifier)
-        frame = CGRect(x: 0, y: 0, width: 30, height: 30)
-        disc.frame = bounds
-        disc.layer.cornerRadius = 15
-        disc.layer.borderWidth = 2
-        disc.layer.borderColor = UIColor.white.cgColor
-        disc.backgroundColor = UIColor(red: 0.05, green: 0.07, blue: 0.11, alpha: 1)
-        addSubview(disc)
-        arrow.image = UIImage(systemName: "location.north.fill", withConfiguration: UIImage.SymbolConfiguration(pointSize: 14, weight: .bold))
-        arrow.contentMode = .center
-        arrow.frame = bounds
-        addSubview(arrow)
-        dot.frame = CGRect(x: 9, y: 9, width: 12, height: 12)
-        dot.layer.cornerRadius = 6
-        addSubview(dot)
-        isAccessibilityElement = false
-    }
-
-    required init?(coder: NSCoder) { nil }
-
-    func update(heading: Double?, mapHeading: Double, isDimmed: Bool, accent: UIColor) {
-        arrow.tintColor = accent
-        dot.backgroundColor = accent
-        arrow.isHidden = heading == nil
-        dot.isHidden = heading != nil
-        let degrees = (heading ?? 0) - mapHeading
-        arrow.transform = CGAffineTransform(rotationAngle: degrees * .pi / 180)
-        alpha = isDimmed ? MapStyle.dimmedMarkerOpacity : 1
-    }
-}
-
-/// A route's start (hollow ring) or end (filled dot with a white rim) (R23).
-private final class RouteEndView: MKAnnotationView {
-    func configure(isStart: Bool, accent: UIColor) {
-        frame = CGRect(x: 0, y: 0, width: 16, height: 16)
-        layer.cornerRadius = 8
-        layer.borderWidth = isStart ? 3 : 2
-        layer.borderColor = (isStart ? accent : .white).cgColor
-        backgroundColor = isStart ? UIColor(red: 0.05, green: 0.07, blue: 0.11, alpha: 1) : accent
-        isAccessibilityElement = false
-    }
-}

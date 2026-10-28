@@ -54,7 +54,8 @@ struct RouteView: View {
                 scene: MapScene(trail: route.coordinates),
                 style: .route,
                 tileFetcher: tileFetcher,
-                trailColor: UIColor(accent)
+                trailColor: UIColor(accent),
+                trailEdgeColor: UIColor(Color(hex: MapStyle.trailEdge(for: theme)))
             )
             .accessibilityElement(children: .ignore)
             .accessibilityLabel("Route map")

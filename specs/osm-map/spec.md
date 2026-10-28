@@ -198,10 +198,11 @@ Changes to earlier specs (each gets a note when this ships):
 - **R34** **Smooth loading.**
   - Decoded, recoloured tiles are kept in memory (40 MB per map), so a tile seen before draws at once.
   - A tile that isn't in memory yet never shows as a dark or empty square. Its area shows the land colour, then the nearest coarser tile in memory (up to 5 levels up) enlarged, then any finer tiles in memory, until its own tile arrives.
-  - Loads go through the fetcher and its cache (R11, R12): newest request first, at most 6 at a time. A queued tile two or more zoom levels away from what the map last drew is dropped before it starts. A tile that failed isn't asked for again for 15 s.
+  - Loads go through the fetcher and its cache (R11, R12): newest request first, at most 6 at a time, at most 64 waiting. A queued tile two or more zoom levels away from what the map last drew is dropped before it starts, and once the map is gone nothing queued is fetched.
+  - A tile that failed isn't asked for again for 15 s, doubling with each failure up to 2 min. Its area is drawn again when the wait is over, so it fills in once the network is back.
   - The tile zoom follows MapKit's drawing scale, which is twice the screen's points per map point: one level above the camera zoom of R7, so tiles are sharp and shown at half size (measured on the simulator, 2026-10-28).
 
-  *(unit: tile grid, stand-in tiles, queue order, dropping, retry delay; manual: pinch in and out on the device)*
+  *(unit: tile grid; the renderer's stand-ins, north-up drawing and requests; queue order, limit, dropping, stopping and retry delays; manual: pinch in and out on the device)*
 
 ### Trail and routes
 - **R16** **Recording points.**
@@ -228,7 +229,7 @@ Changes to earlier specs (each gets a note when this ships):
 
 - **R18** **Trail.**
   - In map mode, the current trip's segments are drawn as a line in the theme's accent colour, 5 pt wide. The last segment continues to the marker.
-  - The line is the same colour everywhere, never coloured by speed. It has a dark edge (1.5 pt each side) so every face's accent shows on the light map (R33). It sits above the tiles, under the marker.
+  - The line is the same colour everywhere, never coloured by speed. It has an edge, 1.5 pt each side, so every face's accent shows on the light map (R33): dark under a light accent, white under a dark one. It sits above the tiles, under the marker.
   - "New trip" and "Delete all trips" clear the trail.
 
   *(unit: trail data; manual)*
@@ -371,7 +372,7 @@ Changes to earlier specs (each gets a note when this ships):
 - **`Xpeet/Core/Map/`** is the only code that imports MapKit and the only code that uses `URLSession`, following the `Core/Audio` pattern:
   - `TileSource`: the URL template (default plus `UserDefaults` override, R10), validation, tile URL building and the User-Agent (R11). Foundation only.
   - `TileFetcher` protocol, plus:
-    - `URLSessionTileFetcher` (production): its own `URLSession` and `URLCache` (R12), the User-Agent, offline fallback, and the last-result status for "Map offline";
+    - `URLSessionTileFetcher` (production): its own `URLSession` with `URLCache` off, plus the app's `TileCache` (R12), the User-Agent, offline fallback, and the last-result status for "Map offline";
     - `FakeTileFetcher` (`#if DEBUG`).
   - `OSMTileOverlay`: an `MKTileOverlay` subclass that marks the layer, with `canReplaceMapContent = true`, z 0–19 and 256 px tiles, above labels.
   - `TileRenderer` (`MKOverlayRenderer`): draws the layer from `TileImages`, with stand-in tiles while loading (R34). `TileGrid`: tile maths in map points.

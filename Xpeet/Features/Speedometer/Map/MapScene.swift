@@ -46,9 +46,15 @@ enum MapStyle {
     static let dimmedMarkerOpacity = 0.5
     /// Trail and route line width, pt (R18).
     static let trailWidth = 5.0
-    /// The dark edge on each side of the trail, so a light accent still shows on the light map (R18).
-    static let trailEdge: UInt32 = 0x0D121C
+    /// The edge on each side of the trail, pt (R18).
     static let trailEdgeWidth = 1.5
+    static let darkTrailEdge: UInt32 = 0x0D121C
+
+    /// Dark under a light accent, so it shows on the light map; white under a dark one (Retro), which already shows
+    /// and needs the edge only to stand apart from it (R18, R33).
+    static func trailEdge(for theme: Theme) -> UInt32 {
+        Theme.contrastRatio(theme.accent, darkTrailEdge) >= 3 ? darkTrailEdge : 0xFFFFFF
+    }
 
     /// The opaque map-card fill (R4): the theme background with the chip tint, or without the tint for a face where
     /// the tint would take the speed below 7:1 or other text below 4.5:1.

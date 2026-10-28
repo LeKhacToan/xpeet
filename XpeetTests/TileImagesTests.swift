@@ -18,6 +18,11 @@ final class TileImagesTests: XCTestCase {
             if !waiting.isEmpty { waiting.removeFirst().resume() }
         }
 
+        func releaseAll() {
+            waiting.forEach { $0.resume() }
+            waiting.removeAll()
+        }
+
         func statusUpdates() -> AsyncStream<TileStatus> { AsyncStream { $0.finish() } }
         func clearCache() {}
     }
@@ -41,12 +46,20 @@ final class TileImagesTests: XCTestCase {
         }
     }
 
-    /// Lets every held answer through until nothing is queued or loading.
+    /// Lets every held answer through until nothing is queued or loading. Recolouring on the Simulator's CPU is slow,
+    /// so a long queue takes a few seconds.
     private func drain(_ fetcher: GatedFetcher, _ images: TileImages) async {
-        await waitUntilAsync {
-            await fetcher.releaseOne()
+        await waitUntilAsync(timeout: 10) {
+            await fetcher.releaseAll()
             return !images.isBusy
         }
+    }
+
+    /// Six loads running at zoom 16, so later requests wait in the queue.
+    private func fillSlots(_ fetcher: GatedFetcher, _ images: TileImages) async {
+        images.noteDrawn(zoom: 16)
+        for x in 0..<TileImages.concurrentLoads { images.request(key(x)) }
+        await waitUntilAsync { await fetcher.requested.count == TileImages.concurrentLoads }
     }
 
     // MARK: - specs/osm-map R34
@@ -54,23 +67,27 @@ final class TileImagesTests: XCTestCase {
     func testLoadedTileStaysInMemory() async {
         let fetcher = FakeTileFetcher()
         let images = TileImages(fetcher: fetcher)
-        let loaded = expectation(description: "loaded")
+        var events = images.events.makeAsyncIterator()
+        images.noteDrawn(zoom: 16)
 
-        images.request(key(1), drawnZoom: 16) { loaded.fulfill() }
-        await fulfillment(of: [loaded], timeout: 2)
-        images.request(key(1), drawnZoom: 16) { XCTFail("already in memory") }
+        images.request(key(1))
+        let event = await events.next()
+        images.request(key(1))
+        await waitUntilAsync { !images.isBusy }
 
+        XCTAssertEqual(event, .loaded(key(1)))
         XCTAssertNotNil(images.image(key(1)))
         let requested = await fetcher.requested
-        XCTAssertEqual(requested, [key(1)])
+        XCTAssertEqual(requested, [key(1)], "already in memory")
     }
 
     func testDuplicateRequestsShareOneLoad() async {
         let fetcher = GatedFetcher()
         let images = TileImages(fetcher: fetcher)
+        images.noteDrawn(zoom: 16)
 
-        images.request(key(1), drawnZoom: 16) {}
-        images.request(key(1), drawnZoom: 16) {}
+        images.request(key(1))
+        images.request(key(1))
         await drain(fetcher, images)
 
         let count = await fetcher.requested.count
@@ -80,11 +97,10 @@ final class TileImagesTests: XCTestCase {
     func testNewestQueuedRequestStartsFirst() async {
         let fetcher = GatedFetcher()
         let images = TileImages(fetcher: fetcher)
-        for x in 0..<TileImages.concurrentLoads { images.request(key(x), drawnZoom: 16) {} }
-        await waitUntilAsync { await fetcher.requested.count == TileImages.concurrentLoads }
+        await fillSlots(fetcher, images)
 
-        images.request(key(100), drawnZoom: 16) {}
-        images.request(key(101), drawnZoom: 16) {}
+        images.request(key(100))
+        images.request(key(101))
         await fetcher.releaseOne()
         await waitUntilAsync { await fetcher.requested.count == TileImages.concurrentLoads + 1 }
 
@@ -93,38 +109,71 @@ final class TileImagesTests: XCTestCase {
         await drain(fetcher, images)
     }
 
-    func testQueuedTileFarFromTheDrawnZoomIsDropped() async {
+    func testQueuedTilesTwoLevelsFromTheDrawnZoomAreDropped() async {
         let fetcher = GatedFetcher()
         let images = TileImages(fetcher: fetcher)
-        for x in 0..<TileImages.concurrentLoads { images.request(key(x), drawnZoom: 16) {} }
-        await waitUntilAsync { await fetcher.requested.count == TileImages.concurrentLoads }
+        await fillSlots(fetcher, images)
 
-        images.request(key(50), drawnZoom: 16) {}
-        // Zoomed out while z16 tiles were still queued.
-        images.request(key(60, z: 13), drawnZoom: 13) {}
+        images.request(key(50))
+        images.request(key(51, z: 15))
+        // Zoomed out to 14 where nothing is missing: no request, but the map no longer draws 16.
+        images.noteDrawn(zoom: 14)
         await drain(fetcher, images)
 
         let requested = await fetcher.requested
-        XCTAssertFalse(requested.contains(key(50)), "three levels from what the map draws")
-        XCTAssertTrue(requested.contains(key(60, z: 13)))
+        XCTAssertFalse(requested.contains(key(50)), "two levels away")
+        XCTAssertTrue(requested.contains(key(51, z: 15)), "one level away")
     }
 
-    func testFailedTileWaitsBeforeAskingAgain() async {
+    func testQueueKeepsOnlyTheNewestTiles() async {
+        let fetcher = GatedFetcher()
+        let images = TileImages(fetcher: fetcher)
+        await fillSlots(fetcher, images)
+
+        for x in 100...(100 + TileImages.queueLimit) { images.request(key(x)) }
+        await drain(fetcher, images)
+
+        let requested = await fetcher.requested
+        XCTAssertEqual(requested.count, TileImages.concurrentLoads + TileImages.queueLimit)
+        XCTAssertFalse(requested.contains(key(100)), "the oldest waiting tile")
+    }
+
+    func testStopDropsQueuedTiles() async {
+        let fetcher = GatedFetcher()
+        let images = TileImages(fetcher: fetcher)
+        await fillSlots(fetcher, images)
+        images.request(key(100))
+        images.request(key(101))
+
+        images.stop()
+        images.request(key(102))
+        await drain(fetcher, images)
+
+        let count = await fetcher.requested.count
+        XCTAssertEqual(count, TileImages.concurrentLoads, "nothing new once the map is gone (R11)")
+    }
+
+    func testFailedTileWaitsLongerEachTime() async {
         let fetcher = FakeTileFetcher(isFailing: true)
         let clock = Clock()
         let images = TileImages(fetcher: fetcher, now: { clock.now })
+        var events = images.events.makeAsyncIterator()
+        images.noteDrawn(zoom: 16)
 
-        images.request(key(1), drawnZoom: 16) { XCTFail("nothing loaded") }
-        await waitUntilAsync { !images.isBusy }
-        images.request(key(1), drawnZoom: 16) {}
+        images.request(key(1))
+        let first = await events.next()
+        images.request(key(1))
         await waitUntilAsync { !images.isBusy }
         var count = await fetcher.requested.count
-        XCTAssertEqual(count, 1)
+        XCTAssertEqual(count, 1, "held back")
 
         clock.now += TileImages.retryDelay
-        images.request(key(1), drawnZoom: 16) {}
-        await waitUntilAsync { !images.isBusy }
+        images.request(key(1))
+        let second = await events.next()
         count = await fetcher.requested.count
+
+        XCTAssertEqual(first, .failed(key(1), retryIn: TileImages.retryDelay))
+        XCTAssertEqual(second, .failed(key(1), retryIn: TileImages.retryDelay * 2))
         XCTAssertEqual(count, 2)
         XCTAssertNil(images.image(key(1)))
     }
@@ -139,13 +188,14 @@ final class TileImagesTests: XCTestCase {
             UIColor(red: 0xF2 / 255.0, green: 0xEF / 255.0, blue: 0xE9 / 255.0, alpha: 1).setFill()
             context.fill(CGRect(x: 0, y: 0, width: 4, height: 4))
         }
+        let sRGB = try XCTUnwrap(CGColorSpace(name: CGColorSpace.sRGB))
 
         let image = try XCTUnwrap(TileImages.recoloured(osmLand))
         var bytes = [UInt8](repeating: 0, count: 4)
         bytes.withUnsafeMutableBytes { buffer in
             let context = CGContext(
                 data: buffer.baseAddress, width: 1, height: 1, bitsPerComponent: 8, bytesPerRow: 4,
-                space: CGColorSpace(name: CGColorSpace.sRGB)!, bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
+                space: sRGB, bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
             )
             context?.draw(image, in: CGRect(x: 0, y: 0, width: 1, height: 1))
         }
