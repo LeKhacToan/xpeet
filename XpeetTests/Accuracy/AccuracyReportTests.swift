@@ -144,6 +144,19 @@ final class AccuracyReportTests: XCTestCase {
         }
     }
 
+    func testRouteLengthAgainstTripDistance() throws {
+        let drives = DriveFile.files(in: DriveFile.recordedDrivesDirectory)
+        try XCTSkipIf(drives.isEmpty, "No recorded drives in build/drives.")
+
+        for url in drives {
+            let report = AccuracyReport(drive: try DriveFile.load(url))
+            let trip = report.tripAndPositionDistance.trip
+            guard trip >= 5_000 else { continue }
+            // specs/osm-map R30: the stored route is within 2% of the trip distance on drives of at least 5 km.
+            XCTAssertEqual(report.routeLength, trip, accuracy: trip * 0.02, url.lastPathComponent)
+        }
+    }
+
     func testReportOnRecordedDrives() throws {
         let drives = DriveFile.files(in: DriveFile.recordedDrivesDirectory)
         try XCTSkipIf(drives.isEmpty, "No recorded drives in build/drives (record with RECORD=1 scripts/install-device.sh).")

@@ -4,12 +4,17 @@ import Foundation
 /// `SpeedometerViewModel` assigns a new one only when a string changes, so ticks don't redraw the screen.
 struct TripDisplay: Equatable {
     struct Row: Equatable, Identifiable {
-        var id: Int
+        /// The trip's id: opens its route and deletes it (specs/osm-map R22-R24).
+        var id: UUID
         /// "Today", "Yesterday" or a weekday with date.
         var day: String
         var startTime: String
         /// "8.6 km · 15 min · 34 km/h avg".
         var values: String
+        /// The same values one by one, for the route view (specs/osm-map R23): "8.6 km", "15 min", "34 km/h" or "--".
+        var distance: String
+        var movingTime: String
+        var averageSpeed: String
         var isApproximate: Bool
         var accessibilityLabel: String
     }

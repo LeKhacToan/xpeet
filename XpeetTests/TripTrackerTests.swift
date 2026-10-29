@@ -244,4 +244,57 @@ final class TripTrackerTests: XCTestCase {
         XCTAssertEqual(tracker.current.measuredTime, 11.2, accuracy: 1e-6)
         XCTAssertEqual(tracker.current.movingTime + tracker.current.stoppedTime, tracker.current.measuredTime)
     }
+
+    // MARK: - specs/osm-map R19, R24, R25
+
+    func testIdSetWhenTripStarts() {
+        var tracker = TripTracker()
+        feed(&tracker, [(0, 0), (1, 0)])
+        XCTAssertNil(tracker.current.id, "an empty trip has no id")
+
+        feed(&tracker, (2...20).map { (TimeInterval($0), 10) })
+        let id = tracker.current.id
+
+        XCTAssertNotNil(id)
+        tracker.newTrip()
+        XCTAssertEqual(tracker.history.first?.id, id, "the id stays with the trip")
+        XCTAssertEqual(tracker.tripIDs, Set([id].compactMap { $0 }))
+    }
+
+    func testLegacyTripsGetAnIdWhenLoaded() {
+        var legacy = moving(for: 20).current
+        legacy.id = nil
+
+        let tracker = TripTracker(current: legacy, history: [legacy, Trip()])
+
+        XCTAssertNotNil(tracker.current.id)
+        XCTAssertNotNil(tracker.history.first?.id)
+        XCTAssertNil(tracker.history.last?.id, "an empty trip still has none")
+    }
+
+    func testDeleteById() throws {
+        var tracker = TripTracker()
+        for index in 0..<3 {
+            let offset = TimeInterval(index * 100)
+            feed(&tracker, (0...20).map { (offset + TimeInterval($0), 10) })
+            tracker.newTrip()
+        }
+        let middle = tracker.history[1]
+
+        tracker.delete(id: try XCTUnwrap(middle.id))
+
+        XCTAssertEqual(tracker.history.count, 2)
+        XCTAssertFalse(tracker.history.contains(middle))
+    }
+
+    func testDeleteAll() {
+        var tracker = moving(for: 20)
+        tracker.newTrip()
+        feed(&tracker, (100...120).map { (TimeInterval($0), 10) })
+
+        tracker.deleteAll()
+
+        XCTAssertEqual(tracker, TripTracker())
+        XCTAssertTrue(tracker.tripIDs.isEmpty)
+    }
 }

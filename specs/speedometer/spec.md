@@ -5,7 +5,7 @@
 ## Requirements
 
 ### Screen and navigation
-- **R1** The app launches straight into one speed screen. There is no `TabView`, no navigation stack and no other screen. The Home and Settings features are removed. *(manual: launch the app; build: no `TabView` in `Xpeet/`)* **Amended** by `specs/gauge-themes/spec.md` R9–R10: one modal face-picker sheet is allowed. **Amended** by `specs/trip-stats/spec.md`: a second modal sheet, the trip sheet, is allowed.
+- **R1** The app launches straight into one speed screen. There is no `TabView`, no navigation stack and no other screen. The Home and Settings features are removed. *(manual: launch the app; build: no `TabView` in `Xpeet/`)* **Amended** by `specs/gauge-themes/spec.md` R9–R10: one modal face-picker sheet is allowed. **Amended** by `specs/trip-stats/spec.md`: a second modal sheet, the trip sheet, is allowed. **Amended** by `specs/osm-map/spec.md` R1, R23: the speed screen has a map mode, and the trip sheet a route view; still no tabs.
 - **R2** The screen always uses the dark appearance with a black background, whatever the system setting is. *(manual, preview)* **Superseded** by `specs/speedometer-gauge/spec.md` R4 (dark gradient background).
 - **R3** The app supports portrait, landscape left and landscape right on iPhone. In every orientation the speed number is fully visible and never truncated or clipped, up to 3-digit speeds (e.g. "199"). *(manual: rotate in the simulator; previews in both orientations)*
 
@@ -73,7 +73,7 @@ There is no empty state. "No fix yet" is the Acquiring state.
 
 ## Data & API
 
-No network. `APIClient` and `Core/Networking/` are removed because nothing uses them.
+No network. `APIClient` and `Core/Networking/` are removed because nothing uses them. **Amended** by `specs/osm-map/spec.md` R10-R13: map tiles over HTTPS, in `Core/Map`, are the one exception.
 
 - **`SpeedSample`** (value type in `Core/Location`): `metersPerSecond: Double`, `accuracy: Double` (m/s, negative = invalid), `isStationary: Bool`, `timestamp: Date`.
 - **`SpeedProvider`** (protocol in `Core/Location`): an async stream of samples, the current authorization state (`notDetermined`, `authorized`, `denied`, `restricted`, `servicesOff`) with changes over time, and `requestAuthorization()`.
@@ -81,12 +81,12 @@ No network. `APIClient` and `Core/Networking/` are removed because nothing uses 
 - **`SpeedometerViewModel`** (`@Observable`, `@MainActor`): its init takes the provider, `UserDefaults`, `Locale` and a clock (`() -> Date`), all with production defaults. It exposes `state`, `displayText`, `unit`, `toggleUnit()` and `func run() async`. `run()` is called from the View's `.task` and cancelled automatically when the view disappears or the app backgrounds.
 - **Persistence:** one `UserDefaults` key, `speedUnit` (`"kmh"` / `"mph"`). Nothing else is stored.
 - **Conversion:** use `Measurement<UnitSpeed>` from `.metersPerSecond` to `.kilometersPerHour` or `.milesPerHour`.
-- **Offline:** fully offline by design. GPS needs no network.
+- **Offline:** fully offline by design. GPS needs no network. **Amended** by `specs/osm-map/spec.md`: everything but map tiles still works offline.
 
 ## Non-functional
 - **Privacy:**
-  - Location is used only in memory to compute the current speed. It is never stored, logged or sent anywhere. **Exception** (`specs/speed-accuracy/spec.md` R22): Debug builds launched with `-XpeetRecordDrives YES` record drives to the phone. **Exception** (`specs/trip-stats/spec.md` R9): trip totals and times are stored; positions never are.
-  - Add `INFOPLIST_KEY_NSLocationWhenInUseUsageDescription` in `project.yml` with this string: "Xpeet uses your location only to show your current speed. It never leaves your device." **Amended** by `specs/trip-stats/spec.md`: "…to show your current speed and trip totals…".
+  - Location is used only in memory to compute the current speed. It is never stored, logged or sent anywhere. **Amended** by `specs/osm-map/spec.md` R16-R20, R27: trip routes are stored on the device, and tile requests show the tile server the area being viewed. **Exception** (`specs/speed-accuracy/spec.md` R22): Debug builds launched with `-XpeetRecordDrives YES` record drives to the phone. **Exception** (`specs/trip-stats/spec.md` R9): trip totals and times are stored; positions never are.
+  - Add `INFOPLIST_KEY_NSLocationWhenInUseUsageDescription` in `project.yml` with this string: "Xpeet uses your location only to show your current speed. It never leaves your device." **Amended** by `specs/trip-stats/spec.md`: "…to show your current speed and trip totals…". **Replaced** by `specs/osm-map/spec.md` R28.
   - No ATT, no analytics, no third-party code.
 - **Performance:**
   - Show the first Live value within one sample of the first valid fix. There is no extra warm-up delay beyond R9's filter.

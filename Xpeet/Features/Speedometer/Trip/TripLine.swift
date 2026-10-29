@@ -6,6 +6,8 @@ struct TripLine: View {
     /// "12.4 km · 18 min".
     let text: String
     let theme: Theme
+    /// Over the map the capsule is opaque, so tiles never show behind the text (specs/osm-map R4).
+    var isOpaque = false
 
     static let separator = " · "
 
@@ -54,7 +56,11 @@ struct TripLine: View {
         .padding(.vertical, 6)
         .frame(minHeight: 44)
         .background {
-            GlassBackground(shape: Capsule(), tint: theme.color(theme.chipFill), colorScheme: theme.colorScheme)
+            if isOpaque {
+                MapCardBackground(shape: Capsule(), theme: theme)
+            } else {
+                GlassBackground(shape: Capsule(), tint: theme.color(theme.chipFill), colorScheme: theme.colorScheme)
+            }
         }
         .contentShape(Capsule())
     }

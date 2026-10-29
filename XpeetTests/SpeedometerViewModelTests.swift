@@ -31,9 +31,11 @@ final class SpeedometerViewModelTests: XCTestCase {
         detector: FakeSoundTriggerDetector? = nil,
         motion: FakeMotionProvider? = nil,
         recorder: DriveLogging? = nil,
-        configuration: SpeedEstimator.Configuration = .init()
+        configuration: SpeedEstimator.Configuration = .init(),
+        routeStore: RouteStore? = nil,
+        tileFetcher: TileFetcher? = nil
     ) -> SpeedometerViewModel {
-        // Always fakes: tests never touch the real microphone or motion sensors.
+        // Always fakes: tests never touch the real microphone, motion sensors, network or app storage.
         SpeedometerViewModel(
             provider: provider ?? FakeSpeedProvider(),
             motionProvider: motion ?? FakeMotionProvider(),
@@ -47,8 +49,15 @@ final class SpeedometerViewModelTests: XCTestCase {
                 now: { clock.now }
             ),
             estimatorConfiguration: configuration,
-            makeRecorder: { recorder }
+            makeRecorder: { recorder },
+            routeStore: routeStore ?? makeRouteStore(),
+            tileFetcher: tileFetcher ?? FakeTileFetcher()
         )
+    }
+
+    /// Routes in a fresh temporary folder, removed with the test's temporary directory.
+    func makeRouteStore() -> RouteStore {
+        RouteStore(folder: FileManager.default.temporaryDirectory.appending(path: "Routes-\(UUID().uuidString)"))
     }
 
     func sample(

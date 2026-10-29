@@ -110,19 +110,47 @@ final class SpeedometerViewModel {
     @ObservationIgnored private var recorderRun: UUID?
     /// The trip line and sheet (specs/trip-stats), already formatted. Assigned only when a string changes.
     private(set) var trip: TripDisplay
-    @ObservationIgnored private var tripTracker: TripTracker
+    /// Internal, not private: `SpeedometerViewModel+Map.swift` reads it.
+    @ObservationIgnored var tripTracker: TripTracker
     @ObservationIgnored private var lastTripSave: Date?
+    /// When the trip was last fed; a longer pause than `TripTracker.maxInterval` breaks the route (osm-map R17).
+    @ObservationIgnored var lastTripUpdate: Date?
     private let tripStore: TripStore
     private let tripFormatter: TripFormatter
+
+    // MARK: Map (specs/osm-map; logic in SpeedometerViewModel+Map.swift)
+
+    static let screenModeDefaultsKey = "screenMode"
+    static let mapNoticeDefaultsKey = "map.noticeAccepted"
+
+    /// Gauge or map; gauge until I choose the map (R1).
+    var screenMode: ScreenMode
+    /// The OpenStreetMap notice shows over the first map until "OK" (R2).
+    var isMapNoticePending: Bool
+    /// What the live map draws. Assigned only when it changes.
+    var mapScene = MapScene()
+    /// The latest tile request failed (R13).
+    var isMapOffline = false
+    /// A fix with a valid position has arrived since launch; until then the map is a placeholder (R9).
+    var hasPosition = false
+    @ObservationIgnored var lastPosition: MapCoordinate?
+    @ObservationIgnored var routeRecorder: RouteRecorder
+    /// The trip the recorder's route belongs to; nil while the trip is empty.
+    @ObservationIgnored var routeTripID: UUID?
+    /// The route last written, so an unchanged route isn't rewritten every 10 s.
+    @ObservationIgnored var lastSavedRoute: (id: UUID, route: Route)?
+    @ObservationIgnored var mapFollower = MapFollower()
+    let routeStore: RouteStore
+    let tileFetcher: TileFetcher
 
     /// Plays a sound on engine start while stopped (specs/engine-sound-clip). Shares this screen's lifecycle.
     let engineSound: EngineSoundViewModel
 
     private let provider: SpeedProvider
     private let motionProvider: MotionProvider
-    private let defaults: UserDefaults
+    let defaults: UserDefaults
     private let locale: Locale
-    private let now: () -> Date
+    let now: () -> Date
     private let setIdleTimerDisabled: @MainActor (Bool) -> Void
     private let makeRecorder: () -> DriveLogging?
 
@@ -136,7 +164,9 @@ final class SpeedometerViewModel {
         setIdleTimerDisabled: @escaping @MainActor (Bool) -> Void = { UIApplication.shared.isIdleTimerDisabled = $0 },
         engineSound: EngineSoundViewModel? = nil,
         estimatorConfiguration: SpeedEstimator.Configuration = .launchDefault(),
-        makeRecorder: @escaping () -> DriveLogging? = DriveLog.makeRecorder
+        makeRecorder: @escaping () -> DriveLogging? = DriveLog.makeRecorder,
+        routeStore: RouteStore = .standard,
+        tileFetcher: TileFetcher? = nil
     ) {
         self.makeRecorder = makeRecorder
         self.provider = provider ?? CoreLocationSpeedProvider()
@@ -157,8 +187,17 @@ final class SpeedometerViewModel {
         self.tripTracker = tripTracker
         self.tripFormatter = tripFormatter
         self.trip = tripFormatter.display(of: tripTracker, unit: unit, now: now(), showsLine: true)
-        self.face = defaults.string(forKey: Self.faceDefaultsKey).flatMap(GaugeFace.init(rawValue:))
+        let face = defaults.string(forKey: Self.faceDefaultsKey).flatMap(GaugeFace.init(rawValue:))
             ?? GaugeFace.defaultFace
+        self.face = face
+        self.routeStore = routeStore
+        self.tileFetcher = tileFetcher ?? URLSessionTileFetcher()
+        self.screenMode = defaults.string(forKey: Self.screenModeDefaultsKey).flatMap(ScreenMode.init(rawValue:)) ?? .gauge
+        self.isMapNoticePending = !defaults.bool(forKey: Self.mapNoticeDefaultsKey)
+        // A trip that continues after a relaunch keeps drawing onto its stored route (osm-map R19).
+        self.routeTripID = tripTracker.current.id
+        self.routeRecorder = RouteRecorder(route: tripTracker.current.id.flatMap(routeStore.load(id:)) ?? Route())
+        self.mapScene = MapScene()
         // No sound once the vehicle moves (R6). Read live when a detection fires; no reading counts as stopped.
         self.engineSound.isMoving = { [weak self] in (self?.displayedSpeed ?? 0) > 0 }
     }
@@ -231,6 +270,7 @@ final class SpeedometerViewModel {
             stopRecording(run)
             // Nothing is measured while the screen isn't running (trip-stats R1, R10).
             tripTracker.endRun(at: now())
+            routeRecorder.breakSegment()
             saveTrip()
         }
         resetFilter()
@@ -244,12 +284,16 @@ final class SpeedometerViewModel {
         }
         // After a long break this starts a new trip (trip-stats R6).
         tripTracker.beginRun(at: now())
+        // Each run starts a new route segment (osm-map R17).
+        routeRecorder.breakSegment()
         saveTrip()
         refreshTrip()
+        refreshMapScene()
 
         let authorizations = provider.authorizationUpdates()
         let samples = provider.speedUpdates()
         let motion = motionProvider.motionUpdates()
+        let tileStatuses = await tileFetcher.statusUpdates()
         let tickInterval = Self.tickInterval
         await withTaskGroup(of: Void.self) { group in
             group.addTask {
@@ -275,6 +319,9 @@ final class SpeedometerViewModel {
             }
             group.addTask {
                 await self.runEngineSound()
+            }
+            group.addTask {
+                for await status in tileStatuses { await self.handle(tileStatus: status) }
             }
         }
     }
@@ -304,6 +351,7 @@ final class SpeedometerViewModel {
         // The mic prompt waits until the location prompt is answered, so the two never stack (engine-sound R2).
         engineSound.handle(locationAuthorizationResolved: authorization != .notDetermined)
         refreshTrip()
+        refreshMapScene()
     }
 
     func handle(sample: SpeedSample) {
@@ -327,6 +375,7 @@ final class SpeedometerViewModel {
         updateWeakSignal()
         updateShownSpeed()
         updateTrip(liveTripReading)
+        updateMap(with: sample)
         // Observed properties are assigned only on change, so a refresh never invalidates the view for nothing.
         let nextMood = moodResolver.sample(metersPerSecond: gpsOnly.metersPerSecond, timestamp: sample.timestamp, now: now())
         if nextMood != mood { mood = nextMood }
@@ -354,6 +403,7 @@ final class SpeedometerViewModel {
     /// Falls back to Acquiring when the last fix is too old. iOS pauses updates while stationary, so a
     /// stationary fix never goes stale.
     func tick() {
+        tickMap()
         guard case .live = state, let last = lastSample else {
             // Total time keeps counting with the trip sheet open, even without a reading (trip-stats R4, R15).
             refreshTrip()
@@ -369,6 +419,7 @@ final class SpeedometerViewModel {
             state = .acquiring
             mood = moodResolver.lost()
             updateTrip(.acquiring)
+            refreshMapScene()
             return
         }
         estimator.tick(now: now())
@@ -388,15 +439,19 @@ final class SpeedometerViewModel {
 
     /// "New trip" in the trip sheet: the current trip goes to history (trip-stats R7).
     func startNewTrip() {
+        // The finished trip keeps everything recorded up to now (osm-map R19).
+        saveRoute()
         tripTracker.newTrip()
         saveTrip()
         refreshTrip()
+        refreshMapScene()
     }
 
     /// Switches the gauge face. Speed, unit, state and filter are untouched.
     func select(_ face: GaugeFace) {
         self.face = face
         defaults.set(face.rawValue, forKey: Self.faceDefaultsKey)
+        refreshMapScene()
     }
 
     // MARK: - Private
@@ -406,6 +461,7 @@ final class SpeedometerViewModel {
         state = .unavailable(reason)
         mood = moodResolver.unavailable()
         updateTrip(.notMeasured)
+        refreshMapScene()
     }
 
     // MARK: Trip (specs/trip-stats)
@@ -416,20 +472,28 @@ final class SpeedometerViewModel {
     }
 
     private func updateTrip(_ reading: TripReading) {
+        // The route breaks wherever the trip's measuring chain does (osm-map R17).
+        let isLive = if case .live = reading { true } else { false }
+        if !isLive || lastTripUpdate.map({ now().timeIntervalSince($0) > TripTracker.maxInterval }) == true {
+            routeRecorder.breakSegment()
+        }
+        lastTripUpdate = now()
         tripTracker.update(at: now(), reading: reading)
         refreshTrip()
     }
 
-    /// The line is hidden while location is off (trip-stats R11).
-    private func refreshTrip() {
+    /// The line is hidden while location is off (trip-stats R11). Internal for `SpeedometerViewModel+Map.swift`.
+    func refreshTrip() {
         var showsLine = true
         if case .unavailable = state { showsLine = false }
         let next = tripFormatter.display(of: tripTracker, unit: unit, now: now(), showsLine: showsLine)
         if next != trip { trip = next }
     }
 
-    private func saveTrip() {
+    /// Internal for `SpeedometerViewModel+Map.swift`. The route is saved with the trip (osm-map R20).
+    func saveTrip() {
         tripStore.save(tripTracker)
+        saveRoute()
         lastTripSave = now()
     }
 

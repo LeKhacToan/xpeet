@@ -48,7 +48,8 @@ final class TripStoreTests: XCTestCase {
 
         let data = try XCTUnwrap(defaults.data(forKey: TripStore.currentKey))
         let object = try XCTUnwrap(JSONSerialization.jsonObject(with: data) as? [String: Any])
-        let allowed: Set = ["startedAt", "lastUpdateAt", "lastMovementAt", "distance", "movingTime", "stoppedTime", "lostTime"]
+        // "id" joined in specs/osm-map R19: it names the trip's route file, and is not a position.
+        let allowed: Set = ["id", "startedAt", "lastUpdateAt", "lastMovementAt", "distance", "movingTime", "stoppedTime", "lostTime"]
         XCTAssertTrue(Set(object.keys).isSubset(of: allowed), "unexpected keys: \(object.keys)")
 
         let history = try XCTUnwrap(defaults.data(forKey: TripStore.historyKey))
@@ -72,5 +73,23 @@ final class TripStoreTests: XCTestCase {
         let loaded = TripStore(defaults: defaults).load()
 
         XCTAssertEqual(loaded, TripTracker())
+    }
+
+    // MARK: - specs/osm-map R19
+
+    func testLegacyTripWithoutIdLoads() throws {
+        let legacy = Data("""
+        {"startedAt": 10000, "lastUpdateAt": 10600, "lastMovementAt": 10600, "distance": 5000,
+         "movingTime": 540, "stoppedTime": 60, "lostTime": 0}
+        """.utf8)
+        defaults.set(legacy, forKey: TripStore.currentKey)
+        defaults.set(Data("[\(String(decoding: legacy, as: UTF8.self))]".utf8), forKey: TripStore.historyKey)
+
+        let loaded = TripStore(defaults: defaults).load()
+
+        XCTAssertEqual(loaded.current.distance, 5_000)
+        XCTAssertNotNil(loaded.current.id)
+        XCTAssertEqual(loaded.history.count, 1)
+        XCTAssertNotNil(loaded.history.first?.id)
     }
 }

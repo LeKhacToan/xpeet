@@ -52,6 +52,43 @@ final class GaugeFaceTests: XCTestCase {
         XCTAssertEqual(Theme.blend(0xFFFFFF, over: 0x000000, opacity: 0.5), 0x808080)
     }
 
+    // MARK: - specs/osm-map R4, R18
+
+    /// Map-mode cards are opaque: the theme background with the chip tint, never the map.
+    func testMapCardContrastForEveryFace() {
+        for face in GaugeFace.allCases {
+            let theme = face.theme
+            let card = MapStyle.cardColor(for: theme)
+
+            XCTAssertGreaterThanOrEqual(Theme.contrastRatio(theme.number, card), 7, "\(face) speed digits")
+            XCTAssertGreaterThanOrEqual(Theme.contrastRatio(theme.placeholder, card), 7, "\(face) --")
+            XCTAssertGreaterThanOrEqual(Theme.contrastRatio(theme.secondaryText, card), 4.5, "\(face) trip line")
+            XCTAssertGreaterThanOrEqual(Theme.contrastRatio(theme.chipText, card), 4.5, "\(face) notice text")
+            XCTAssertGreaterThanOrEqual(Theme.contrastRatio(theme.accent, card), 4.5, "\(face) OK and re-centre")
+            XCTAssertGreaterThanOrEqual(Theme.contrastRatio(theme.chipText, theme.backgroundCenter), 4.5, "\(face) credit")
+        }
+    }
+
+    /// The trail shows on the light tiles (R18, R33): each face's line stands apart from its edge, and the line or its
+    /// edge stands out from the land and from white roads (3:1, non-text contrast).
+    func testTrailShowsOnTheLightMapForEveryFace() {
+        let land = TilePalette.land * 255
+        let landHex = UInt32(land.x.rounded()) << 16 | UInt32(land.y.rounded()) << 8 | UInt32(land.z.rounded())
+
+        for face in GaugeFace.allCases {
+            let accent = face.theme.accent
+            let edge = MapStyle.trailEdge(for: face.theme)
+            XCTAssertGreaterThanOrEqual(Theme.contrastRatio(accent, edge), 3, "\(face) line on its edge")
+            for (name, ground) in [("land", landHex), ("white roads", 0xFFFFFF)] as [(String, UInt32)] {
+                XCTAssertGreaterThanOrEqual(
+                    max(Theme.contrastRatio(accent, ground), Theme.contrastRatio(edge, ground)), 3, "\(face) on \(name)"
+                )
+            }
+        }
+        XCTAssertEqual(MapStyle.trailEdge(for: GaugeFace.minimalRing.theme), MapStyle.darkTrailEdge)
+        XCTAssertEqual(MapStyle.trailEdge(for: GaugeFace.retro.theme), 0xFFFFFF, "a dark accent gets a light edge")
+    }
+
     func testContrastMeetsMinimumsForEveryFace() {
         for face in GaugeFace.allCases {
             let theme = face.theme
