@@ -69,11 +69,36 @@ Each step: `xcodegen generate` when files are added, then `scripts/verify.sh` wi
 3. `SpeedometerViewModel` switch and `+EngineSounds` tests, including the chip order with engine sounds on and off (break-reminder R10's "off" rows).
 4. Sheet, wiring, R13 hint, previews. Simulator check: iPhone SE scrolling at medium height, AX sizes.
 5. Older-spec notes, merged into the combined wording with break-reminder's notes.
-6. Review workflow, verify, PR. Device checks R5, R8 and R9 by the owner.
+6. Review workflow, verify, PR. Device checks R5, R8, R9 and R10 by the owner.
 7. Part B: R14 spike on `spike/focus-filter`, then stop for the owner's device check. Build R15–R19 only if it passes; otherwise mark them Dropped in the spec.
 
 ## Deviations
-(none yet)
+- **Help line uses `.primary` (R12).** `.secondary` measured 3.0:1 over Retro's light sheet, below 4.5:1, so the help line falls back to `.primary` as R12 allows. It stays apart from the switch label by its smaller footnote size.
+- **`runFollowingSwitch()` starts nothing once cancelled.** A change that arrives as the owner is cancelled doesn't start a short-lived `run()` (review nit).
+- **`SoundTriggerDetector.events()` documents one reader at a time.** The serialized teardown assumes it (review nit).
+
+## Checks
+- **Simulator, iPhone SE (3rd gen), iOS 17.5 (R1, R12).** Checked on 2026-10-31 with a throwaway patch that opens the sheet at launch, scrolls it and rotates the scene. The patch was reverted before commit.
+  - **Medium height, portrait.** The Sound section sits below the 2×2 grid. Reaching it takes about one screen of scrolling (two thumbnail rows). Heading, switch and help line are all visible once scrolled.
+  - **Landscape.** The sheet opens full height. The section is reached by scrolling past the grid, and the help line fits on one line.
+  - **Largest accessibility size, portrait and landscape.** The heading, label and help line wrap, with no truncation, and the sheet scrolls.
+  - **Help line contrast (R12).** Measured from screenshot pixels: the darkest glyph pixel against the card background, using the WCAG formula, because Accessibility Inspector can't be driven from this machine.
+
+    | Face | `.secondary` | `.primary` |
+    |---|---|---|
+    | Minimal ring | — | 10.5:1 |
+    | Analog sport | — | 10.9:1 |
+    | Digital HUD | — | 10.7:1 |
+    | Retro | 3.0:1 (fails) | 15.3:1 portrait, 14.9:1 landscape |
+  - **Seen but outside this spec**, for a follow-up:
+    - On Retro, the sheet's existing subtitle (`.secondary`) measures 3.05:1, and "Done" (pale accent green) is faint.
+    - At the largest accessibility size, the existing header truncates ("Gauge…", "Choose…") and takes about half the medium-height sheet.
+- **Still pending (device run, owner):**
+  - R5: the clip stops at once when switched off.
+  - R8: a 10-minute screen-recorded session with the switch off, showing no orange dot.
+  - R9 and R10: rapid toggles; listening resumes, and the cooldown holds.
+  - Accessibility Inspector's own contrast audit and a VoiceOver pass (R12).
+- **Part B.** The R14 spike is installed on the owner's iPhone (`spike/focus-filter`) and waits for the gate (a) check. R15–R19 are not in this PR.
 
 ## Risks
 - **Teardown race.** On a fast off→on, the old `AudioSession.deactivate()` could run after the new `activate()` and silently stop the new engine. Step 1 serializes them. The device check covers rapid toggles.
@@ -86,7 +111,7 @@ Each step: `xcodegen generate` when files are added, then `scripts/verify.sh` wi
 ## Proof
 | Req | Proof |
 |---|---|
-| R1 | `GaugeFaceTests.testSoundSectionStrings`; previews; manual: iPhone SE at medium height |
+| R1 | `GaugeFaceTests.testSoundSectionStrings`; previews; manual: iPhone SE at medium height (done in the simulator, see Checks) |
 | R2 | `SpeedometerViewModelTests.testEngineSoundsOnWhenNothingStored`, `testEngineSoundsOnWhenStoredValueIsNotBool`, `testEngineSoundsOffIsRestored` |
 | R3 | `testTogglingEngineSoundsChangesNothingElse` |
 | R4 | `EngineSoundViewModelTests.testDisablingEndsEventsWhileRunContinues`, `testRunWhileDisabledNeverListens`; `SpeedometerViewModelTests.testEngineSoundsOffStopsListeningWhileRunContinues` |
@@ -95,9 +120,9 @@ Each step: `xcodegen generate` when files are added, then `scripts/verify.sh` wi
 | R7 | `EngineSoundViewModelTests.testDisabledHidesMicChip`; `SpeedometerViewModelTests.testEngineSoundsOffHidesMicChip` |
 | R8 | manual: device, screen recording |
 | R9 | `EngineSoundViewModelTests.testEnablingListensAgainInSameRun`, `testRapidToggleEndsWithNoSubscribers`, `testEnablingRetriesAfterFailure`, `testEnablingWithMicDeniedShowsChipWithoutPrompt`; manual: device |
-| R10 | existing `EngineSoundViewModelTests` unchanged; `testTogglingDoesNotResetCooldown` |
+| R10 | existing `EngineSoundViewModelTests` unchanged; `testTogglingDoesNotResetCooldown`; manual: device |
 | R11 | `SpeedometerViewModelTests.testChipOrderWithEngineSoundsOnAndOff` |
-| R12 | `GaugeFaceTests.testSoundSectionStrings`; manual: Accessibility Inspector, largest size, contrast |
+| R12 | `GaugeFaceTests.testSoundSectionStrings`; manual: largest size and contrast (simulator, see Checks); Accessibility Inspector and VoiceOver on the device (pending) |
 | R13 | `GaugeFaceTests.testAccessibilityStrings` |
 | R14 | spike results table in this plan (gates a and b) |
 | R15–R19 | Part B tests and device checks, or Dropped after R14 |

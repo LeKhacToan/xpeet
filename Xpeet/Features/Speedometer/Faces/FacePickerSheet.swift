@@ -65,9 +65,10 @@ struct FacePickerSheet: View {
                 .accessibilityAddTraits(.isHeader)
             Toggle(Self.engineSoundsLabel, isOn: Binding(get: { engineSoundsOn }, set: onEngineSoundsChange))
                 .accessibilityHint(Self.engineSoundsHint)
+            // `.primary`, not `.secondary`: `.secondary` measured 3.0:1 over Retro's light sheet (R12 needs 4.5:1).
             Text(Self.engineSoundsHint)
                 .font(.footnote)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(.primary)
                 .fixedSize(horizontal: false, vertical: true)
                 .accessibilityHidden(true)
         }

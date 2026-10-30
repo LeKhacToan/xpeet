@@ -119,7 +119,8 @@ final class EngineSoundViewModel {
                 await task.value
                 listening = nil
             }
-            if enabled { listening = Task { await self.run() } }
+            // A change that arrives as the caller is cancelled starts nothing.
+            if enabled && !Task.isCancelled { listening = Task { await self.run() } }
         }
         switchContinuations[id] = nil
         if let listening {

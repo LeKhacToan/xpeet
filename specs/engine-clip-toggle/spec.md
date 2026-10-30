@@ -275,7 +275,7 @@ Changes to other specs (each gets a note in the implementation commit, as trip-s
 
 ## Open questions
 Carried from the intent (proposals accepted by the owner, 2026-10-30; unverified items stay open):
-- *Where in the sheet?* **Answered (owner, 2026-10-30):** a "Sound" section under the 2×2 grid with the help line, and the title stays (R1). **Still open:** how much scrolling iPhone SE needs at medium height (manual, R1).
+- *Where in the sheet?* **Answered (owner, 2026-10-30):** a "Sound" section under the 2×2 grid with the help line, and the title stays (R1). **Answered (simulator, 2026-10-31):** on iPhone SE at medium height, the section is reached by scrolling past both thumbnail rows; in landscape the sheet opens full height and it is one scroll down (plan.md Checks).
 - *Wording?* **Answered (owner, 2026-10-30):** "Engine sounds", matching the mic chip and usage string, so the chip text is unchanged (R1, R11).
 - *Mic not asked yet?* **Answered (owner, 2026-10-30):** no prompt while the switch is off, and the prompt comes when it is turned on (R6). The default stays on (R2). **Still open (distribution):** off by default, "opt-in" (Flagged concerns).
 - *Mic chip while on and denied?* **Answered (owner, 2026-10-30):** kept (R11). Turning the switch off hides it (R7).
