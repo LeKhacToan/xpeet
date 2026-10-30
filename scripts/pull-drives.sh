@@ -4,7 +4,7 @@
 # Usage: scripts/pull-drives.sh            then: scripts/test.sh (AccuracyReportTests writes build/drives/report.txt)
 # Overrides: DEVICE_ID=<udid> scripts/pull-drives.sh
 #            DEST=build/drives-precise-off scripts/pull-drives.sh   keeps a drive out of the accuracy report
-#            (specs/precise-location R15)
+#            (specs/precise-location R15). A later default pull skips any drive already in a build/drives-*/ folder.
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
@@ -44,6 +44,15 @@ fi
 newest=$(printf '%s\n' "$names" | tail -1)
 count=0
 while IFS= read -r name; do
+    # A drive set aside in another build/drives-*/ folder stays out of the accuracy report (precise-location R15).
+    if [ "$DEST" = "build/drives" ]; then
+        for kept in build/drives-*/; do
+            if [ -f "$kept$name" ]; then
+                echo "pull: $name (kept out, in $kept)"
+                continue 2
+            fi
+        done
+    fi
     # The newest drive may still be recording, so it is always fetched again; finished ones are fetched once.
     if [ -f "$DEST/$name" ] && [ "$name" != "$newest" ]; then
         echo "pull: $name (already here)"

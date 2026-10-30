@@ -97,6 +97,9 @@ Each step: run `xcodegen generate` when a file is added, then `scripts/verify.sh
   - A throwaway patch forced `.reducedAccuracy`; it was reverted. Three screens were checked: iPhone SE (3rd gen) portrait on Minimal ring, iPhone 15 on Retro, and iPhone 15 in map mode.
   - Each showed the chip "Precise Location is off" with `location.slash`, `--` with an empty gauge, "Open Settings" and a two-line hint. Retro showed the `sad` mascot. On SE the mascot was hidden, as accepted. The map showed the placeholder with no marker.
   - The simulator's own Precise Location switch was not tried, so that open question is left to the device.
+  - **AX2 (review follow-up).** iPhone 15 portrait on Analog sport, at `accessibility-large`. The chip wraps to two lines and the hint to three. Nothing is truncated, and the mascot still shows.
+  - **Not done in the simulator.** Landscape, and the Accessibility Inspector pass. Simulator.app's window can't be driven from this machine's shell, so rotating isn't possible here. Both move to the device checks (step 8). The landscape previews build: "Precise off, landscape" and "Denied, landscape".
+- **`scripts/pull-drives.sh` (review follow-up).** A default pull now skips any drive already in a `build/drives-*/` folder. Without that, the next ordinary pull would copy the Precise-off recording back into `build/drives/`, where the accuracy report would read it.
 - R8 with a due break reminder and R9 "break reminder unchanged" are proven in `specs/break-reminder` (`testLocationStatusesRankAboveTheReminder`, `testRoughFixesLeaveTheStretch`). The reminder does not exist yet in this PR.
 
 ## Risks
