@@ -3,11 +3,13 @@
 # Files are copied one by one: whole-directory copies are known to time out.
 # Usage: scripts/pull-drives.sh            then: scripts/test.sh (AccuracyReportTests writes build/drives/report.txt)
 # Overrides: DEVICE_ID=<udid> scripts/pull-drives.sh
+#            DEST=build/drives-precise-off scripts/pull-drives.sh   keeps a drive out of the accuracy report
+#            (specs/precise-location R15)
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
 BUNDLE_ID="app.plouton.xpeet"
-DEST="build/drives"
+DEST="${DEST:-build/drives}"
 DEVICE_ID="${DEVICE_ID:-$(scripts/device-id.sh)}"
 if [ -z "$DEVICE_ID" ]; then
     echo "error: no iPhone found. Plug it in with a cable, unlock it and tap Trust, then run again." >&2

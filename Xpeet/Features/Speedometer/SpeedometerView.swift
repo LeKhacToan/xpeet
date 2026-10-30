@@ -213,7 +213,8 @@ struct SpeedometerView: View {
         }
     }
 
-    /// Denied only: a full-width button and a one-line hint (specs/ui-redesign R17).
+    /// Denied or Precise Location off: a full-width button and a hint for the reason (specs/ui-redesign R17,
+    /// specs/precise-location R5).
     var openSettings: some View {
         VStack(spacing: 8) {
             Button {
@@ -229,10 +230,12 @@ struct SpeedometerView: View {
                     .contentShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
             }
             .buttonStyle(.plain)
-            Text("Enable Location in Settings to see your speed")
-                .font(Theme.captionFont(textStyle: .footnote, size: 13))
-                .foregroundStyle(Color(hex: theme.secondaryText))
-                .multilineTextAlignment(.center)
+            if let hint = viewModel.openSettingsHint {
+                Text(hint)
+                    .font(Theme.captionFont(textStyle: .footnote, size: 13))
+                    .foregroundStyle(Color(hex: theme.secondaryText))
+                    .multilineTextAlignment(.center)
+            }
         }
         .frame(maxWidth: .infinity)
         .dynamicTypeSize(...DynamicTypeSize.accessibility2)
@@ -417,5 +420,17 @@ private extension SpeedometerViewModel {
 
 #Preview("Denied, landscape", traits: .landscapeLeft) {
     SpeedometerView(viewModel: .preview(face: .analogSport, authorization: .denied))
+}
+
+#Preview("Precise off") {
+    SpeedometerView(viewModel: .preview(authorization: .authorizedApproximate))
+}
+
+#Preview("Precise off, landscape", traits: .landscapeLeft) {
+    SpeedometerView(viewModel: .preview(face: .digitalHUD, authorization: .authorizedApproximate))
+}
+
+#Preview("Map mode, precise off") {
+    SpeedometerView(viewModel: .preview(face: .retro, authorization: .authorizedApproximate, mapMode: true))
 }
 #endif
