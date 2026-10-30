@@ -222,13 +222,16 @@ final class SpeedometerViewModel {
         return unit.gaugeFraction(for: speed)
     }
 
-    /// Location status first; the mic-off hint only when there is none (engine-sound R11).
-    var statusText: String? {
-        locationStatusText ?? engineSound.chipText
-    }
+    var statusText: String? { chip?.text }
 
-    var statusSymbol: String? {
-        locationStatusText != nil ? locationStatusSymbol : engineSound.chipSymbol
+    var statusSymbol: String? { chip?.symbol }
+
+    /// The one chip on screen: the first tier that applies (specs/precise-location R8). Location statuses, then
+    /// the break reminder (specs/break-reminder), then the mic chip (engine-sound R11).
+    private var chip: (text: String, symbol: String?)? {
+        if let text = locationStatusText { return (text, locationStatusSymbol) }
+        if let text = engineSound.chipText { return (text, engineSound.chipSymbol) }
+        return nil
     }
 
     private var locationStatusText: String? {
