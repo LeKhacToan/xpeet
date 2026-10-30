@@ -78,7 +78,7 @@ Every other requirement there stays in force, and those are cited below as "spee
 2. Inside the gauge:
    - The number at the centre.
    - The unit pill in the bottom opening.
-3. The status chip and, when denied, the "Open Settings" button, at the bottom edge.
+3. The status chip and, when denied, the "Open Settings" button, at the bottom edge. **Amended** by `specs/precise-location/spec.md` R5: "Open Settings" also shows when Precise Location is off.
 
 **Layout, landscape.** The gauge fits the height that is left above the status area. It stays centred.
 
@@ -87,7 +87,7 @@ Every other requirement there stays in force, and those are cited below as "spee
 | **Acquiring** | `--` (grey) | empty | `location.magnifyingglass` "Searching for GPS…" | none |
 | **Live** | speed (white) | filled to speed / max | none | none |
 | **Live, weak signal** | speed (white) | filled to speed / max | `exclamationmark.triangle` "Weak GPS signal" | none |
-| **Unavailable** | `--` (grey) | empty | `location.slash` + reason | "Open Settings" when denied |
+| **Unavailable** | `--` (grey) | empty | `location.slash` + reason | "Open Settings" when denied or Precise Location is off |
 
 **Unit switch.** Tap the pill. You feel a selection haptic, and the number, the pill and the arc switch to the other unit's scale at once, without animating.
 

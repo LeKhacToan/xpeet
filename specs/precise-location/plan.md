@@ -90,6 +90,13 @@ Each step: run `xcodegen generate` when a file is added, then `scripts/verify.sh
 ## Deviations
 - `preciseOffEndedAt` is set on any exit from `.preciseOff`, not only on `.authorized`. This is a superset of the spec's rule. It covers the path Precise off → denied → allowed with Precise on, where a cached rough fix would otherwise be accepted. With Precise never off it stays nil, so R12 holds.
 - `scripts/pull-drives.sh` gains a `DEST` override, so the R15 recording stays out of `build/drives/` and the accuracy report. The spec does not list this file.
+- **Built.**
+  - All the ViewModel tests live in `XpeetTests/SpeedometerViewModelTests+PreciseLocation.swift`, which is the File-length fallback. They are not spread over the main, +Trip and +Map files, and the test names are unchanged.
+  - Steps 2–5 went into one commit.
+- **Simulator check (step 6), 2026-10-31.**
+  - A throwaway patch forced `.reducedAccuracy`; it was reverted. Three screens were checked: iPhone SE (3rd gen) portrait on Minimal ring, iPhone 15 on Retro, and iPhone 15 in map mode.
+  - Each showed the chip "Precise Location is off" with `location.slash`, `--` with an empty gauge, "Open Settings" and a two-line hint. Retro showed the `sad` mascot. On SE the mascot was hidden, as accepted. The map showed the placeholder with no marker.
+  - The simulator's own Precise Location switch was not tried, so that open question is left to the device.
 - R8 with a due break reminder and R9 "break reminder unchanged" are proven in `specs/break-reminder` (`testLocationStatusesRankAboveTheReminder`, `testRoughFixesLeaveTheStretch`). The reminder does not exist yet in this PR.
 
 ## Risks

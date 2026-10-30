@@ -54,7 +54,7 @@ It supersedes these approved requirements (each earlier spec gets a note in the 
 
 - **R3** Blink. While the mood is `calm`, the badge swaps to `Mascot/blink` for about 0.15 s every random 3–6 s. Other moods do not blink, because the blink frame is calm's face. Blinking stops when the app is not active or Reduce Motion is on. It is a scheduled one-off, not a per-frame loop. *(manual)*
 
-- **R4** A seventh mood, `sad`, shows while the speedometer is **Unavailable** (denied, restricted or Location Services off). **Acquiring** still shows `searching`.
+- **R4** A seventh mood, `sad`, shows while the speedometer is **Unavailable** (denied, restricted or Location Services off). **Acquiring** still shows `searching`. **Amended** by `specs/precise-location/spec.md` R4, R7: `sad` also shows while Precise Location is off.
   - Leaving Unavailable for Acquiring returns to `searching` immediately.
   - The rest of the mood curve, debounce and braking are unchanged (speed-mascot R2–R6).
 
@@ -146,7 +146,7 @@ It supersedes these approved requirements (each earlier spec gets a note in the 
 
   *(unit: `GaugeFaceTests`)*
 
-- **R17** **Open Settings** (denied only):
+- **R17** **Open Settings** (denied only): **Amended** by `specs/precise-location/spec.md` R5: no longer denied-only, as it also shows while Precise Location is off, with a hint line that depends on the reason and may wrap to two lines.
   - a full-width (max 360 pt) rounded rectangle button (16 pt radius) under the gauge, filled with the accent and using the theme's button label colour;
   - a gear glyph beside the label;
   - one line below it: "Enable Location in Settings to see your speed", in the secondary text colour.
@@ -178,6 +178,7 @@ No new screens or flows. States, with references in `design/`:
 | Live, weak signal | "Weak GPS signal" | speed | per mood curve | |
 | Live, mic denied, no location status | mic chip, wrapped | speed | per mood curve | |
 | Unavailable, denied | "Location access is off" | `--` | `sad` | Open Settings with hint |
+| Unavailable, Precise Location off | "Precise Location is off" | `--` | `sad` (may hide on iPhone SE portrait) | Open Settings with "Turn on Precise Location under Location to see your speed" |
 | Unavailable, restricted / services off | reason text | `--` | `sad` | |
 
 Landscape keeps the gauge large on the trailing side, the badge on the leading side and the chip at the bottom (frame "landscape").

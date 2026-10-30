@@ -91,7 +91,7 @@ Changes to earlier specs (each gets a note when this ships):
     - the **status chip**: same content and position rules as gauge mode (top centre in portrait, bottom edge in landscape; ui-redesign R7);
     - the **trip line** (trip-stats R11, R13), which still opens the trip sheet;
     - the mode button (R1), the re-centre button (R8), the credit and the offline label (R13–R14);
-    - "Open Settings" when location is denied (speedometer R17).
+    - "Open Settings" when location is denied (speedometer R17). **Amended** by `specs/precise-location/spec.md` R5: also when Precise Location is off.
   - Not shown in map mode: the gauge, the mascot and the face button. To change face I switch back to the gauge.
   - Overlays never cover the credit, Apple's logo or the "Legal" link.
 
@@ -361,7 +361,7 @@ Changes to earlier specs (each gets a note when this ships):
 | **Live, following** | tiles, marker arrow, trail, zoom by speed, heading-up | n/a |
 | **Not following** (after a gesture) | map where I left it, re-centre button | n/a |
 | **Acquiring after a fix** | map kept, marker dimmed, trail breaks | n/a |
-| **Unavailable** (location off) | placeholder, chip, "Open Settings" if denied | sheet not reachable (trip-stats) |
+| **Unavailable** (location off) | placeholder, chip, "Open Settings" if denied or Precise Location is off | sheet not reachable (trip-stats) |
 | **Tiles failing** (error) | land colour where uncached, "Map offline" | same |
 | **Trip with no route** (empty) | n/a | "No route saved for this trip", no tiles |
 | **No earlier trips** (empty) | n/a | not reachable; list shows "No earlier trips", "Delete all trips" still deletes the current trip |
