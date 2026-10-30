@@ -17,9 +17,9 @@ Research: the researcher agent's findings, from 2026-10-20, are summarised under
   - It starts when the speed screen is active and the microphone is authorised.
   - It stops when the app leaves the active state, and resumes on return.
 
-  There is no background audio mode and no toggle. *(unit: the fake detector is started and stopped with `run()`. build: `project.yml` has no `UIBackgroundModes`)*
+  There is no background audio mode and no toggle. *(unit: the fake detector is started and stopped with `run()`. build: `project.yml` has no `UIBackgroundModes`)* **Amended** by `specs/engine-clip-toggle/spec.md` R4, R9: listening also needs the "Engine sounds" switch on, so "and no toggle" goes, while the lifecycle and "no background audio mode" stay.
 
-- **R2** Microphone permission is requested once, automatically. The request is made after the location permission is no longer "not determined", so the two system prompts never stack. It is never requested again after the user answers. *(unit: request order with fakes. manual: fresh install)*
+- **R2** Microphone permission is requested once, automatically. The request is made after the location permission is no longer "not determined", so the two system prompts never stack. It is never requested again after the user answers. *(unit: request order with fakes. manual: fresh install)* **Amended** by `specs/engine-clip-toggle/spec.md` R6: the automatic request also waits for the "Engine sounds" switch to be on, and is still made once, after location, and never again.
 
 - **R3** Detection uses Apple's built-in on-device sound classifier. A detection event fires when all of these hold:
   - One of the trigger labels (`engine_starting`, `engine_accelerating_revving`, `motorcycle`) has confidence ≥ 0.6.
@@ -43,7 +43,7 @@ Research: the researcher agent's findings, from 2026-10-20, are summarised under
 
   *(unit)*
 
-- **R7** Cooldown:
+- **R7** Cooldown: **Clarified** by `specs/engine-clip-toggle/spec.md` R5: a clip cut off by turning "Engine sounds" off has started, so it starts the cooldown, as a clip cut off by leaving the app does.
   - After a sound starts, no other sound plays for 60 s. The 60 s is a named constant measured with the injected clock.
   - Events during the cooldown are dropped.
   - A sound that fails to play does not start the cooldown.
@@ -61,7 +61,7 @@ Research: the researcher agent's findings, from 2026-10-20, are summarised under
   Volume follows the system volume. *(manual: device with music playing, with and without Bluetooth)*
 
 - **R10** Interruptions:
-  - A phone call or Siri stops listening. When the interruption ends and the app is active, listening resumes.
+  - A phone call or Siri stops listening. When the interruption ends and the app is active, listening resumes. **Amended** by `specs/engine-clip-toggle/spec.md` R4: listening resumes only if the "Engine sounds" switch is on.
   - A change of audio route (e.g. Bluetooth connects) does not crash the app. Listening continues or restarts.
 
   *(manual)*
@@ -69,11 +69,11 @@ Research: the researcher agent's findings, from 2026-10-20, are summarised under
 ### Permission and errors
 - **R11** Microphone denied or restricted:
   - The speedometer works exactly as before.
-  - When there is no location status to show, a chip shows `mic.slash` and "Microphone off: enable it in Settings to hear engine sounds". The location status chip (gauge R6) takes priority. **Amended** by `specs/break-reminder/spec.md` R10: the mic chip shows only when there is no location status and no break reminder.
+  - When there is no location status to show, a chip shows `mic.slash` and "Microphone off: enable it in Settings to hear engine sounds". The location status chip (gauge R6) takes priority. **Amended** by `specs/break-reminder/spec.md` R10: the mic chip shows only when there is no location status and no break reminder. **Amended** by `specs/engine-clip-toggle/spec.md` R7, R11: with "Engine sounds" on, the mic chip shows when there is no location status and no break reminder, and with it off the mic chip never shows.
 
   *(unit: chip text/priority. manual)*
 
-- **R12** If listening cannot start (no input device, the classifier fails, or the engine errors), the feature silently stays off for that session. The speedometer is unaffected and no error is shown. *(unit with a failing fake detector)*
+- **R12** If listening cannot start (no input device, the classifier fails, or the engine errors), the feature silently stays off for that session. The speedometer is unaffected and no error is shown. *(unit with a failing fake detector)* **Amended** by `specs/engine-clip-toggle/spec.md` R9: "for that session" now ends when "Engine sounds" is turned off and on again, which retries listening, and a repeat failure is silent again.
 
 ### Accessibility
 - **R13** The mic chip follows the existing chip rules:
@@ -101,7 +101,8 @@ Research: the researcher agent's findings, from 2026-10-20, are summarised under
 | Mic authorised, stopped, cooldown over | yes | yes | none |
 | Mic authorised, moving | yes | no | none |
 | Mic authorised, in cooldown or playing | yes | no | none |
-| Mic denied or restricted | no | no | mic chip, unless a location chip or the break reminder is showing |
+| Mic denied or restricted (with "Engine sounds" on) | no | no | mic chip, unless a location chip or the break reminder is showing |
+| Clips off (switch) | no | no | none |
 | Listening failed (R12) | no | no | none |
 | App in background | no | no | none |
 
@@ -133,7 +134,7 @@ There is no in-app "listening" indicator beyond the system mic indicator.
   Its inputs are injected (detector, player, clock, random source), all with production defaults. It reads "moving" from `SpeedometerViewModel.displayedSpeed`. The plan decides whether this is a new `Features/EngineSound/EngineSoundViewModel` fed by the speedometer, or part of `SpeedometerViewModel`.
 - **Resources:** `Xpeet/Resources/Sounds/ohayo.m4a`, `vroom.m4a`, plus `Xpeet/Resources/Sounds/SOUNDS-LICENSE.txt`. The licence file records the provenance (macOS `say` text-to-speech, voices Flo ja-JP / Boing, generated 2026-10-20, placeholder for a personal build only).
 - **Info.plist:** add `INFOPLIST_KEY_NSMicrophoneUsageDescription` in `project.yml` (target settings, next to the location string): "Xpeet listens for engine sounds to play a fun clip. Audio is analysed on your device and never recorded or sent anywhere."
-- **Persistence:** none.
+- **Persistence:** none. **Amended** by `specs/engine-clip-toggle/spec.md` R2: one `UserDefaults` key, `engineSound.enabled` (Bool), stores the "Engine sounds" switch.
 
 ## Non-functional
 - **Performance:**
@@ -150,7 +151,7 @@ There is no in-app "listening" indicator beyond the system mic indicator.
 - **Compatibility:** iOS 17 APIs only. SoundAnalysis and AVFAudio are system frameworks, so there is no third-party code.
 
 ## Out of scope
-- Importing your own sound files, a volume setting, choosing which sound plays, and an on/off toggle.
+- Importing your own sound files, a volume setting, choosing which sound plays, and ~~an on/off toggle~~ (now in `specs/engine-clip-toggle/spec.md`).
 - Background or screen-off listening, and CarPlay.
 - A custom-trained (Create ML) classifier, and a manual sensitivity setting.
 - Copyrighted meme or anime audio in the repo.
@@ -159,7 +160,7 @@ There is no in-app "listening" indicator beyond the system mic indicator.
 ## Flagged concerns
 - **Privacy: new permission (owner review per REVIEW.md):**
   - The microphone permission and usage string are added.
-  - The prompt is shown automatically at first launch rather than on a user action (R2). That goes against App Review 5.1.1's "request in context" guidance. It is accepted for a personal sideloaded build, but must be revisited before any distribution, with an opt-in toggle.
+  - The prompt is shown automatically at first launch rather than on a user action (R2). That goes against App Review 5.1.1's "request in context" guidance. It is accepted for a personal sideloaded build, but must be revisited before any distribution, with an opt-in toggle. **Amended** by `specs/engine-clip-toggle/spec.md` R1, R2: the switch now exists but is on by default, so an opt-in default stays a distribution question.
   - If the app is distributed, the privacy nutrition label is "Data Not Collected" for audio (on-device only).
 - **IP and licensing:**
   - The two sound files are generated with macOS text-to-speech. Apple's licence terms for redistributing system voices in an app are unclear, so they are placeholders for a personal build only (recorded in `SOUNDS-LICENSE.txt`).
@@ -185,10 +186,10 @@ Carried from the intent:
 - *Which sounds, one or several?* **Answered (owner):** two TTS placeholder files, chosen at random (R5).
 - *Detection labels and confidence?* **Answered (this spec, defaults):** R3. To be tuned on a device.
 - *Car hands-free mic?* **Still open:** built-in mic intended (R9). To be verified on a device.
-- *Import, volume setting, toggle?* **Deferred**, see Out of scope.
+- *Import, volume setting, toggle?* **Deferred**, see Out of scope. **Answered** by `specs/engine-clip-toggle/spec.md` R1, R2: the toggle is an "Engine sounds" switch in the gauge style sheet, on by default, while import and volume stay out of scope.
 - *Trigger only at app start vs. revving?* **Answered (owner):** listening runs while the app is open and active. A start or rev while stopped triggers it.
 - *Cooldown?* **Answered (owner):** 60 s (R7).
 - *Mute while moving?* **Answered (owner):** yes, no sound once the vehicle moves (R6).
 
 Raised by this spec:
-- *Should the mic-denied chip be permanent?* Since there is no toggle, a user who deliberately denies the mic sees the chip whenever there is no location status. Proposed: keep it for the MVP. The owner may choose to hide it instead.
+- *Should the mic-denied chip be permanent?* Since there is no toggle, a user who deliberately denies the mic sees the chip whenever there is no location status. Proposed: keep it for the MVP. The owner may choose to hide it instead. **Answered** by `specs/engine-clip-toggle/spec.md` R7, R11: the chip stays while "Engine sounds" is on, and turning the switch off hides it.
