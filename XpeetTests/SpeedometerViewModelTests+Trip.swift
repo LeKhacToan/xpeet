@@ -5,7 +5,7 @@ import XCTest
 /// SwiftLint's length limit; it shares that file's helpers.
 extension SpeedometerViewModelTests {
     /// Fixes one second apart at `kmh`, ticking between them as the live app does.
-    private func drive(_ viewModel: SpeedometerViewModel, clock: TestClock, seconds: Int, kmh: Double) {
+    func drive(_ viewModel: SpeedometerViewModel, clock: TestClock, seconds: Int, kmh: Double) {
         for _ in 0..<seconds {
             viewModel.handle(sample: sample(kmh: kmh, at: clock))
             clock.advance(by: 0.5)

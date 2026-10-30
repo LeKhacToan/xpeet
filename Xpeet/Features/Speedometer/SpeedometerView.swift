@@ -209,7 +209,8 @@ struct SpeedometerView: View {
     /// Frosted-glass status chip: accent dot, icon and wrapping text (specs/ui-redesign R7).
     var statusChip: StatusChip? {
         viewModel.statusText.map {
-            StatusChip(text: $0, symbol: viewModel.statusSymbol, theme: theme, isOpaque: viewModel.screenMode == .map)
+            StatusChip(text: $0, symbol: viewModel.statusSymbol, theme: theme, isOpaque: viewModel.screenMode == .map,
+                       accessibilityLabel: viewModel.statusAccessibilityLabel)
         }
     }
 
@@ -251,6 +252,8 @@ struct StatusChip: View {
     let theme: Theme
     /// Over the map the chip is opaque, so tiles never show behind the text (specs/osm-map R4).
     var isOpaque = false
+    /// Read instead of the text, e.g. the break reminder with its hours spelled out (specs/break-reminder R15).
+    var accessibilityLabel: String?
 
     var body: some View {
         HStack(spacing: 8) {
@@ -285,6 +288,7 @@ struct StatusChip: View {
             }
         }
         .accessibilityElement(children: .combine)
+        .accessibilityLabel(Text(accessibilityLabel ?? text))
     }
 }
 
@@ -298,7 +302,8 @@ private extension SpeedometerViewModel {
         kmh: Double? = nil,
         accuracy: Double = 0.5,
         tripMinutes: Int = 18,
-        mapMode: Bool = false
+        mapMode: Bool = false,
+        breakHours: Int? = nil
     ) -> SpeedometerViewModel {
         let defaults = UserDefaults(suiteName: "SpeedometerPreview-\(face.rawValue)") ?? .standard
         // A running trip, so the trip line shows real numbers (specs/trip-stats).
@@ -308,6 +313,10 @@ private extension SpeedometerViewModel {
             tracker.update(at: tripStart.addingTimeInterval(TimeInterval(second)), reading: .live(metersPerSecond: 11.5))
         }
         TripStore(defaults: defaults).save(tracker)
+        // Always written: the suite is shared per face. Times are the preview clock's (specs/break-reminder R11).
+        TripStore(defaults: defaults).save(breakHours.map {
+            DrivingStretch(startedAt: .distantPast, drivingTime: TimeInterval($0 * 3_600), lastMovementAt: .distantPast)
+        } ?? DrivingStretch())
         defaults.set(mapMode ? ScreenMode.map.rawValue : ScreenMode.gauge.rawValue, forKey: SpeedometerViewModel.screenModeDefaultsKey)
         // A synthetic position, so map mode has a marker (specs/osm-map).
         let samples = kmh.map {
@@ -420,6 +429,31 @@ private extension SpeedometerViewModel {
 
 #Preview("Denied, landscape", traits: .landscapeLeft) {
     SpeedometerView(viewModel: .preview(face: .analogSport, authorization: .denied))
+}
+
+#Preview("Break due") {
+    SpeedometerView(viewModel: .preview(kmh: 87, breakHours: 2))
+}
+
+#Preview("Break due, landscape", traits: .landscapeLeft) {
+    SpeedometerView(viewModel: .preview(face: .analogSport, kmh: 199, breakHours: 2))
+}
+
+#Preview("Break due, retro") {
+    SpeedometerView(viewModel: .preview(face: .retro, kmh: 64, breakHours: 3))
+}
+
+#Preview("Break due, map mode") {
+    SpeedometerView(viewModel: .preview(kmh: 72, mapMode: true, breakHours: 2))
+}
+
+#Preview("Break due, map mode, landscape", traits: .landscapeLeft) {
+    SpeedometerView(viewModel: .preview(face: .digitalHUD, kmh: 72, mapMode: true, breakHours: 2))
+}
+
+#Preview("Break due, largest text") {
+    SpeedometerView(viewModel: .preview(kmh: 87, breakHours: 2))
+        .environment(\.dynamicTypeSize, .accessibility5)
 }
 
 #Preview("Precise off") {

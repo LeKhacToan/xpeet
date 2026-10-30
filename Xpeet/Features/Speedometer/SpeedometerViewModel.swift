@@ -122,6 +122,11 @@ final class SpeedometerViewModel {
     @ObservationIgnored var lastTripUpdate: Date?
     private let tripStore: TripStore
     private let tripFormatter: TripFormatter
+    /// The driving stretch behind the break reminder (specs/break-reminder). Internal: `+Map.swift` clears it.
+    @ObservationIgnored var breakTracker: BreakTracker
+    /// Whole hours of drive time once a break is due, else nil. Assigned only when it changes (R8, R9).
+    private(set) var breakReminderHours: Int?
+    static let breakReminderSymbol = "cup.and.saucer"
 
     // MARK: Map (specs/osm-map; logic in SpeedometerViewModel+Map.swift)
 
@@ -192,6 +197,9 @@ final class SpeedometerViewModel {
         self.tripTracker = tripTracker
         self.tripFormatter = tripFormatter
         self.trip = tripFormatter.display(of: tripTracker, unit: unit, now: now(), showsLine: true)
+        let breakTracker = BreakTracker(stretch: tripStore.loadStretch())
+        self.breakTracker = breakTracker
+        self.breakReminderHours = breakTracker.reminderHours
         let face = defaults.string(forKey: Self.faceDefaultsKey).flatMap(GaugeFace.init(rawValue:))
             ?? GaugeFace.defaultFace
         self.face = face
@@ -231,11 +239,19 @@ final class SpeedometerViewModel {
 
     var statusSymbol: String? { chip?.symbol }
 
+    /// What VoiceOver reads for the chip when it differs from the text: the break reminder's hours spelled out
+    /// (specs/break-reminder R15). Nil for every other chip.
+    var statusAccessibilityLabel: String? { chip?.spoken }
+
     /// The one chip on screen: the first tier that applies (specs/precise-location R8). Location statuses, then
-    /// the break reminder (specs/break-reminder), then the mic chip (engine-sound R11).
-    private var chip: (text: String, symbol: String?)? {
-        if let text = locationStatusText { return (text, locationStatusSymbol) }
-        if let text = engineSound.chipText { return (text, engineSound.chipSymbol) }
+    /// the break reminder (specs/break-reminder R10), then the mic chip (engine-sound R11).
+    private var chip: (text: String, symbol: String?, spoken: String?)? {
+        if let text = locationStatusText { return (text, locationStatusSymbol, nil) }
+        if let hours = breakReminderHours {
+            return (tripFormatter.breakReminder(hours: hours), Self.breakReminderSymbol,
+                    tripFormatter.breakReminderSpoken(hours: hours))
+        }
+        if let text = engineSound.chipText { return (text, engineSound.chipSymbol, nil) }
         return nil
     }
 
@@ -288,6 +304,7 @@ final class SpeedometerViewModel {
             stopRecording(run)
             // Nothing is measured while the screen isn't running (trip-stats R1, R10).
             tripTracker.endRun(at: now())
+            breakTracker.endRun(at: now())
             routeRecorder.breakSegment()
             saveTrip()
         }
@@ -302,6 +319,9 @@ final class SpeedometerViewModel {
         }
         // After a long break this starts a new trip (trip-stats R6).
         tripTracker.beginRun(at: now())
+        // After 30 min without movement the driving stretch was a rest (specs/break-reminder R5).
+        breakTracker.beginRun(at: now())
+        refreshBreakReminder()
         // Each run starts a new route segment (osm-map R17).
         routeRecorder.breakSegment()
         saveTrip()
@@ -510,7 +530,16 @@ final class SpeedometerViewModel {
         }
         lastTripUpdate = now()
         tripTracker.update(at: now(), reading: reading)
+        // The same readings, at the same moments, as the trip (specs/break-reminder R1).
+        breakTracker.update(at: now(), reading: reading)
         refreshTrip()
+        refreshBreakReminder()
+    }
+
+    /// Internal for `SpeedometerViewModel+Map.swift`. Assigned only on change, so ticks never invalidate the view.
+    func refreshBreakReminder() {
+        let next = breakTracker.reminderHours
+        if next != breakReminderHours { breakReminderHours = next }
     }
 
     /// The line is hidden while location is off (trip-stats R11). Internal for `SpeedometerViewModel+Map.swift`.
@@ -524,6 +553,8 @@ final class SpeedometerViewModel {
     /// Internal for `SpeedometerViewModel+Map.swift`. The route is saved with the trip (osm-map R20).
     func saveTrip() {
         tripStore.save(tripTracker)
+        // Saved with the trip, at the same moments (specs/break-reminder R14).
+        tripStore.save(breakTracker.stretch)
         saveRoute()
         lastTripSave = now()
     }

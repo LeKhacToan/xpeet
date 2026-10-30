@@ -62,9 +62,13 @@ extension SpeedometerViewModel {
         refreshTrip()
     }
 
-    /// "Delete all trips": every trip, every route and the tile cache; a new empty trip begins (R25).
+    /// "Delete all trips": every trip, every route, the driving stretch and the tile cache; a new empty trip begins
+    /// (R25).
     func deleteAllTrips() {
         tripTracker.deleteAll()
+        // The driving stretch goes too (specs/break-reminder R7).
+        breakTracker.clear()
+        refreshBreakReminder()
         routeStore.removeAll()
         lastSavedRoute = nil
         routeRecorder.reset()
