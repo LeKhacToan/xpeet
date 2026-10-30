@@ -2,7 +2,7 @@ import SwiftUI
 
 struct SpeedometerView: View {
     static let faceButtonLabel = String(localized: "Gauge style")
-    static let faceButtonHint = String(localized: "Double-tap to choose a gauge face")
+    static let faceButtonHint = String(localized: "Double-tap for gauge faces and engine sounds")
 
     // Internal, not private: SpeedometerView+Map.swift lays out map mode with the same pieces (specs/osm-map).
     @State var viewModel: SpeedometerViewModel
@@ -31,7 +31,12 @@ struct SpeedometerView: View {
         .background(theme.backgroundGradient.ignoresSafeArea())
         .preferredColorScheme(theme.colorScheme)
         .sheet(isPresented: $showsFacePicker) {
-            FacePickerSheet(selected: viewModel.face, unit: viewModel.unit) { face in
+            FacePickerSheet(
+                selected: viewModel.face,
+                unit: viewModel.unit,
+                engineSoundsOn: viewModel.engineSoundsOn,
+                onEngineSoundsChange: { on in withoutAnimation { viewModel.setEngineSounds(on) } }
+            ) { face in
                 withoutAnimation { viewModel.select(face) }
             }
         }
@@ -303,7 +308,8 @@ private extension SpeedometerViewModel {
         accuracy: Double = 0.5,
         tripMinutes: Int = 18,
         mapMode: Bool = false,
-        breakHours: Int? = nil
+        breakHours: Int? = nil,
+        engineSounds: Bool = true
     ) -> SpeedometerViewModel {
         let defaults = UserDefaults(suiteName: "SpeedometerPreview-\(face.rawValue)") ?? .standard
         // A running trip, so the trip line shows real numbers (specs/trip-stats).
@@ -317,6 +323,7 @@ private extension SpeedometerViewModel {
         TripStore(defaults: defaults).save(breakHours.map {
             DrivingStretch(startedAt: .distantPast, drivingTime: TimeInterval($0 * 3_600), lastMovementAt: .distantPast)
         } ?? DrivingStretch())
+        defaults.set(engineSounds, forKey: SpeedometerViewModel.engineSoundsDefaultsKey)
         defaults.set(mapMode ? ScreenMode.map.rawValue : ScreenMode.gauge.rawValue, forKey: SpeedometerViewModel.screenModeDefaultsKey)
         // A synthetic position, so map mode has a marker (specs/osm-map).
         let samples = kmh.map {
@@ -397,6 +404,10 @@ private extension SpeedometerViewModel {
 
 #Preview("Mic off") {
     SpeedometerView(viewModel: .preview(mic: .denied, kmh: 42))
+}
+
+#Preview("Mic off, engine sounds off") {
+    SpeedometerView(viewModel: .preview(mic: .denied, kmh: 42, engineSounds: false))
 }
 
 #Preview("Weak signal") {

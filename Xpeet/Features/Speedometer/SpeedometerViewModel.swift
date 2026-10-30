@@ -93,6 +93,8 @@ final class SpeedometerViewModel {
     static let tickInterval: Duration = .milliseconds(500)
     static let unitDefaultsKey = "speedUnit"
     static let faceDefaultsKey = "gaugeFace"
+    /// The "Engine sounds" switch (specs/engine-clip-toggle R2).
+    static let engineSoundsDefaultsKey = "engineSound.enabled"
     /// The current trip is saved at most this often while running (trip-stats R10).
     static let tripSaveInterval: TimeInterval = 10
 
@@ -155,6 +157,8 @@ final class SpeedometerViewModel {
 
     /// Plays a sound on engine start while stopped (specs/engine-sound-clip). Shares this screen's lifecycle.
     let engineSound: EngineSoundViewModel
+    /// The "Engine sounds" switch in the gauge style sheet; on unless turned off (specs/engine-clip-toggle R2).
+    private(set) var engineSoundsOn: Bool
 
     private let provider: SpeedProvider
     private let motionProvider: MotionProvider
@@ -183,6 +187,7 @@ final class SpeedometerViewModel {
         self.motionProvider = motionProvider ?? CoreMotionProvider()
         self.estimator = SpeedEstimator(configuration: estimatorConfiguration)
         self.engineSound = engineSound ?? EngineSoundViewModel()
+        self.engineSoundsOn = Self.engineSoundsSetting(from: defaults.object(forKey: Self.engineSoundsDefaultsKey))
         self.defaults = defaults
         self.locale = locale
         self.now = now
@@ -213,6 +218,13 @@ final class SpeedometerViewModel {
         self.mapScene = MapScene()
         // No sound once the vehicle moves (R6). Read live when a detection fires; no reading counts as stopped.
         self.engineSound.isMoving = { [weak self] in (self?.displayedSpeed ?? 0) > 0 }
+        self.engineSound.handle(enabled: engineSoundsOn)
+    }
+
+    /// Only a stored Bool counts; nothing, or anything else, means on (specs/engine-clip-toggle R2).
+    nonisolated static func engineSoundsSetting(from stored: Any?) -> Bool {
+        guard let number = stored as? NSNumber, CFGetTypeID(number) == CFBooleanGetTypeID() else { return true }
+        return number.boolValue
     }
 
     // MARK: - Output
@@ -366,7 +378,7 @@ final class SpeedometerViewModel {
     }
 
     private func runEngineSound() async {
-        await engineSound.run()
+        await engineSound.runFollowingSwitch()
     }
 
     func handle(authorization: LocationAuthorization) {
@@ -496,6 +508,13 @@ final class SpeedometerViewModel {
         saveTrip()
         refreshTrip()
         refreshMapScene()
+    }
+
+    /// The "Engine sounds" switch. Saved at once; touches nothing but engine sound (specs/engine-clip-toggle R2-R4).
+    func setEngineSounds(_ on: Bool) {
+        engineSoundsOn = on
+        defaults.set(on, forKey: Self.engineSoundsDefaultsKey)
+        engineSound.handle(enabled: on)
     }
 
     /// Switches the gauge face. Speed, unit, state and filter are untouched.

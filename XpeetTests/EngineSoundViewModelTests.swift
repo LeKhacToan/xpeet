@@ -395,4 +395,165 @@ final class EngineSoundViewModelTests: XCTestCase {
         task.cancel()
         await task.value
     }
+
+    // MARK: - specs/engine-clip-toggle
+
+    func testDisabledHidesMicChip() {
+        let viewModel = makeViewModel()
+        viewModel.handle(micAuthorization: .denied)
+        XCTAssertNotNil(viewModel.chipText)
+
+        viewModel.handle(enabled: false)
+        XCTAssertNil(viewModel.chipText)
+        XCTAssertNil(viewModel.chipSymbol)
+    }
+
+    func testDisabledDoesNotRequestMic() {
+        detector = FakeSoundTriggerDetector(authorization: .notDetermined)
+        let viewModel = makeViewModel()
+        viewModel.handle(enabled: false)
+        viewModel.handle(micAuthorization: .notDetermined)
+        viewModel.handle(locationAuthorizationResolved: true)
+        XCTAssertEqual(detector.requestAuthorizationCount, 0)
+    }
+
+    func testEnablingRequestsDeferredMic() {
+        detector = FakeSoundTriggerDetector(authorization: .notDetermined)
+        let viewModel = makeViewModel()
+        viewModel.handle(enabled: false)
+        viewModel.handle(micAuthorization: .notDetermined)
+        viewModel.handle(locationAuthorizationResolved: true)
+
+        viewModel.handle(enabled: true)
+        XCTAssertEqual(detector.requestAuthorizationCount, 1)
+    }
+
+    func testDisablingEndsEventsWhileRunContinues() async {
+        let viewModel = makeViewModel()
+        let task = Task { await viewModel.runFollowingSwitch() }
+        await waitUntil { detector.eventSubscriberCount == 1 }
+
+        viewModel.handle(enabled: false)
+        await waitUntil { detector.eventSubscriberCount == 0 }
+        XCTAssertEqual(viewModel.phase, .idle)
+        try? await Task.sleep(for: .milliseconds(50))
+        XCTAssertEqual(detector.eventSubscriberCount, 0, "still off")
+
+        task.cancel()
+        await task.value
+    }
+
+    func testRunWhileDisabledNeverListens() async {
+        let viewModel = makeViewModel()
+        viewModel.handle(enabled: false)
+
+        let task = Task { await viewModel.runFollowingSwitch() }
+        try? await Task.sleep(for: .milliseconds(100))
+        XCTAssertEqual(detector.eventSubscriberCount, 0)
+        task.cancel()
+        await task.value
+
+        await viewModel.run()
+        XCTAssertEqual(detector.eventSubscriberCount, 0, "a direct run() is gated too")
+    }
+
+    func testEnablingListensAgainInSameRun() async {
+        let viewModel = makeViewModel()
+        let task = Task { await viewModel.runFollowingSwitch() }
+        await waitUntil { detector.eventSubscriberCount == 1 }
+
+        viewModel.handle(enabled: false)
+        await waitUntil { detector.eventSubscriberCount == 0 }
+        viewModel.handle(enabled: true)
+        await waitUntil { detector.eventSubscriberCount == 1 }
+        XCTAssertEqual(viewModel.phase, .listening)
+
+        task.cancel()
+        await task.value
+        await waitUntil { detector.eventSubscriberCount == 0 }
+    }
+
+    func testRapidToggleEndsWithNoSubscribers() async {
+        let viewModel = makeViewModel()
+        let task = Task { await viewModel.runFollowingSwitch() }
+        await waitUntil { detector.eventSubscriberCount == 1 }
+
+        viewModel.handle(enabled: false)
+        viewModel.handle(enabled: true)
+        viewModel.handle(enabled: false)
+        await waitUntil { detector.eventSubscriberCount == 0 }
+        try? await Task.sleep(for: .milliseconds(50))
+        XCTAssertEqual(detector.eventSubscriberCount, 0)
+
+        task.cancel()
+        await task.value
+    }
+
+    func testEnablingRetriesAfterFailure() async {
+        detector.failOnStart = true
+        let viewModel = makeViewModel()
+        let task = Task { await viewModel.runFollowingSwitch() }
+        await waitUntil { viewModel.phase == .failed }
+        XCTAssertNil(viewModel.chipText, "a failure stays silent")
+
+        detector.failOnStart = false
+        viewModel.handle(enabled: false)
+        viewModel.handle(enabled: true)
+        await waitUntil { viewModel.phase == .listening }
+        XCTAssertEqual(detector.eventSubscriberCount, 1)
+
+        task.cancel()
+        await task.value
+    }
+
+    func testEnablingWithMicDeniedShowsChipWithoutPrompt() async {
+        detector = FakeSoundTriggerDetector(authorization: .denied)
+        let viewModel = makeViewModel()
+        viewModel.handle(locationAuthorizationResolved: true)
+        viewModel.handle(enabled: false)
+        let task = Task { await viewModel.runFollowingSwitch() }
+
+        viewModel.handle(enabled: true)
+        await waitUntil { viewModel.chipText != nil }
+        XCTAssertEqual(detector.requestAuthorizationCount, 0)
+        XCTAssertEqual(detector.eventSubscriberCount, 0)
+
+        task.cancel()
+        await task.value
+    }
+
+    func testDisablingStopsClipAndCooldownStillApplies() async {
+        let viewModel = makeViewModel()
+        let task = Task { await viewModel.runFollowingSwitch() }
+        await waitUntil { detector.eventSubscriberCount == 1 }
+        detector.send(window(0.9))
+        detector.send(window(0.9))
+        await waitUntil { player.isPlaying }
+
+        viewModel.handle(enabled: false)
+        await waitUntil { player.cancelCount == 1 && !player.isPlaying }
+        await waitUntil { detector.eventSubscriberCount == 0 }
+
+        viewModel.handle(enabled: true)
+        await waitUntil { viewModel.phase == .listening }
+        clock.advance(by: 5)
+        XCTAssertNil(detect(viewModel), "the clip started, so its 60 s cooldown still runs")
+
+        task.cancel()
+        await task.value
+    }
+
+    func testTogglingDoesNotResetCooldown() {
+        let viewModel = makeListening()
+        XCTAssertNotNil(detect(viewModel))
+        viewModel.handlePlaybackFinished()
+
+        viewModel.handle(enabled: false)
+        viewModel.handle(enabled: true)
+        viewModel.handleListeningStarted()
+        clock.advance(by: 10)
+        XCTAssertNil(detect(viewModel))
+        clock.advance(by: 60)
+        XCTAssertNotNil(detect(viewModel))
+    }
 }

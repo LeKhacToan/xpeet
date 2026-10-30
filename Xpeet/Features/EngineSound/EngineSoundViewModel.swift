@@ -24,6 +24,8 @@ final class EngineSoundViewModel {
 
     private(set) var micAuthorization: MicAuthorization?
     private(set) var phase: Phase = .idle
+    /// The "Engine sounds" switch (specs/engine-clip-toggle). Off: no listening, no clip, no mic chip, no mic prompt.
+    private(set) var isEnabled = true
     /// True while the vehicle moves; set by the owner. Read only when a detection fires.
     var isMoving: @MainActor () -> Bool = { false }
 
@@ -34,6 +36,8 @@ final class EngineSoundViewModel {
 
     /// Counts `run()` calls, so the end of an older run cannot reset a newer one.
     private var runCount = 0
+    /// Running `runFollowingSwitch()` calls, told when the switch changes.
+    private var switchContinuations: [UUID: AsyncStream<Bool>.Continuation] = [:]
     private var locationResolved = false
     private var hasRequestedMic = false
     private var streak = 0
@@ -57,9 +61,11 @@ final class EngineSoundViewModel {
 
     // MARK: - Output
 
-    /// Shown in the status chip when there is no location status (R11).
+    /// Shown in the status chip when there is no higher chip (R11), and only while the switch is on
+    /// (specs/engine-clip-toggle R7).
     var chipText: String? {
-        micAuthorization == .denied ? String(localized: "Microphone off: enable it in Settings to hear engine sounds") : nil
+        guard isEnabled, micAuthorization == .denied else { return nil }
+        return String(localized: "Microphone off: enable it in Settings to hear engine sounds")
     }
 
     var chipSymbol: String? { chipText == nil ? nil : "mic.slash" }
@@ -75,7 +81,7 @@ final class EngineSoundViewModel {
             handle(micAuthorization: authorization)
             if authorization != .notDetermined { break }
         }
-        guard micAuthorization == .authorized, !Task.isCancelled else { return }
+        guard micAuthorization == .authorized, isEnabled, !Task.isCancelled else { return }
 
         handleListeningStarted()
         let events = detector.events()
@@ -95,6 +101,40 @@ final class EngineSoundViewModel {
                 }
             }
         }
+    }
+
+    /// Listens while the switch is on and stops while it is off, without ending, until cancelled
+    /// (specs/engine-clip-toggle R4, R9). Each change cancels the current listening run and waits for it, so the
+    /// mic and its session are released before a new run starts.
+    func runFollowingSwitch() async {
+        let (changes, continuation) = AsyncStream.makeStream(of: Bool.self, bufferingPolicy: .bufferingNewest(1))
+        let id = UUID()
+        switchContinuations[id] = continuation
+        continuation.yield(isEnabled)
+        var listening: Task<Void, Never>?
+        // Ends when the caller is cancelled.
+        for await enabled in changes {
+            if let task = listening {
+                task.cancel()
+                await task.value
+                listening = nil
+            }
+            if enabled { listening = Task { await self.run() } }
+        }
+        switchContinuations[id] = nil
+        if let listening {
+            listening.cancel()
+            await listening.value
+        }
+    }
+
+    /// The "Engine sounds" switch changed (specs/engine-clip-toggle). Turning it on may make the deferred mic request
+    /// (R6).
+    func handle(enabled: Bool) {
+        guard enabled != isEnabled else { return }
+        isEnabled = enabled
+        switchContinuations.values.forEach { $0.yield(enabled) }
+        requestMicIfReady()
     }
 
     /// Location permission has been answered; the mic prompt may follow without stacking on it (R2).
@@ -161,7 +201,7 @@ final class EngineSoundViewModel {
     // MARK: - Private
 
     private func requestMicIfReady() {
-        guard micAuthorization == .notDetermined, locationResolved, !hasRequestedMic else { return }
+        guard isEnabled, micAuthorization == .notDetermined, locationResolved, !hasRequestedMic else { return }
         hasRequestedMic = true
         detector.requestAuthorization()
     }

@@ -75,13 +75,36 @@ final class FakeSoundTriggerDetector: SoundTriggerDetector {
 @MainActor
 final class FakeSoundPlayer: SoundPlayer {
     private(set) var played: [SoundFile] = []
+    /// Plays cut off by task cancellation, as the real player stops when its task is cancelled.
+    private(set) var cancelCount = 0
     private var pending: CheckedContinuation<Void, Error>?
 
     var isPlaying: Bool { pending != nil }
 
     func play(_ file: SoundFile) async throws {
         played.append(file)
-        try await withCheckedThrowingContinuation { pending = $0 }
+        try await withTaskCancellationHandler(operation: {
+            try await self.waitForPlayback()
+        }, onCancel: {
+            Task { @MainActor in self.stopForCancellation() }
+        })
+    }
+
+    private func waitForPlayback() async throws {
+        try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
+            if Task.isCancelled {
+                cancelCount += 1
+                continuation.resume(throwing: CancellationError())
+            } else {
+                pending = continuation
+            }
+        }
+    }
+
+    private func stopForCancellation() {
+        guard pending != nil else { return }
+        cancelCount += 1
+        cancelPlayback()
     }
 
     func finishPlayback() {
