@@ -239,6 +239,7 @@ extension SpeedometerViewModelTests {
         let viewModel = dueViewModel(clock: clock, accuracy: 3)
         viewModel.engineSound.handle(micAuthorization: .denied)
         XCTAssertEqual(viewModel.statusText, "Weak GPS signal")
+        XCTAssertEqual(viewModel.breakReminderHours, 2, "due, but ranked below the location status")
 
         let cases: [(LocationAuthorization, String)] = [
             (.denied, "Location access is off"),
@@ -250,6 +251,7 @@ extension SpeedometerViewModelTests {
         for (authorization, text) in cases {
             viewModel.handle(authorization: authorization)
             XCTAssertEqual(viewModel.statusText, text, "\(authorization)")
+            XCTAssertEqual(viewModel.breakReminderHours, 2, "still due: \(authorization)")
             XCTAssertNotEqual(viewModel.statusSymbol, SpeedometerViewModel.breakReminderSymbol, "\(authorization)")
             XCTAssertNil(viewModel.statusAccessibilityLabel)
         }
@@ -364,18 +366,19 @@ extension SpeedometerViewModelTests {
         viewModel.handle(authorization: .authorized)
         viewModel.handle(sample: sample(kmh: 50, at: clock))
 
-        var changed = false
+        final class Flag: @unchecked Sendable { var isSet = false }
+        let changed = Flag()
         withObservationTracking {
             _ = viewModel.breakReminderHours
         } onChange: {
-            changed = true
+            changed.isSet = true
         }
         for _ in 0..<100 {
             clock.advance(by: 0.5)
             viewModel.tick()
         }
 
-        XCTAssertFalse(changed)
+        XCTAssertFalse(changed.isSet)
         XCTAssertEqual(viewModel.breakReminderHours, 2)
     }
 }

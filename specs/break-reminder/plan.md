@@ -90,7 +90,10 @@ Each step: run `xcodegen generate` when files are added, then `scripts/verify.sh
 - **Simulator check (step 6), 2026-10-31.**
   - A throwaway patch mapped negative speed and speed accuracy to valid values, and was reverted. The simulator drove a 15 m/s route, and a 2 h `trip.stretch` was seeded through `simctl spawn defaults write`.
   - iPhone SE (3rd gen), Retro, portrait, gauge mode: the chip showed `cup.and.saucer` and "2 h driving · time for a break". The text wrapped to two lines in the top row and nothing moved.
-  - Map mode and landscape weren't captured. On this machine the seeded `defaults` reached the app one launch late, a simulator prefs-cache quirk, so the seed didn't hold. The map uses the same `statusChip`, and previews cover map mode, landscape and AX5. The device run covers them too.
+  - The seeded `defaults` reach the app one launch late on this machine (a simulator prefs-cache quirk), so each seed is written, the app launched, then written and launched again.
+  - **Map mode (review follow-up).** iPhone SE, Digital HUD: the chip shows on its opaque card over the map and trail, with the speed card and trip line unchanged.
+  - **Still pending (device run).** Landscape, the largest text size and the Accessibility Inspector pass (R15: one element reading "2 hours driving, time for a break"). Simulator.app's window can't be driven from this machine's shell, so rotation and the Inspector aren't available here. The previews "Break due, landscape", "Break due, map mode, landscape" and "Break due, largest text" build. A long drive on the device is also still to come.
+- **Branch hygiene (review follow-up).** `specs/engine-clip-toggle/spec.md` was swept into the docs commit by mistake and is removed here. It belongs to `feat/engine-clip-toggle`.
 - **Proofs carried for precise-location.** precise-location R8 with a due reminder, and R9 "break reminder unchanged", are proven here: `testLocationStatusesRankAboveTheReminder` and `testRoughFixesLeaveTheStretch`.
 
 ## Risks
@@ -115,10 +118,10 @@ Each step: run `xcodegen generate` when files are added, then `scripts/verify.sh
 | R8 | `BreakTrackerTests.testReminderAtTwoHoursNotBefore`; `+Break.testReminderAppearsAtTwoHoursOfDriveTime`, `testReminderGoesAfterFifteenMinutesStopped`, `testDueStretchShowsAgainAfterRelaunch` |
 | R9 | `BreakTrackerTests.testReminderHoursRoundDown`; `TripFormatterTests.testBreakReminderText`; `+Break.testReminderTextAndSymbol` |
 | R10 | `+Break.testLocationStatusesRankAboveTheReminder` (including Precise Location off), `testReminderRanksAboveTheMicChip`, `testReminderShowsWhenTheLocationChipGoes`; "Engine sounds off" in engine-clip-toggle |
-| R11 | Manual: previews and the simulator check; existing contrast tests |
+| R11 | Partial: simulator check (SE portrait, gauge, Retro; SE map mode, HUD). Landscape, largest text and the device run are pending (Deviations). Existing contrast tests |
 | R12 | `+Break.testReminderChangesNothingElse`; review: no notifications, haptics or announcements |
 | R13 | `TripStoreTests.testStretchStoresTimesOnly`, `testClearedStretchIsSavedEmpty` |
 | R14 | `TripStoreTests.testStretchRoundTrip`, `testMissingStretchGivesEmptyStretch`, `testCorruptStretchKeepsTheTrip`, `testCorruptTripKeepsTheStretch`; `+Break.testStretchSavedWithTheTrip`, `testRelaunchWithinThirtyMinutesKeepsDriveTime` |
-| R15 | `TripFormatterTests.testBreakReminderSpokenLabel`; `+Break.testStatusAccessibilityLabel`; manual: Accessibility Inspector |
+| R15 | `TripFormatterTests.testBreakReminderSpokenLabel`; `+Break.testStatusAccessibilityLabel`; manual: Accessibility Inspector, pending on the device |
 | R16 | Review of the CLAUDE.md diff; `evals/run.sh` + `scripts/check-bands.sh` |
 | Non-functional | `+Break.testTicksDoNotInvalidateTheReminder` |
