@@ -79,13 +79,13 @@ No network. `APIClient` and `Core/Networking/` are removed because nothing uses 
 - **`SpeedProvider`** (protocol in `Core/Location`): an async stream of samples, the current authorization state (`notDetermined`, `authorized`, `denied`, `restricted`, `servicesOff`) with changes over time, and `requestAuthorization()`. **Amended** by `specs/precise-location/spec.md` R1, R10: the authorization values gain `authorizedApproximate`, and fixes passed on while Precise Location is off come as `approximateFix`.
 - **`CoreLocationSpeedProvider`**: the production implementation. It wraps `CLLocationUpdate.liveUpdates(.automotiveNavigation)` and maps each update to `SpeedSample`. It owns a `CLLocationManager` only for the When In Use request and authorization status. **Amended** by `specs/precise-location/spec.md` R1, R10: its manager also reads `accuracyAuthorization`.
 - **`SpeedometerViewModel`** (`@Observable`, `@MainActor`): its init takes the provider, `UserDefaults`, `Locale` and a clock (`() -> Date`), all with production defaults. It exposes `state`, `displayText`, `unit`, `toggleUnit()` and `func run() async`. `run()` is called from the View's `.task` and cancelled automatically when the view disappears or the app backgrounds.
-- **Persistence:** one `UserDefaults` key, `speedUnit` (`"kmh"` / `"mph"`). Nothing else is stored.
+- **Persistence:** one `UserDefaults` key, `speedUnit` (`"kmh"` / `"mph"`). Nothing else is stored. **Amended** by `specs/break-reminder/spec.md` R13: `trip.current` and `trip.history` (`specs/trip-stats/spec.md` R9) and the driving stretch's `trip.stretch` are stored too.
 - **Conversion:** use `Measurement<UnitSpeed>` from `.metersPerSecond` to `.kilometersPerHour` or `.milesPerHour`.
 - **Offline:** fully offline by design. GPS needs no network. **Amended** by `specs/osm-map/spec.md`: everything but map tiles still works offline.
 
 ## Non-functional
 - **Privacy:**
-  - Location is used only in memory to compute the current speed. It is never stored, logged or sent anywhere. **Amended** by `specs/osm-map/spec.md` R16-R20, R27: trip routes are stored on the device, and tile requests show the tile server the area being viewed. **Exception** (`specs/speed-accuracy/spec.md` R22): Debug builds launched with `-XpeetRecordDrives YES` record drives to the phone. **Exception** (`specs/trip-stats/spec.md` R9): trip totals and times are stored; positions never are.
+  - Location is used only in memory to compute the current speed. It is never stored, logged or sent anywhere. **Amended** by `specs/osm-map/spec.md` R16-R20, R27: trip routes are stored on the device, and tile requests show the tile server the area being viewed. **Exception** (`specs/speed-accuracy/spec.md` R22): Debug builds launched with `-XpeetRecordDrives YES` record drives to the phone. **Exception** (`specs/trip-stats/spec.md` R9): trip totals and times are stored; positions never are. **Exception** (`specs/break-reminder/spec.md` R13): the driving stretch's three times are stored on the device; positions never are.
   - Add `INFOPLIST_KEY_NSLocationWhenInUseUsageDescription` in `project.yml` with this string: "Xpeet uses your location only to show your current speed. It never leaves your device." **Amended** by `specs/trip-stats/spec.md`: "…to show your current speed and trip totals…". **Replaced** by `specs/osm-map/spec.md` R28.
   - No ATT, no analytics, no third-party code.
 - **Performance:**
@@ -98,7 +98,7 @@ No network. `APIClient` and `Core/Networking/` are removed because nothing uses 
 ## Out of scope
 - Background or locked-screen speed tracking, CarPlay, Live Activities and widgets.
 - ~~Arc gauge~~ (now in `specs/speedometer-gauge/spec.md`), ~~needle gauge~~ (now in `specs/gauge-themes/spec.md`), HUD mirror mode, ~~trip statistics~~ (now in `specs/trip-stats/spec.md`, except max speed, which stays out).
-- Speed-limit data, over-speed alerts, speed-based colours or sounds (the engine-start sound in `specs/engine-sound-clip/spec.md` is not speed-based: it only plays while stopped). **Exception** (`specs/speed-mascot/spec.md`): the mascot's expression follows speed; gauge colours still never do.
+- Speed-limit data, over-speed alerts, speed-based colours or sounds (the engine-start sound in `specs/engine-sound-clip/spec.md` is not speed-based: it only plays while stopped). **Exception** (`specs/speed-mascot/spec.md`): the mascot's expression follows speed; gauge colours still never do. **Amended** by `specs/break-reminder/spec.md` R3, R12: the break reminder is a time-based, silent status, not a speed alert.
 - Privacy-policy link, App Store metadata, privacy nutrition label (not distributed).
 - Settings screen (except the face picker sheet in `specs/gauge-themes/spec.md`), app version display, onboarding screens.
 - Units other than km/h and mph (e.g. knots, m/s).

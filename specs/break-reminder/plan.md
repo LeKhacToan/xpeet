@@ -87,6 +87,10 @@ Each step: run `xcodegen generate` when files are added, then `scripts/verify.sh
 
 ## Deviations
 - **Chip resolver.** The plan agent proposed `locationStatusText ?? breakReminderText ?? engineSound.chipText`. This plan follows the resolver from precise-location instead: one tier list, and the spoken label comes from the same place.
+- **Simulator check (step 6), 2026-10-31.**
+  - A throwaway patch mapped negative speed and speed accuracy to valid values, and was reverted. The simulator drove a 15 m/s route, and a 2 h `trip.stretch` was seeded through `simctl spawn defaults write`.
+  - iPhone SE (3rd gen), Retro, portrait, gauge mode: the chip showed `cup.and.saucer` and "2 h driving · time for a break". The text wrapped to two lines in the top row and nothing moved.
+  - Map mode and landscape weren't captured. On this machine the seeded `defaults` reached the app one launch late, a simulator prefs-cache quirk, so the seed didn't hold. The map uses the same `statusChip`, and previews cover map mode, landscape and AX5. The device run covers them too.
 - **Proofs carried for precise-location.** precise-location R8 with a due reminder, and R9 "break reminder unchanged", are proven here: `testLocationStatusesRankAboveTheReminder` and `testRoughFixesLeaveTheStretch`.
 
 ## Risks

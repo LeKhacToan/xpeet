@@ -284,7 +284,7 @@ Changes to earlier specs (each gets a note when this ships):
 
   *(unit: delete by id; manual)*
 
-- **R25** **Delete all trips.**
+- **R25** **Delete all trips.** **Amended** by `specs/break-reminder/spec.md` R7: confirming also clears the driving stretch; the dialog text and the button's enable rule are unchanged.
   - A "Delete all trips" button (destructive) sits under the history. It asks once: "Delete all trips?", with the message "All trips and their routes will be deleted from this iPhone. This can't be undone." and the buttons "Delete All Trips" and "Cancel".
   - Confirming deletes:
     - the history;
@@ -411,7 +411,7 @@ Changes to earlier specs (each gets a note when this ships):
   - Gauge mode adds only route recording (one distance check per fix) and a small file write every 10 s.
 - **Memory:** decoded tiles take up to 40 MB in memory per map (R34); the tile cache holds 150 MB on disk.
 - **Privacy:**
-  - **Stored on the device:** trip routes (R16–R20), protected while locked and kept out of backups, plus a tile cache that shows which areas were viewed. "Delete all trips" clears both (R25).
+  - **Stored on the device:** trip routes (R16–R20), protected while locked and kept out of backups, plus a tile cache that shows which areas were viewed. "Delete all trips" clears both (R25). **Amended** by `specs/break-reminder/spec.md` R7: it also clears the driving stretch.
   - **Sent off the device:** tile requests to tile.openstreetmap.org (OSMF and its CDN). They reveal the IP address and the tiles being viewed, about 300 m across at z17. OSMF logs them (OSMF Privacy Policy). Nothing else is sent.
   - **Usage string:** R28.
 - **Localization:** new strings:

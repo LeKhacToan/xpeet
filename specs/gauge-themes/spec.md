@@ -71,7 +71,7 @@ Every other requirement in both specs stays in force. They are cited below as "s
 
   The whole screen, including the status chip and the "Open Settings" button, uses the active face's palette. *(review; previews)*
 
-- **R7** No face changes colour with speed. There are no red or amber zones, no redline marking, no alerts, and no haptics or sounds tied to speed (gauge R3, now on every face). *(review)*
+- **R7** No face changes colour with speed. There are no red or amber zones, no redline marking, no alerts, and no haptics or sounds tied to speed (gauge R3, now on every face). *(review)* **Amended** by `specs/break-reminder/spec.md` R3, R12: the break reminder is a time-based, silent status, not a speed alert.
 
 - **R8** Contrast, checked per face against that face's own background (its lightest point for dark faces, its darkest point for Retro), must be at least:
 

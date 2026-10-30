@@ -69,7 +69,7 @@ Research: the researcher agent's findings, from 2026-10-20, are summarised under
 ### Permission and errors
 - **R11** Microphone denied or restricted:
   - The speedometer works exactly as before.
-  - When there is no location status to show, a chip shows `mic.slash` and "Microphone off: enable it in Settings to hear engine sounds". The location status chip (gauge R6) takes priority.
+  - When there is no location status to show, a chip shows `mic.slash` and "Microphone off: enable it in Settings to hear engine sounds". The location status chip (gauge R6) takes priority. **Amended** by `specs/break-reminder/spec.md` R10: the mic chip shows only when there is no location status and no break reminder.
 
   *(unit: chip text/priority. manual)*
 
@@ -101,7 +101,7 @@ Research: the researcher agent's findings, from 2026-10-20, are summarised under
 | Mic authorised, stopped, cooldown over | yes | yes | none |
 | Mic authorised, moving | yes | no | none |
 | Mic authorised, in cooldown or playing | yes | no | none |
-| Mic denied or restricted | no | no | mic chip, unless a location chip is showing |
+| Mic denied or restricted | no | no | mic chip, unless a location chip or the break reminder is showing |
 | Listening failed (R12) | no | no | none |
 | App in background | no | no | none |
 
