@@ -102,4 +102,16 @@ final class TripFormatterTests: XCTestCase {
             "142 kilometres, 1 hour 1 minute moving"
         )
     }
+
+    // MARK: - specs/break-reminder R9, R15
+
+    func testBreakReminderText() {
+        XCTAssertEqual(formatter.breakReminder(hours: 2), "2 h driving · time for a break")
+        XCTAssertEqual(formatter.breakReminder(hours: 3), "3 h driving · time for a break")
+    }
+
+    func testBreakReminderSpokenLabel() {
+        XCTAssertEqual(formatter.breakReminderSpoken(hours: 2), "2 hours driving, time for a break")
+        XCTAssertEqual(formatter.breakReminderSpoken(hours: 10), "10 hours driving, time for a break")
+    }
 }

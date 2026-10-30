@@ -1,6 +1,7 @@
 import Foundation
 
-/// Turns trip totals into the strings the line and the sheet show (specs/trip-stats R11, R14, R17).
+/// Turns trip totals into the strings the line and the sheet show (specs/trip-stats R11, R14, R17), and the break
+/// reminder's text (specs/break-reminder R9, R15).
 /// Pure: the locale and calendar (with its time zone) are injected, so tests are stable.
 struct TripFormatter {
     static let metersPerMile = 1_609.344
@@ -111,6 +112,18 @@ struct TripFormatter {
             isApproximate: trip.isApproximate,
             accessibilityLabel: spoken
         )
+    }
+
+    /// The break reminder chip: "2 h driving · time for a break" (specs/break-reminder R9).
+    func breakReminder(hours: Int) -> String {
+        String(localized: "\(hours) h driving · time for a break")
+    }
+
+    /// The reminder for VoiceOver, hours spelled out: "2 hours driving, time for a break" (specs/break-reminder R15).
+    func breakReminderSpoken(hours: Int) -> String {
+        let spoken = Measurement(value: Double(hours), unit: UnitDuration.hours)
+            .formatted(Measurement<UnitDuration>.FormatStyle(width: .wide, locale: locale))
+        return String(localized: "\(spoken) driving, time for a break")
     }
 
     private func spokenDistance(_ meters: Double, unit: SpeedUnit) -> String {

@@ -92,4 +92,55 @@ final class TripStoreTests: XCTestCase {
         XCTAssertEqual(loaded.history.count, 1)
         XCTAssertNotNil(loaded.history.first?.id)
     }
+
+    // MARK: - specs/break-reminder R13, R14
+
+    private var stretch: DrivingStretch {
+        DrivingStretch(startedAt: start, drivingTime: 3_600, lastMovementAt: start + 3_700)
+    }
+
+    func testStretchRoundTrip() {
+        TripStore(defaults: defaults).save(stretch)
+        XCTAssertEqual(TripStore(defaults: defaults).loadStretch(), stretch)
+    }
+
+    func testMissingStretchGivesEmptyStretch() {
+        XCTAssertEqual(TripStore(defaults: defaults).loadStretch(), DrivingStretch())
+    }
+
+    func testStretchStoresTimesOnly() throws {
+        TripStore(defaults: defaults).save(stretch)
+        let data = try XCTUnwrap(defaults.data(forKey: TripStore.stretchKey))
+        let object = try XCTUnwrap(JSONSerialization.jsonObject(with: data) as? [String: Any])
+        XCTAssertEqual(Set(object.keys), ["startedAt", "drivingTime", "lastMovementAt"])
+    }
+
+    func testClearedStretchIsSavedEmpty() throws {
+        TripStore(defaults: defaults).save(stretch)
+        TripStore(defaults: defaults).save(DrivingStretch())
+        let data = try XCTUnwrap(defaults.data(forKey: TripStore.stretchKey))
+        let object = try XCTUnwrap(JSONSerialization.jsonObject(with: data) as? [String: Any])
+        XCTAssertEqual(Set(object.keys), ["drivingTime"])
+        XCTAssertEqual(object["drivingTime"] as? Double, 0)
+    }
+
+    func testCorruptStretchKeepsTheTrip() {
+        let store = TripStore(defaults: defaults)
+        let saved = tracker(trips: 2)
+        store.save(saved)
+        defaults.set(Data("not json".utf8), forKey: TripStore.stretchKey)
+
+        XCTAssertEqual(store.loadStretch(), DrivingStretch())
+        XCTAssertEqual(store.load().current, saved.current)
+        XCTAssertEqual(store.load().history, saved.history)
+    }
+
+    func testCorruptTripKeepsTheStretch() {
+        let store = TripStore(defaults: defaults)
+        store.save(stretch)
+        defaults.set(Data("not json".utf8), forKey: TripStore.currentKey)
+
+        XCTAssertEqual(store.load(), TripTracker())
+        XCTAssertEqual(store.loadStretch(), stretch)
+    }
 }
