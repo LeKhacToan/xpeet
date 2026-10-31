@@ -159,6 +159,11 @@ final class SpeedometerViewModel {
     let engineSound: EngineSoundViewModel
     /// The "Engine sounds" switch in the gauge style sheet; on unless turned off (specs/engine-clip-toggle R2).
     private(set) var engineSoundsOn: Bool
+    /// The "Engine sounds" Focus filter (specs/engine-clip-toggle R15-R18); nil without one.
+    let focusFilter: FocusFilterProvider?
+    /// True while a Focus turns engine sounds off; nil until this run's first value arrives (R17). Internal, not
+    /// private: set by SpeedometerViewModel+Focus.swift.
+    var focusOverride: Bool? = false
 
     private let provider: SpeedProvider
     private let motionProvider: MotionProvider
@@ -180,7 +185,8 @@ final class SpeedometerViewModel {
         estimatorConfiguration: SpeedEstimator.Configuration = .launchDefault(),
         makeRecorder: @escaping () -> DriveLogging? = DriveLog.makeRecorder,
         routeStore: RouteStore = .standard,
-        tileFetcher: TileFetcher? = nil
+        tileFetcher: TileFetcher? = nil,
+        focusFilter: FocusFilterProvider? = AppIntentsFocusFilterProvider()
     ) {
         self.makeRecorder = makeRecorder
         self.provider = provider ?? CoreLocationSpeedProvider()
@@ -188,6 +194,7 @@ final class SpeedometerViewModel {
         self.estimator = SpeedEstimator(configuration: estimatorConfiguration)
         self.engineSound = engineSound ?? EngineSoundViewModel()
         self.engineSoundsOn = Self.engineSoundsSetting(from: defaults.object(forKey: Self.engineSoundsDefaultsKey))
+        self.focusFilter = focusFilter
         self.defaults = defaults
         self.locale = locale
         self.now = now
@@ -218,7 +225,7 @@ final class SpeedometerViewModel {
         self.mapScene = MapScene()
         // No sound once the vehicle moves (R6). Read live when a detection fires; no reading counts as stopped.
         self.engineSound.isMoving = { [weak self] in (self?.displayedSpeed ?? 0) > 0 }
-        self.engineSound.handle(enabled: engineSoundsOn)
+        self.engineSound.handle(enabled: engineSoundsEffective)
     }
 
     /// Only a stored Bool counts; nothing, or anything else, means on (specs/engine-clip-toggle R2).
@@ -339,6 +346,7 @@ final class SpeedometerViewModel {
         saveTrip()
         refreshTrip()
         refreshMapScene()
+        beginFocusRun()
 
         let authorizations = provider.authorizationUpdates()
         let samples = provider.speedUpdates()
@@ -370,6 +378,9 @@ final class SpeedometerViewModel {
             }
             group.addTask {
                 await self.runEngineSound()
+            }
+            group.addTask {
+                await self.runFocusFilter()
             }
             group.addTask {
                 for await status in tileStatuses { await self.handle(tileStatus: status) }
@@ -511,10 +522,12 @@ final class SpeedometerViewModel {
     }
 
     /// The "Engine sounds" switch. Saved at once; touches nothing but engine sound (specs/engine-clip-toggle R2-R4).
+    /// Turning it on may make a held mic request (R6, R16).
     func setEngineSounds(_ on: Bool) {
         engineSoundsOn = on
         defaults.set(on, forKey: Self.engineSoundsDefaultsKey)
-        engineSound.handle(enabled: on)
+        engineSound.handle(enabled: engineSoundsEffective)
+        if on { engineSound.releaseMicPrompt() }
     }
 
     /// Switches the gauge face. Speed, unit, state and filter are untouched.

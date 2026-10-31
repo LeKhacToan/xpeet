@@ -130,6 +130,11 @@ final class GaugeFaceTests: XCTestCase {
         XCTAssertEqual(FacePickerSheet.engineSoundsHint, "Plays a short clip when the engine starts. Off stops the microphone.")
     }
 
+    func testFocusOverrideHint() {
+        // specs/engine-clip-toggle R18.
+        XCTAssertEqual(FacePickerSheet.engineSoundsFocusHint, "Off while a Focus is on. Your choice applies again when it ends.")
+    }
+
     // MARK: - Picker sheet header (gauge-themes R8, R17)
 
     /// The sheet's `.ultraThinMaterial` behind the header, over each face. The material is system-drawn, so these are

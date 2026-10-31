@@ -40,6 +40,9 @@ final class EngineSoundViewModel {
     private var switchContinuations: [UUID: AsyncStream<Bool>.Continuation] = [:]
     private var locationResolved = false
     private var hasRequestedMic = false
+    /// Set when a Focus ends: the mic prompt waits for the next screen run or the user's own switch
+    /// (specs/engine-clip-toggle R16), so no system prompt appears without a tap.
+    private var micPromptHeld = false
     private var streak = 0
     private var lastWindowAt: Date?
     private var playStartedAt: Date?
@@ -138,6 +141,19 @@ final class EngineSoundViewModel {
         requestMicIfReady()
     }
 
+    /// A Focus override ended: listening may resume, but a mic still "not determined" isn't requested
+    /// (specs/engine-clip-toggle R16).
+    func holdMicPrompt() {
+        micPromptHeld = true
+    }
+
+    /// The speed screen started a new run, or the user turned the switch on: the held prompt may follow (R16).
+    func releaseMicPrompt() {
+        guard micPromptHeld else { return }
+        micPromptHeld = false
+        requestMicIfReady()
+    }
+
     /// Location permission has been answered; the mic prompt may follow without stacking on it (R2).
     func handle(locationAuthorizationResolved resolved: Bool) {
         if resolved { locationResolved = true }
@@ -202,7 +218,9 @@ final class EngineSoundViewModel {
     // MARK: - Private
 
     private func requestMicIfReady() {
-        guard isEnabled, micAuthorization == .notDetermined, locationResolved, !hasRequestedMic else { return }
+        guard isEnabled, !micPromptHeld, micAuthorization == .notDetermined, locationResolved, !hasRequestedMic else {
+            return
+        }
         hasRequestedMic = true
         detector.requestAuthorization()
     }

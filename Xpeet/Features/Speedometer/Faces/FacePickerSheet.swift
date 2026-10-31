@@ -1,15 +1,17 @@
 import SwiftUI
 
 /// Modal grid of face thumbnails. Tapping one switches the face at once; the sheet stays open. Below the grid, the
-/// "Engine sounds" switch (specs/engine-clip-toggle R1).
+/// "Engine sounds" switch (specs/engine-clip-toggle R1), off and disabled while a Focus turns engine sounds off (R18).
 struct FacePickerSheet: View {
     static let soundHeading = String(localized: "Sound")
     static let engineSoundsLabel = String(localized: "Engine sounds")
     static let engineSoundsHint = String(localized: "Plays a short clip when the engine starts. Off stops the microphone.")
+    static let engineSoundsFocusHint = String(localized: "Off while a Focus is on. Your choice applies again when it ends.")
 
     let selected: GaugeFace
     let unit: SpeedUnit
     let engineSoundsOn: Bool
+    let engineSoundsOffByFocus: Bool
     let onEngineSoundsChange: (Bool) -> Void
     let onSelect: (GaugeFace) -> Void
 
@@ -79,14 +81,20 @@ struct FacePickerSheet: View {
 
     /// A heading, a standard switch and its help line, which is also the switch's hint (R12).
     private var soundSection: some View {
-        VStack(alignment: .leading, spacing: 8) {
+        let hint = engineSoundsOffByFocus ? Self.engineSoundsFocusHint : Self.engineSoundsHint
+        return VStack(alignment: .leading, spacing: 8) {
             Text(Self.soundHeading)
                 .font(.headline)
                 .accessibilityAddTraits(.isHeader)
-            Toggle(Self.engineSoundsLabel, isOn: Binding(get: { engineSoundsOn }, set: onEngineSoundsChange))
-                .accessibilityHint(Self.engineSoundsHint)
+            // A Focus override shows the switch off without changing the stored choice (R18).
+            Toggle(
+                Self.engineSoundsLabel,
+                isOn: Binding(get: { engineSoundsOn && !engineSoundsOffByFocus }, set: onEngineSoundsChange)
+            )
+            .disabled(engineSoundsOffByFocus)
+            .accessibilityHint(hint)
             // `.primary`, not `.secondary`: `.secondary` measured 3.0:1 over Retro's light sheet (R12 needs 4.5:1).
-            Text(Self.engineSoundsHint)
+            Text(hint)
                 .font(.footnote)
                 .foregroundStyle(.primary)
                 .fixedSize(horizontal: false, vertical: true)
@@ -165,21 +173,24 @@ struct FacePickerSheet: View {
 #Preview("Picker") {
     Color.black
         .sheet(isPresented: .constant(true)) {
-            FacePickerSheet(selected: .analogSport, unit: .kmh, engineSoundsOn: true, onEngineSoundsChange: { _ in }) { _ in }
+            FacePickerSheet(selected: .analogSport, unit: .kmh, engineSoundsOn: true, engineSoundsOffByFocus: false,
+                            onEngineSoundsChange: { _ in }) { _ in }
         }
 }
 
 #Preview("Picker, engine sounds off") {
     Color.black
         .sheet(isPresented: .constant(true)) {
-            FacePickerSheet(selected: .retro, unit: .kmh, engineSoundsOn: false, onEngineSoundsChange: { _ in }) { _ in }
+            FacePickerSheet(selected: .retro, unit: .kmh, engineSoundsOn: false, engineSoundsOffByFocus: false,
+                            onEngineSoundsChange: { _ in }) { _ in }
         }
 }
 
 #Preview("Picker, largest text") {
     Color.black
         .sheet(isPresented: .constant(true)) {
-            FacePickerSheet(selected: .minimalRing, unit: .kmh, engineSoundsOn: true, onEngineSoundsChange: { _ in }) { _ in }
+            FacePickerSheet(selected: .minimalRing, unit: .kmh, engineSoundsOn: true, engineSoundsOffByFocus: false,
+                            onEngineSoundsChange: { _ in }) { _ in }
                 .environment(\.dynamicTypeSize, .accessibility3)
         }
 }
@@ -187,6 +198,16 @@ struct FacePickerSheet: View {
 #Preview("Picker, landscape", traits: .landscapeLeft) {
     Color.black
         .sheet(isPresented: .constant(true)) {
-            FacePickerSheet(selected: .digitalHUD, unit: .mph, engineSoundsOn: true, onEngineSoundsChange: { _ in }) { _ in }
+            FacePickerSheet(selected: .digitalHUD, unit: .mph, engineSoundsOn: true, engineSoundsOffByFocus: false,
+                            onEngineSoundsChange: { _ in }) { _ in }
+        }
+}
+
+#Preview("Picker, off by a Focus") {
+    Color.black
+        .sheet(isPresented: .constant(true)) {
+            FacePickerSheet(selected: .retro, unit: .kmh, engineSoundsOn: true, engineSoundsOffByFocus: true,
+                            onEngineSoundsChange: { _ in }) { _ in }
+                .environment(\.dynamicTypeSize, .accessibility3)
         }
 }

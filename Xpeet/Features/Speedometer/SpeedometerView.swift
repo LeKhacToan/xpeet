@@ -35,6 +35,7 @@ struct SpeedometerView: View {
                 selected: viewModel.face,
                 unit: viewModel.unit,
                 engineSoundsOn: viewModel.engineSoundsOn,
+                engineSoundsOffByFocus: viewModel.engineSoundsOffByFocus,
                 onEngineSoundsChange: { on in withoutAnimation { viewModel.setEngineSounds(on) } }
             ) { face in
                 withoutAnimation { viewModel.select(face) }
@@ -339,7 +340,8 @@ private extension SpeedometerViewModel {
             setIdleTimerDisabled: { _ in },
             engineSound: EngineSoundViewModel(detector: FakeSoundTriggerDetector(authorization: mic), player: FakeSoundPlayer()),
             routeStore: RouteStore(folder: FileManager.default.temporaryDirectory.appending(path: "PreviewRoutes")),
-            tileFetcher: FakeTileFetcher()
+            tileFetcher: FakeTileFetcher(),
+            focusFilter: nil
         )
         viewModel.select(face)
         return viewModel
