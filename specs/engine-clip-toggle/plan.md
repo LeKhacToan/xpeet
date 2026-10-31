@@ -108,6 +108,7 @@ Each step: `xcodegen generate` when files are added, then `scripts/verify.sh` wi
   - Accessibility Inspector's own contrast audit and a VoiceOver pass (R12).
 - **Part B.** Built in `feat/focus-filter` after the owner's decision (Deviations). The spike stays on `spike/focus-filter` (#18, closed unmerged).
 - **Simulator, Focus override (R18), 2026-10-31.** On iPhone SE, a throwaway patch forced `engineSoundsOffByFocus` and opened the sheet scrolled to Sound. It was reverted. On Retro and Digital HUD, the switch shows off and dimmed, and the line reads "Off while a Focus is on. Your choice applies again when it ends." On Retro it measures 15.3:1.
+- **Evals (R20), 2026-10-31.** After the CLAUDE.md `Core/Focus/` line, `evals/run.sh` on f381782 (run `20261031-083643`, with nothing else using the simulator) gave `evals: 3/3 passed`. `scripts/check-bands.sh` reported `eval_pass_rate: latest=1 baseline=0.875 ... drop=-0.774597σ`, which is no drop. `fix-zero-clamp` passed this time; its earlier failures came from runs that shared the simulator with other test runs.
 - **Still pending (device run, owner), Part B:**
   - gate (a): Settings › Focus › (a custom Focus) › Focus Filters › Add Filter lists Xpeet;
   - whether Driving and Sleep list it;
