@@ -1,9 +1,11 @@
 import Foundation
 
 /// Keeps the current trip and the history in `UserDefaults`, as JSON (specs/trip-stats R9-R10). Totals only.
+/// Also the driving stretch behind the break reminder, under its own key (specs/break-reminder R13, R14).
 struct TripStore {
     static let currentKey = "trip.current"
     static let historyKey = "trip.history"
+    static let stretchKey = "trip.stretch"
 
     let defaults: UserDefaults
 
@@ -22,6 +24,17 @@ struct TripStore {
               let history = try? encoder.encode(tracker.history) else { return }
         defaults.set(current, forKey: Self.currentKey)
         defaults.set(history, forKey: Self.historyKey)
+    }
+
+    /// The stored stretch. Missing or unreadable data gives an empty stretch; the trip keys are never touched.
+    func loadStretch() -> DrivingStretch {
+        defaults.data(forKey: Self.stretchKey).flatMap { try? Self.decoder.decode(DrivingStretch.self, from: $0) }
+            ?? DrivingStretch()
+    }
+
+    func save(_ stretch: DrivingStretch) {
+        guard let data = try? Self.encoder.encode(stretch) else { return }
+        defaults.set(data, forKey: Self.stretchKey)
     }
 
     private static var encoder: JSONEncoder {

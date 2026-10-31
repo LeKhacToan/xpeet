@@ -276,7 +276,7 @@ No new screens, controls or settings. The layout, faces, chip, unit pill and mas
 | State | Number | Status chip |
 |---|---|---|
 | **Acquiring** (loading): no fix yet, or a gap ran out (R18) | `--` | "Searching for GPS…" |
-| **Live** (success) | shown estimate (R14-R15) | hidden |
+| **Live** (success) | shown estimate (R14-R15) | hidden, or the break reminder when due (`specs/break-reminder/spec.md` R8) |
 | **Live, weak signal** (degraded): σ above 0.5 m/s, or a gap in progress | shown estimate | "Weak GPS signal" |
 | **Unavailable** (error) | `--` | reason (speedometer R17), unchanged |
 

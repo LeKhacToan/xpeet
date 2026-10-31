@@ -175,8 +175,9 @@ No new screens or flows. States, with references in `design/`:
 |---|---|---|---|---|
 | Acquiring | "Searching for GPS…" | `--` | `searching` | |
 | Live | none | speed | per mood curve | |
+| Live, break due | "N h driving · time for a break" (`specs/break-reminder/spec.md` R8–R9) | speed | per mood curve | |
 | Live, weak signal | "Weak GPS signal" | speed | per mood curve | |
-| Live, mic denied, no location status | mic chip, wrapped | speed | per mood curve | |
+| Live, mic denied, no location status and no break reminder | mic chip, wrapped | speed | per mood curve | |
 | Unavailable, denied | "Location access is off" | `--` | `sad` | Open Settings with hint |
 | Unavailable, Precise Location off | "Precise Location is off" | `--` | `sad` (may hide on iPhone SE portrait) | Open Settings with "Turn on Precise Location under Location to see your speed" |
 | Unavailable, restricted / services off | reason text | `--` | `sad` | |
@@ -216,7 +217,7 @@ Each of these can be a later intent:
   - GPS accuracy, lock percentage, latency and "Synced";
   - ~~trip distance~~ (now in `specs/trip-stats/spec.md`), peak or top speed, lateral G, altitude;
   - HUD mirror mode, volume slider, "Sport tune";
-  - the AI co-pilot text.
+  - the AI co-pilot text. **Amended** by `specs/break-reminder/spec.md` R9: the break reminder is one fixed status line, not the co-pilot bubble, which stays out.
 - The mood caption under the badge.
 - Per-face hair tints.
 - Blink frames for moods other than calm.

@@ -163,13 +163,13 @@ There is no loading state: storage is read synchronously at start.
   - exposes observed, already-formatted outputs: `tripLineText`, `tripLineAccessibilityValue`, and a `TripDetails` snapshot for the sheet (current trip + history in the current unit). They are assigned only when their text changes, so the screen is not invalidated on every tick;
   - `startNewTrip()` for the sheet's button.
 - **Formatting:** `Measurement<UnitLength>` / `Measurement<UnitSpeed>` with the injected `Locale`; times via `Duration` formatting or explicit "h"/"min" strings in a String Catalog-friendly form.
-- **Persistence:** `UserDefaults` keys `trip.current`, `trip.history` (JSON `Data`). Existing keys (`speedUnit`, `gaugeFace`) are unchanged.
+- **Persistence:** `UserDefaults` keys `trip.current`, `trip.history` (JSON `Data`). Existing keys (`speedUnit`, `gaugeFace`) are unchanged. **Amended** by `specs/break-reminder/spec.md` R13: a third key, `trip.stretch`, holds the driving stretch and is read and written by `TripStore`.
 - **Offline:** fully offline.
 
 ## Non-functional
 - **Performance:** the tracker does constant work per update (2 Hz ticks plus fixes, 10 Hz with fusion later); `UserDefaults` writes at most every 10 s (R10).
 - **Battery:** no extra sensors or timers; it reuses the existing tick.
-- **Privacy:** only trip totals and times are stored locally (R9). No location data, no network, no analytics. App data is included in the user's device backups like the existing settings.
+- **Privacy:** only trip totals and times are stored locally (R9). No location data, no network, no analytics. App data is included in the user's device backups like the existing settings. **Exception** (`specs/break-reminder/spec.md` R13): the driving stretch's times are also stored; positions never are.
 - **Localization:** new strings: "Trip", "Done", "New trip", "Current distance", "Earlier trips", "The trip starts when the car moves.", "Today", "Yesterday", "Distance", "Moving time", "Stopped time", "Total time", "Average speed", "Started %@", "Not started", "Approximate", "GPS was lost for part of this trip", "No earlier trips", "Double-tap for trip details", and the "h"/"min" time formats.
 
 ## Out of scope

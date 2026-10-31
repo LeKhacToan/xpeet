@@ -25,7 +25,7 @@ Every other requirement there stays in force, and those are cited below as "spee
   - The fraction uses the same rounded value as the number, so the arc and the number always agree.
 
   *(unit)*
-- **R3** The arc colour never depends on speed. It is one fixed pastel-green gradient, the same at every speed. There are no red or amber zones, no alerts, and no haptics or sounds tied to speed. *(review)*
+- **R3** The arc colour never depends on speed. It is one fixed pastel-green gradient, the same at every speed. There are no red or amber zones, no alerts, and no haptics or sounds tied to speed. *(review)* **Amended** by `specs/break-reminder/spec.md` R3, R12: the break reminder is a time-based, silent status, not a speed alert.
 
 ### Look
 - **R4** The screen always uses the dark appearance, whatever the system setting is. The background is a static near-black gradient with a subtle green tint: centre `#16231B`, edges `#0A0F0C`. It has no animation. *(manual, previews)*
@@ -43,6 +43,7 @@ Every other requirement there stays in force, and those are cited below as "spee
   | Acquiring | `location.magnifyingglass` |
   | Live, weak signal | `exclamationmark.triangle` |
   | Unavailable | `location.slash` |
+  | Break reminder | `cup.and.saucer` |
 
   When there is no status, there is no chip. The icon is decorative and hidden from VoiceOver. *(unit: icon per state; manual)*
 - **R7** The unit label is a capsule pill, tinted with the brand colour, in the opening at the bottom of the arc. It is still the unit toggle (speedometer R14) with a hit area of at least 44×44 pt. Tapping it plays a light selection haptic. *(manual)*
@@ -86,6 +87,7 @@ Every other requirement there stays in force, and those are cited below as "spee
 |---|---|---|---|---|
 | **Acquiring** | `--` (grey) | empty | `location.magnifyingglass` "Searching for GPS…" | none |
 | **Live** | speed (white) | filled to speed / max | none | none |
+| **Live, break due** | speed (white) | filled to speed / max | `cup.and.saucer` "N h driving · time for a break" (`specs/break-reminder/spec.md` R8–R9) | none |
 | **Live, weak signal** | speed (white) | filled to speed / max | `exclamationmark.triangle` "Weak GPS signal" | none |
 | **Unavailable** | `--` (grey) | empty | `location.slash` + reason | "Open Settings" when denied or Precise Location is off |
 
@@ -110,7 +112,7 @@ Every other requirement there stays in force, and those are cited below as "spee
 - Light mode.
 - Liquid Glass / `glassEffect` (iOS 26), `MeshGradient` (iOS 18).
 - Tick marks or scale labels on the gauge, a needle.
-- Speed-limit markers, speed-based colours, over-speed alerts.
+- Speed-limit markers, speed-based colours, over-speed alerts. **Amended** by `specs/break-reminder/spec.md` R3, R12: the break reminder is a time-based, silent status, not a speed alert.
 - Dark and tinted variants of the app icon (iOS 18+).
 
 ## Flagged concerns
