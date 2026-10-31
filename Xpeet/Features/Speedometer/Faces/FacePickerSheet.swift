@@ -53,16 +53,16 @@ struct FacePickerSheet: View {
         .sensoryFeedback(.selection, trigger: selected)
     }
 
-    /// The header's ink over the sheet's material: the subtitle is drawn at its opacity.
+    /// The header's ink over the sheet's material: the subtitle is drawn at its opacity. The face's own tokens, because
+    /// the system secondary label (3.0:1) and the asset accent (1.0:1) fade on Retro's light sheet (gauge-themes R8).
     static func headerInk(for theme: Theme) -> (subtitle: Theme.Overlay, done: UInt32) {
-        // The system secondary label and the asset accent colour.
-        let secondaryLabel: UInt32 = theme.colorScheme == .light ? 0x3C3C43 : 0xEBEBF5
-        return (Theme.Overlay(hex: secondaryLabel, opacity: 0.6), 0x9FE3B5)
+        (Theme.Overlay(hex: theme.secondaryText, opacity: 1), theme.accent)
     }
 
     /// Whether the title and subtitle scroll with the grid instead of staying pinned beside "Done".
+    /// At accessibility sizes a pinned header is squeezed at medium height and truncates (gauge-themes R17).
     static func headerScrolls(at size: DynamicTypeSize) -> Bool {
-        false
+        size.isAccessibilitySize
     }
 
     private var titles: some View {
