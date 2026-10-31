@@ -129,4 +129,32 @@ final class GaugeFaceTests: XCTestCase {
         XCTAssertEqual(FacePickerSheet.engineSoundsLabel, "Engine sounds")
         XCTAssertEqual(FacePickerSheet.engineSoundsHint, "Plays a short clip when the engine starts. Off stops the microphone.")
     }
+
+    // MARK: - Picker sheet header (gauge-themes R8, R17)
+
+    /// The sheet's `.ultraThinMaterial` behind the header, over each face. The material is system-drawn, so these are
+    /// measured from iPhone SE (3rd gen) simulator screenshots, iOS 17.5, 2026-10-31.
+    private static let sheetSurface: [GaugeFace: UInt32] = [
+        .minimalRing: 0x24262A,
+        .analogSport: 0x262729,
+        .digitalHUD: 0x202424,
+        .retro: 0xDBD7CA,
+    ]
+
+    func test_headerText_reachesContrast_onEveryFace() {
+        for face in GaugeFace.allCases {
+            guard let surface = Self.sheetSurface[face] else { return XCTFail("\(face) has no measured surface") }
+            let ink = FacePickerSheet.headerInk(for: face.theme)
+            let subtitle = Theme.blend(ink.subtitle.hex, over: surface, opacity: ink.subtitle.opacity)
+            XCTAssertGreaterThanOrEqual(Theme.contrastRatio(subtitle, surface), 4.5, "\(face) subtitle")
+            XCTAssertGreaterThanOrEqual(Theme.contrastRatio(ink.done, surface), 4.5, "\(face) Done")
+        }
+    }
+
+    func test_headerScrollsWithGrid_atAccessibilitySizes() {
+        // Pinned, the header is squeezed at medium height and truncates ("Gauge…", "Choose…").
+        for size in DynamicTypeSize.allCases {
+            XCTAssertEqual(FacePickerSheet.headerScrolls(at: size), size.isAccessibilitySize, "\(size)")
+        }
+    }
 }
