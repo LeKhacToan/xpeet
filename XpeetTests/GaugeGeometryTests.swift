@@ -30,7 +30,8 @@ final class GaugeGeometryTests: XCTestCase {
             defaults: UserDefaults(suiteName: "GaugeGeometryTests-\(UUID().uuidString)") ?? .standard,
             locale: Locale(identifier: "fr_FR"),
             setIdleTimerDisabled: { _ in },
-            engineSound: EngineSoundViewModel(detector: FakeSoundTriggerDetector(), player: FakeSoundPlayer())
+            engineSound: EngineSoundViewModel(detector: FakeSoundTriggerDetector(), player: FakeSoundPlayer()),
+            focusFilter: nil
         )
         XCTAssertEqual(GaugeGeometry.needleAngle(fraction: viewModel.gaugeFraction), -135)
     }
@@ -78,7 +79,8 @@ final class GaugeGeometryTests: XCTestCase {
             defaults: UserDefaults(suiteName: "GaugeGeometryTests-\(UUID().uuidString)") ?? .standard,
             locale: Locale(identifier: "fr_FR"),
             setIdleTimerDisabled: { _ in },
-            engineSound: EngineSoundViewModel(detector: FakeSoundTriggerDetector(), player: FakeSoundPlayer())
+            engineSound: EngineSoundViewModel(detector: FakeSoundTriggerDetector(), player: FakeSoundPlayer()),
+            focusFilter: nil
         )
         XCTAssertNil(viewModel.displayedSpeed)
         XCTAssertEqual(GaugeGeometry.litSegments(fraction: viewModel.gaugeFraction), 0)

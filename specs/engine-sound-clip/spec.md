@@ -61,7 +61,7 @@ Research: the researcher agent's findings, from 2026-10-20, are summarised under
   Volume follows the system volume. *(manual: device with music playing, with and without Bluetooth)*
 
 - **R10** Interruptions:
-  - A phone call or Siri stops listening. When the interruption ends and the app is active, listening resumes. **Amended** by `specs/engine-clip-toggle/spec.md` R4: listening resumes only if the "Engine sounds" switch is on.
+  - A phone call or Siri stops listening. When the interruption ends and the app is active, listening resumes. **Amended** by `specs/engine-clip-toggle/spec.md` R4, R16: listening resumes only if the "Engine sounds" switch is on and no Focus turns engine sounds off.
   - A change of audio route (e.g. Bluetooth connects) does not crash the app. Listening continues or restarts.
 
   *(manual)*

@@ -33,9 +33,11 @@ final class SpeedometerViewModelTests: XCTestCase {
         recorder: DriveLogging? = nil,
         configuration: SpeedEstimator.Configuration = .init(),
         routeStore: RouteStore? = nil,
-        tileFetcher: TileFetcher? = nil
+        tileFetcher: TileFetcher? = nil,
+        focus: FakeFocusFilterProvider? = nil
     ) -> SpeedometerViewModel {
-        // Always fakes: tests never touch the real microphone, motion sensors, network or app storage.
+        // Always fakes: tests never touch the real microphone, motion sensors, network, app storage or Focus.
+        // Without `focus` there is no Focus filter.
         SpeedometerViewModel(
             provider: provider ?? FakeSpeedProvider(),
             motionProvider: motion ?? FakeMotionProvider(),
@@ -51,7 +53,8 @@ final class SpeedometerViewModelTests: XCTestCase {
             estimatorConfiguration: configuration,
             makeRecorder: { recorder },
             routeStore: routeStore ?? makeRouteStore(),
-            tileFetcher: tileFetcher ?? FakeTileFetcher()
+            tileFetcher: tileFetcher ?? FakeTileFetcher(),
+            focusFilter: focus
         )
     }
 

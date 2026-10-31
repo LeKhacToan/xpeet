@@ -556,4 +556,30 @@ final class EngineSoundViewModelTests: XCTestCase {
         clock.advance(by: 60)
         XCTAssertNotNil(detect(viewModel))
     }
+
+    // MARK: - specs/engine-clip-toggle R16
+
+    func testHeldMicPromptWaitsForRelease() {
+        detector = FakeSoundTriggerDetector(authorization: .notDetermined)
+        let viewModel = makeViewModel()
+        viewModel.holdMicPrompt()
+        viewModel.handle(micAuthorization: .notDetermined)
+        viewModel.handle(locationAuthorizationResolved: true)
+        viewModel.handle(enabled: false)
+        viewModel.handle(enabled: true)
+        XCTAssertEqual(detector.requestAuthorizationCount, 0, "held through every path that would ask")
+
+        viewModel.releaseMicPrompt()
+        XCTAssertEqual(detector.requestAuthorizationCount, 1)
+    }
+
+    func testReleaseWithoutHoldAsksNothing() {
+        detector = FakeSoundTriggerDetector(authorization: .notDetermined)
+        let viewModel = makeViewModel()
+        viewModel.handle(enabled: false)
+        viewModel.handle(micAuthorization: .notDetermined)
+        viewModel.handle(locationAuthorizationResolved: true)
+        viewModel.releaseMicPrompt()
+        XCTAssertEqual(detector.requestAuthorizationCount, 0, "the switch is still off")
+    }
 }
