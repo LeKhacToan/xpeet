@@ -52,6 +52,11 @@ final class FakeSpeedProvider: SpeedProvider {
         sampleContinuations.values.forEach { $0.yield(.fix(sample)) }
     }
 
+    /// A fix as the provider passes it on while Precise Location is off.
+    func sendApproximate(_ sample: SpeedSample) {
+        sampleContinuations.values.forEach { $0.yield(.approximateFix(sample)) }
+    }
+
     func sendUnavailable() {
         sampleContinuations.values.forEach { $0.yield(.unavailable) }
     }

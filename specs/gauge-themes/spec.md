@@ -153,7 +153,7 @@ Every other requirement in both specs stays in force. They are cited below as "s
 | **Acquiring** | `--` (placeholder colour) | needle at 0 / ring empty / no segments lit |
 | **Live** | speed | filled to the fraction |
 | **Live, weak signal** | speed | filled to the fraction, plus the weak-signal chip |
-| **Unavailable** | `--` (placeholder colour) | needle at 0 / ring empty / no segments lit, plus the reason chip and "Open Settings" when denied |
+| **Unavailable** | `--` (placeholder colour) | needle at 0 / ring empty / no segments lit, plus the reason chip and "Open Settings" when denied or Precise Location is off |
 
 The picker has no loading, empty or error state: the four faces are built in and always available.
 

@@ -42,12 +42,16 @@ struct SpeedSample: Equatable, Codable, Sendable {
 /// What the location source reports: a fix, or (iOS 18+) that location is currently unavailable.
 enum LocationUpdate: Equatable, Sendable {
     case fix(SpeedSample)
+    /// A fix passed on while Precise Location was off: a rough position, never used (specs/precise-location R10).
+    case approximateFix(SpeedSample)
     case unavailable
 }
 
 enum LocationAuthorization: Equatable, Sendable {
     case notDetermined
     case authorized
+    /// Allowed, with Precise Location off (specs/precise-location R1).
+    case authorizedApproximate
     case denied
     case restricted
     case servicesOff

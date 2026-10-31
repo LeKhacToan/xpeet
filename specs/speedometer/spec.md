@@ -29,8 +29,8 @@
 
 ### Permission and errors
 - **R16** On first launch, with permission not determined, the app requests When In Use location permission. It never requests Always. *(manual: fresh simulator install)*
-- **R17** If permission is denied or restricted, or Location Services is off, the screen shows "--" with a short message saying why ("Location access is off" / "Location Services is off"). For the denied case it also shows an "Open Settings" button that opens the app's page in iOS Settings. This is state **Unavailable**. *(unit: state mapping; manual: the button)*
-- **R18** If permission is granted later (e.g. the user returns from Settings), the screen moves to Acquiring and then Live with no restart. *(unit: fake provider authorization change)*
+- **R17** If permission is denied or restricted, or Location Services is off, the screen shows "--" with a short message saying why ("Location access is off" / "Location Services is off"). For the denied case it also shows an "Open Settings" button that opens the app's page in iOS Settings. This is state **Unavailable**. *(unit: state mapping; manual: the button)* **Amended** by `specs/precise-location/spec.md` R4, R5: a fourth reason, "Precise Location is off", also shows "Open Settings", with a hint line that depends on the reason.
+- **R18** If permission is granted later (e.g. the user returns from Settings), the screen moves to Acquiring and then Live with no restart. *(unit: fake provider authorization change)* **Amended** by `specs/precise-location/spec.md` R6: the screen also recovers with no restart when Precise Location comes back on.
 
 ### Lifecycle
 - **R19** While the speed screen is visible and the app is active, the screen does not auto-lock. When the app leaves the active state, the idle timer is restored to its normal behaviour. *(manual; unit if the idle-timer switch is behind an injected closure)*
@@ -63,7 +63,7 @@ In landscape the number and unit stay centred. The number scales to the screen h
 | **Acquiring** (loading): no fix yet, fix older than 5 s, or permission just granted | `--` | "Searching for GPS…" | none |
 | **Live** (success) | filtered speed, e.g. `54` | hidden | none |
 | **Live, weak signal** (degraded): valid sample but speed accuracy > 2 m/s (~7 km/h). **Superseded** by `specs/speed-accuracy/spec.md` R20: estimate σ > 0.5 m/s, or a gap | filtered speed | "Weak GPS signal" | none |
-| **Unavailable** (error): denied, restricted or Location Services off | `--` | reason text (R17) | "Open Settings" button when denied |
+| **Unavailable** (error): denied, restricted, Location Services off or Precise Location off | `--` | reason text (R17) | "Open Settings" button when denied or Precise Location is off |
 
 There is no empty state. "No fix yet" is the Acquiring state.
 
@@ -76,8 +76,8 @@ There is no empty state. "No fix yet" is the Acquiring state.
 No network. `APIClient` and `Core/Networking/` are removed because nothing uses them. **Amended** by `specs/osm-map/spec.md` R10-R13: map tiles over HTTPS, in `Core/Map`, are the one exception.
 
 - **`SpeedSample`** (value type in `Core/Location`): `metersPerSecond: Double`, `accuracy: Double` (m/s, negative = invalid), `isStationary: Bool`, `timestamp: Date`.
-- **`SpeedProvider`** (protocol in `Core/Location`): an async stream of samples, the current authorization state (`notDetermined`, `authorized`, `denied`, `restricted`, `servicesOff`) with changes over time, and `requestAuthorization()`.
-- **`CoreLocationSpeedProvider`**: the production implementation. It wraps `CLLocationUpdate.liveUpdates(.automotiveNavigation)` and maps each update to `SpeedSample`. It owns a `CLLocationManager` only for the When In Use request and authorization status.
+- **`SpeedProvider`** (protocol in `Core/Location`): an async stream of samples, the current authorization state (`notDetermined`, `authorized`, `denied`, `restricted`, `servicesOff`) with changes over time, and `requestAuthorization()`. **Amended** by `specs/precise-location/spec.md` R1, R10: the authorization values gain `authorizedApproximate`, and fixes passed on while Precise Location is off come as `approximateFix`.
+- **`CoreLocationSpeedProvider`**: the production implementation. It wraps `CLLocationUpdate.liveUpdates(.automotiveNavigation)` and maps each update to `SpeedSample`. It owns a `CLLocationManager` only for the When In Use request and authorization status. **Amended** by `specs/precise-location/spec.md` R1, R10: its manager also reads `accuracyAuthorization`.
 - **`SpeedometerViewModel`** (`@Observable`, `@MainActor`): its init takes the provider, `UserDefaults`, `Locale` and a clock (`() -> Date`), all with production defaults. It exposes `state`, `displayText`, `unit`, `toggleUnit()` and `func run() async`. `run()` is called from the View's `.task` and cancelled automatically when the view disappears or the app backgrounds.
 - **Persistence:** one `UserDefaults` key, `speedUnit` (`"kmh"` / `"mph"`). Nothing else is stored.
 - **Conversion:** use `Measurement<UnitSpeed>` from `.metersPerSecond` to `.kilometersPerHour` or `.milesPerHour`.

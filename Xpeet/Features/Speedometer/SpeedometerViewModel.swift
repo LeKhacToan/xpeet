@@ -63,6 +63,8 @@ enum SpeedometerState: Equatable {
         case denied
         case restricted
         case servicesOff
+        /// Allowed, with Precise Location off (specs/precise-location R4).
+        case preciseOff
     }
 
     case acquiring
@@ -108,6 +110,9 @@ final class SpeedometerViewModel {
     /// The current run's drive recorder (Debug, opt-in), with a token so an ending run can't clear a newer one.
     @ObservationIgnored private var recorder: DriveLogging?
     @ObservationIgnored private var recorderRun: UUID?
+    /// When the state last left "Precise Location off". A fix taken before it may be a cached rough one
+    /// (specs/precise-location R6).
+    @ObservationIgnored private var preciseOffEndedAt: Date?
     /// The trip line and sheet (specs/trip-stats), already formatted. Assigned only when a string changes.
     private(set) var trip: TripDisplay
     /// Internal, not private: `SpeedometerViewModel+Map.swift` reads it.
@@ -222,13 +227,16 @@ final class SpeedometerViewModel {
         return unit.gaugeFraction(for: speed)
     }
 
-    /// Location status first; the mic-off hint only when there is none (engine-sound R11).
-    var statusText: String? {
-        locationStatusText ?? engineSound.chipText
-    }
+    var statusText: String? { chip?.text }
 
-    var statusSymbol: String? {
-        locationStatusText != nil ? locationStatusSymbol : engineSound.chipSymbol
+    var statusSymbol: String? { chip?.symbol }
+
+    /// The one chip on screen: the first tier that applies (specs/precise-location R8). Location statuses, then
+    /// the break reminder (specs/break-reminder), then the mic chip (engine-sound R11).
+    private var chip: (text: String, symbol: String?)? {
+        if let text = locationStatusText { return (text, locationStatusSymbol) }
+        if let text = engineSound.chipText { return (text, engineSound.chipSymbol) }
+        return nil
     }
 
     private var locationStatusText: String? {
@@ -237,6 +245,7 @@ final class SpeedometerViewModel {
         case .live(let weakSignal): weakSignal ? String(localized: "Weak GPS signal") : nil
         case .unavailable(.denied), .unavailable(.restricted): String(localized: "Location access is off")
         case .unavailable(.servicesOff): String(localized: "Location Services is off")
+        case .unavailable(.preciseOff): String(localized: "Precise Location is off")
         }
     }
 
@@ -249,7 +258,16 @@ final class SpeedometerViewModel {
         }
     }
 
-    var canOpenSettings: Bool { state == .unavailable(.denied) }
+    var canOpenSettings: Bool { openSettingsHint != nil }
+
+    /// The line under "Open Settings", which shows only with it (specs/precise-location R5).
+    var openSettingsHint: String? {
+        switch state {
+        case .unavailable(.denied): String(localized: "Enable Location in Settings to see your speed")
+        case .unavailable(.preciseOff): String(localized: "Turn on Precise Location under Location to see your speed")
+        default: nil
+        }
+    }
 
     var accessibilityLabel: String {
         guard let speed = displayedSpeed else { return String(localized: "No GPS signal") }
@@ -303,6 +321,7 @@ final class SpeedometerViewModel {
                 for await update in samples {
                     switch update {
                     case .fix(let sample): await self.handle(sample: sample)
+                    case .approximateFix(let sample): await self.handle(approximateFix: sample)
                     case .unavailable: await self.handleLocationUnavailable()
                     }
                 }
@@ -331,6 +350,9 @@ final class SpeedometerViewModel {
     }
 
     func handle(authorization: LocationAuthorization) {
+        // Any way out of "Precise Location off", not only back to allowed: a later fix may still be a rough one
+        // taken before (specs/precise-location R6).
+        if state == .unavailable(.preciseOff), authorization != .authorizedApproximate { preciseOffEndedAt = now() }
         switch authorization {
         case .notDetermined:
             if case .unavailable = state { mood = moodResolver.lost() }
@@ -341,6 +363,8 @@ final class SpeedometerViewModel {
                 state = .acquiring
                 mood = moodResolver.lost()
             }
+        case .authorizedApproximate:
+            becomeUnavailable(.preciseOff)
         case .denied:
             becomeUnavailable(.denied)
         case .restricted:
@@ -357,6 +381,7 @@ final class SpeedometerViewModel {
     func handle(sample: SpeedSample) {
         recorder?.record(.fix(sample, arrival: now()))
         if case .unavailable = state { return }
+        if let preciseOffEndedAt, sample.timestamp < preciseOffEndedAt { return }
         // The first update is often a cached fix. A moving fix that old is not the current speed; a stationary
         // one still is, because iOS reports stationary with the last known location while updates are paused.
         if !sample.isStationary, now().timeIntervalSince(sample.timestamp) > Self.staleInterval { return }
@@ -380,6 +405,12 @@ final class SpeedometerViewModel {
         let nextMood = moodResolver.sample(metersPerSecond: gpsOnly.metersPerSecond, timestamp: sample.timestamp, now: now())
         if nextMood != mood { mood = nextMood }
         recordShown()
+    }
+
+    /// A fix iOS sent while Precise Location was off: recorded, then dropped. It moves nothing, in any state
+    /// (specs/precise-location R9, R11).
+    func handle(approximateFix sample: SpeedSample) {
+        recorder?.record(.fix(sample, arrival: now()))
     }
 
     /// One batch of device motion (speed-accuracy R2). Fusion is not built yet, so nothing on screen changes.

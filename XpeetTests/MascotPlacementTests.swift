@@ -51,6 +51,12 @@ final class MascotPlacementTests: XCTestCase {
         XCTAssertNil(MascotPlacement.frame(in: CGSize(width: 343, height: 343 + 2 * 51)))
     }
 
+    func testIPhoneSEPreciseOffHintHidesMascot() {
+        // iPhone SE, Precise Location off: the hint wraps to two lines, about 17 pt more than denied's 459 pt
+        // container. 49.5 pt above the gauge is under the 44 pt floor plus the gap (specs/precise-location R14).
+        XCTAssertNil(MascotPlacement.frame(in: CGSize(width: 343, height: 442)))
+    }
+
     func testHiddenWhenNoRoom() {
         XCTAssertNil(MascotPlacement.frame(in: CGSize(width: 300, height: 320)), "10 pt above the gauge")
         XCTAssertNil(MascotPlacement.frame(in: CGSize(width: 340, height: 300)), "20 pt beside the gauge")

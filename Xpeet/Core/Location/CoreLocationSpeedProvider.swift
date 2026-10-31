@@ -24,6 +24,7 @@ final class CoreLocationSpeedProvider: NSObject, SpeedProvider {
 
     func speedUpdates() -> AsyncStream<LocationUpdate> {
         AsyncStream { continuation in
+            let manager = manager
             let task = Task {
                 // Not reset on restart: a replayed fix after a restart is still a duplicate.
                 var last: (timestamp: Date, isStationary: Bool)?
@@ -39,7 +40,7 @@ final class CoreLocationSpeedProvider: NSObject, SpeedProvider {
                             let isStationary = update.isDeviceStationary
                             if let last, location.timestamp <= last.timestamp, isStationary == last.isStationary { continue }
                             last = (location.timestamp, isStationary)
-                            continuation.yield(.fix(SpeedSample(
+                            let sample = SpeedSample(
                                 metersPerSecond: location.speed,
                                 accuracy: location.speedAccuracy,
                                 isStationary: isStationary,
@@ -49,7 +50,10 @@ final class CoreLocationSpeedProvider: NSObject, SpeedProvider {
                                 horizontalAccuracy: location.horizontalAccuracy,
                                 course: location.course,
                                 courseAccuracy: location.courseAccuracy
-                            )))
+                            )
+                            // Marked with the setting as it is now, so a rough fix is never used, even one that
+                            // arrives before the first authorization value (specs/precise-location R10).
+                            continuation.yield(Self.update(for: sample, accuracy: manager.accuracyAuthorization))
                         }
                     } catch {
                         // Meanwhile the ViewModel falls back to Acquiring once the last fix goes stale.
@@ -69,18 +73,34 @@ final class CoreLocationSpeedProvider: NSObject, SpeedProvider {
     private func publishAuthorization() async {
         // locationServicesEnabled() blocks, so keep it off the main actor.
         let servicesEnabled = await Task.detached { CLLocationManager.locationServicesEnabled() }.value
-        let authorization = servicesEnabled ? Self.authorization(from: manager.authorizationStatus) : .servicesOff
+        let authorization = Self.authorization(
+            servicesEnabled: servicesEnabled,
+            status: manager.authorizationStatus,
+            accuracy: manager.accuracyAuthorization
+        )
         authorizationContinuations.values.forEach { $0.yield(authorization) }
     }
 
-    private static func authorization(from status: CLAuthorizationStatus) -> LocationAuthorization {
+    /// Precise Location matters only once location is allowed (specs/precise-location R2).
+    nonisolated static func authorization(
+        servicesEnabled: Bool,
+        status: CLAuthorizationStatus,
+        accuracy: CLAccuracyAuthorization
+    ) -> LocationAuthorization {
+        guard servicesEnabled else { return .servicesOff }
         switch status {
-        case .notDetermined: .notDetermined
-        case .restricted: .restricted
-        case .denied: .denied
-        case .authorizedAlways, .authorizedWhenInUse: .authorized
-        @unknown default: .denied
+        case .notDetermined: return .notDetermined
+        case .restricted: return .restricted
+        case .denied: return .denied
+        case .authorizedAlways, .authorizedWhenInUse:
+            return accuracy == .reducedAccuracy ? .authorizedApproximate : .authorized
+        @unknown default: return .denied
         }
+    }
+
+    /// A fix passed on with Precise Location off is marked rough (specs/precise-location R10).
+    nonisolated static func update(for sample: SpeedSample, accuracy: CLAccuracyAuthorization) -> LocationUpdate {
+        accuracy == .reducedAccuracy ? .approximateFix(sample) : .fix(sample)
     }
 }
 

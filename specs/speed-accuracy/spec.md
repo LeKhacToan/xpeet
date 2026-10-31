@@ -24,7 +24,7 @@ Changes to earlier specs (each gets a "Superseded/Amended by" note when this shi
 ## Requirements
 
 ### Sources
-- **R1** **Location fixes carry more data.** The location provider passes on, for each fix:
+- **R1** **Location fixes carry more data.** The location provider passes on, for each fix: **Amended** by `specs/precise-location/spec.md` R10: the provider also passes on, per fix, whether Precise Location was on.
   - speed and speed accuracy;
   - coordinate and horizontal accuracy;
   - course and course accuracy;
@@ -190,7 +190,7 @@ Changes to earlier specs (each gets a "Superseded/Amended by" note when this shi
   - **Opt-in:** off unless the app is launched with `-XpeetRecordDrives YES`. My daily build is a Debug build, so recording is never on by default.
   - **When on:** each `run()` writes one JSON Lines file to `Documents/Drives/`. The file name starts with the start date and time, so names sort in time order. Lines:
     - a header: format version, device model, iOS version, rates and all estimator constants;
-    - one line per fix: every field in R1, plus arrival time and flags;
+    - one line per fix: every field in R1, plus arrival time and flags; **Exception** (`specs/precise-location/spec.md` R11): rough fixes are written as ordinary fix lines without the Precise Location mark; the format and `DriveHeader.formatVersion` are unchanged.
     - one line per motion sample;
     - one line per display refresh: shown value, state, source (fused or GPS-only), and both estimates with their σ.
   - **Retention:** only the 5 newest files are kept. Older ones are deleted when a recording with at least one fix closes, chosen by file name, not by file dates. A recording without any fix is deleted instead. The folder is excluded from backups. *(Clarified in review.)*
