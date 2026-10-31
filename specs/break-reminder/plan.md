@@ -92,7 +92,11 @@ Each step: run `xcodegen generate` when files are added, then `scripts/verify.sh
   - iPhone SE (3rd gen), Retro, portrait, gauge mode: the chip showed `cup.and.saucer` and "2 h driving · time for a break". The text wrapped to two lines in the top row and nothing moved.
   - The seeded `defaults` reach the app one launch late on this machine (a simulator prefs-cache quirk), so each seed is written, the app launched, then written and launched again.
   - **Map mode (review follow-up).** iPhone SE, Digital HUD: the chip shows on its opaque card over the map and trail, with the speed card and trip line unchanged.
-  - **Still pending (device run).** Landscape, the largest text size and the Accessibility Inspector pass (R15: one element reading "2 hours driving, time for a break"). Simulator.app's window can't be driven from this machine's shell, so rotation and the Inspector aren't available here. The previews "Break due, landscape", "Break due, map mode, landscape" and "Break due, largest text" build. A long drive on the device is also still to come.
+  - **Landscape and largest text (R11), 2026-10-31.** On iPhone SE, a second throwaway patch forced the break tier to the top of `chip` and rotated the scene with `requestGeometryUpdate`. It was reverted. Content size was set with `simctl ui content_size`.
+    - **Landscape, default size.** Retro gauge and Digital HUD map mode: the chip sits on the bottom edge, centred and on one line, clear of the gauge and the trip line.
+    - **Largest accessibility size, portrait.** Analog sport: the chip wraps to three lines in the top row with nothing truncated. The face and map buttons keep their places, and the mascot shrinks to fit.
+    - **Largest accessibility size, landscape.** Gauge and map mode: the chip stays on one line on the bottom edge. In map mode the face button overlaps the speed card's corner. That is the existing osm-map layout at this size and unrelated to the chip.
+  - **Still pending (device run).** The Accessibility Inspector pass (R15: one element reading "2 hours driving, time for a break"), and a long drive. Simulator.app's window can't be driven from this machine's shell, so the Inspector isn't available here.
 - **Branch hygiene (review follow-up).** `specs/engine-clip-toggle/spec.md` was swept into the docs commit by mistake and is removed here. It belongs to `feat/engine-clip-toggle`.
 - **Proofs carried for precise-location.** precise-location R8 with a due reminder, and R9 "break reminder unchanged", are proven here: `testLocationStatusesRankAboveTheReminder` and `testRoughFixesLeaveTheStretch`.
 
@@ -118,7 +122,7 @@ Each step: run `xcodegen generate` when files are added, then `scripts/verify.sh
 | R8 | `BreakTrackerTests.testReminderAtTwoHoursNotBefore`; `+Break.testReminderAppearsAtTwoHoursOfDriveTime`, `testReminderGoesAfterFifteenMinutesStopped`, `testDueStretchShowsAgainAfterRelaunch` |
 | R9 | `BreakTrackerTests.testReminderHoursRoundDown`; `TripFormatterTests.testBreakReminderText`; `+Break.testReminderTextAndSymbol` |
 | R10 | `+Break.testLocationStatusesRankAboveTheReminder` (including Precise Location off), `testReminderRanksAboveTheMicChip`, `testReminderShowsWhenTheLocationChipGoes`; "Engine sounds off" in engine-clip-toggle |
-| R11 | Partial: simulator check (SE portrait, gauge, Retro; SE map mode, HUD). Landscape, largest text and the device run are pending (Deviations). Existing contrast tests |
+| R11 | Simulator check on iPhone SE: portrait and landscape, gauge and map mode, default and largest text (Deviations). The device run is pending. Existing contrast tests |
 | R12 | `+Break.testReminderChangesNothingElse`; review: no notifications, haptics or announcements |
 | R13 | `TripStoreTests.testStretchStoresTimesOnly`, `testClearedStretchIsSavedEmpty` |
 | R14 | `TripStoreTests.testStretchRoundTrip`, `testMissingStretchGivesEmptyStretch`, `testCorruptStretchKeepsTheTrip`, `testCorruptTripKeepsTheStretch`; `+Break.testStretchSavedWithTheTrip`, `testRelaunchWithinThirtyMinutesKeepsDriveTime` |
