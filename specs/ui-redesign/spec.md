@@ -154,7 +154,7 @@ It supersedes these approved requirements (each earlier spec gets a note in the 
   The behaviour is unchanged. *(manual)*
 
 ### Picker sheet
-- **R18** The sheet has:
+- **R18** The sheet has: **Amended** by `specs/engine-clip-toggle/spec.md` R1: under the 2×2 grid it also has a "Sound" section with the "Engine sounds" switch and its help line.
   - the title "Gauge style", the subtitle "Choose your instrument cluster appearance" and "Done";
   - a 2×2 grid of rounded (16 pt) glass cards, each with a live mini gauge (as today) and the face name.
 
@@ -177,7 +177,7 @@ No new screens or flows. States, with references in `design/`:
 | Live | none | speed | per mood curve | |
 | Live, break due | "N h driving · time for a break" (`specs/break-reminder/spec.md` R8–R9) | speed | per mood curve | |
 | Live, weak signal | "Weak GPS signal" | speed | per mood curve | |
-| Live, mic denied, no location status and no break reminder | mic chip, wrapped | speed | per mood curve | |
+| Live, mic denied, no location status and no break reminder ("Engine sounds" on) | mic chip, wrapped | speed | per mood curve | |
 | Unavailable, denied | "Location access is off" | `--` | `sad` | Open Settings with hint |
 | Unavailable, Precise Location off | "Precise Location is off" | `--` | `sad` (may hide on iPhone SE portrait) | Open Settings with "Turn on Precise Location under Location to see your speed" |
 | Unavailable, restricted / services off | reason text | `--` | `sad` | |

@@ -119,6 +119,14 @@ final class GaugeFaceTests: XCTestCase {
 
     func testAccessibilityStrings() {
         XCTAssertEqual(SpeedometerView.faceButtonLabel, "Gauge style")
-        XCTAssertEqual(SpeedometerView.faceButtonHint, "Double-tap to choose a gauge face")
+        XCTAssertEqual(SpeedometerView.faceButtonHint, "Double-tap for gauge faces and engine sounds")
+    }
+
+    // MARK: - specs/engine-clip-toggle R1, R12
+
+    func testSoundSectionStrings() {
+        XCTAssertEqual(FacePickerSheet.soundHeading, "Sound")
+        XCTAssertEqual(FacePickerSheet.engineSoundsLabel, "Engine sounds")
+        XCTAssertEqual(FacePickerSheet.engineSoundsHint, "Plays a short clip when the engine starts. Off stops the microphone.")
     }
 }

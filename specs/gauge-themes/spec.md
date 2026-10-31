@@ -89,7 +89,7 @@ Every other requirement in both specs stays in force. They are cited below as "s
 ### Choosing a face
 - **R9** A face button (SF Symbol `paintpalette`) sits in the top-trailing corner of the speed screen in every face and every state. It has a hit area of at least 44×44 pt. Tapping it opens the picker sheet. *(manual)*
 
-- **R10** The picker sheet:
+- **R10** The picker sheet: **Amended** by `specs/engine-clip-toggle/spec.md` R1: under the grid it also holds a "Sound" section with the "Engine sounds" switch and its help line.
   - It has the title "Gauge style" and a "Done" button.
   - It shows one thumbnail per face (R1 order) in a grid. Each thumbnail renders that face at a fixed sample reading: 88 in the current unit, live, no status. It also shows the face's name.
   - It opens at medium height and can be dragged to large. It can be dismissed by swiping down or by tapping Done.
@@ -122,9 +122,9 @@ Every other requirement in both specs stays in force. They are cited below as "s
 
   *(manual: Freeway Drive, with Reduce Motion on and off)*
 
-- **R16** VoiceOver:
+- **R16** VoiceOver: **Amended** by `specs/engine-clip-toggle/spec.md` R12: it also covers the "Sound" heading (header trait) and the "Engine sounds" switch, read with its state and with the help line as its hint.
   - The dial, ticks, labels, needle and segments are decorative and hidden. The number stays the only speed element (speedometer R21, unchanged).
-  - The face button has the label "Gauge style" and the hint "Double-tap to choose a gauge face".
+  - The face button has the label "Gauge style" and the hint "Double-tap to choose a gauge face". **Amended** by `specs/engine-clip-toggle/spec.md` R13: the hint is now "Double-tap for gauge faces and engine sounds", and the label "Gauge style" stays.
   - Each thumbnail is one button labelled with the face name, with the Selected trait on the active face. Its rendered contents are hidden.
 
   *(unit: label strings. manual: Accessibility Inspector)*
@@ -132,7 +132,7 @@ Every other requirement in both specs stays in force. They are cited below as "s
 - **R17** Dynamic Type follows speedometer R22 and gauge R14 on every face:
   - The unit pill is capped at `accessibility2`.
   - Scale labels scale with the dial size, not Dynamic Type, so they never collide.
-  - The picker sheet's names and title follow Dynamic Type up to accessibility sizes. The grid drops to one column when needed.
+  - The picker sheet's names and title follow Dynamic Type up to accessibility sizes. The grid drops to one column when needed. **Amended** by `specs/engine-clip-toggle/spec.md` R12: the "Sound" heading, switch label and help line follow Dynamic Type the same way, wrapping and never truncated.
 
   *(manual: largest size, both orientations)*
 
@@ -190,7 +190,7 @@ On the next launch the same face is shown.
   - Static dial parts (ticks, labels, background) do not redraw per sample, only on a size or unit change.
   - No `TimelineView`, no shaders, no continuous animation.
 - **Privacy:** no change. No new data and no new permission. The `gaugeFace` key is covered by the existing `UserDefaults` required-reason note.
-- **Localization:** the new user-visible strings are written with `String(localized:)`/`Text("…")`:
+- **Localization:** the new user-visible strings are written with `String(localized:)`/`Text("…")`: **Amended** by `specs/engine-clip-toggle/spec.md` R1, R13: new strings "Sound", "Engine sounds" and "Plays a short clip when the engine starts. Off stops the microphone.", and the face button hint becomes "Double-tap for gauge faces and engine sounds".
   - the four face names
   - "Gauge style", "Done"
   - the face button hint
@@ -203,7 +203,7 @@ On the next launch the same face is shown.
 - Per-face or user-set gauge maximum. It stays 200 km/h / 130 mph.
 - ~~Custom fonts (e.g. 7-segment)~~ (bundled OFL fonts are now in scope: `specs/visual-polish/spec.md`), alternate app icons per theme, `MeshGradient`, Metal shaders, Liquid Glass.
 - Swipe-to-change faces, `TabView` paging.
-- Mascot and engine-sound settings in the sheet (their own specs).
+- Mascot and engine-sound settings in the sheet (their own specs). **Amended** by `specs/engine-clip-toggle/spec.md` R1: the "Engine sounds" switch is now in the sheet, and mascot settings stay out.
 
 ## Flagged concerns
 - **Driving safety (App Review 1.4.4/1.4.5, not binding):**

@@ -1,9 +1,16 @@
 import SwiftUI
 
-/// Modal grid of face thumbnails. Tapping one switches the face at once; the sheet stays open.
+/// Modal grid of face thumbnails. Tapping one switches the face at once; the sheet stays open. Below the grid, the
+/// "Engine sounds" switch (specs/engine-clip-toggle R1).
 struct FacePickerSheet: View {
+    static let soundHeading = String(localized: "Sound")
+    static let engineSoundsLabel = String(localized: "Engine sounds")
+    static let engineSoundsHint = String(localized: "Plays a short clip when the engine starts. Off stops the microphone.")
+
     let selected: GaugeFace
     let unit: SpeedUnit
+    let engineSoundsOn: Bool
+    let onEngineSoundsChange: (Bool) -> Void
     let onSelect: (GaugeFace) -> Void
 
     @Environment(\.dismiss) private var dismiss
@@ -33,10 +40,13 @@ struct FacePickerSheet: View {
             .padding()
 
             ScrollView {
-                LazyVGrid(columns: columns, spacing: 16) {
-                    ForEach(GaugeFace.allCases) { face in
-                        thumbnail(face)
+                VStack(spacing: 24) {
+                    LazyVGrid(columns: columns, spacing: 16) {
+                        ForEach(GaugeFace.allCases) { face in
+                            thumbnail(face)
+                        }
                     }
+                    soundSection
                 }
                 .padding([.horizontal, .bottom])
             }
@@ -45,6 +55,32 @@ struct FacePickerSheet: View {
         .presentationDragIndicator(.visible)
         .presentationBackground(.ultraThinMaterial)
         .sensoryFeedback(.selection, trigger: selected)
+    }
+
+    /// A heading, a standard switch and its help line, which is also the switch's hint (R12).
+    private var soundSection: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text(Self.soundHeading)
+                .font(.headline)
+                .accessibilityAddTraits(.isHeader)
+            Toggle(Self.engineSoundsLabel, isOn: Binding(get: { engineSoundsOn }, set: onEngineSoundsChange))
+                .accessibilityHint(Self.engineSoundsHint)
+            // `.primary`, not `.secondary`: `.secondary` measured 3.0:1 over Retro's light sheet (R12 needs 4.5:1).
+            Text(Self.engineSoundsHint)
+                .font(.footnote)
+                .foregroundStyle(.primary)
+                .fixedSize(horizontal: false, vertical: true)
+                .accessibilityHidden(true)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(14)
+        .background {
+            GlassBackground(
+                shape: RoundedRectangle(cornerRadius: 16, style: .continuous),
+                tint: .white.opacity(0.04),
+                colorScheme: colorScheme
+            )
+        }
     }
 
     private func thumbnail(_ face: GaugeFace) -> some View {
@@ -109,6 +145,28 @@ struct FacePickerSheet: View {
 #Preview("Picker") {
     Color.black
         .sheet(isPresented: .constant(true)) {
-            FacePickerSheet(selected: .analogSport, unit: .kmh) { _ in }
+            FacePickerSheet(selected: .analogSport, unit: .kmh, engineSoundsOn: true, onEngineSoundsChange: { _ in }) { _ in }
+        }
+}
+
+#Preview("Picker, engine sounds off") {
+    Color.black
+        .sheet(isPresented: .constant(true)) {
+            FacePickerSheet(selected: .retro, unit: .kmh, engineSoundsOn: false, onEngineSoundsChange: { _ in }) { _ in }
+        }
+}
+
+#Preview("Picker, largest text") {
+    Color.black
+        .sheet(isPresented: .constant(true)) {
+            FacePickerSheet(selected: .minimalRing, unit: .kmh, engineSoundsOn: true, onEngineSoundsChange: { _ in }) { _ in }
+                .environment(\.dynamicTypeSize, .accessibility3)
+        }
+}
+
+#Preview("Picker, landscape", traits: .landscapeLeft) {
+    Color.black
+        .sheet(isPresented: .constant(true)) {
+            FacePickerSheet(selected: .digitalHUD, unit: .mph, engineSoundsOn: true, onEngineSoundsChange: { _ in }) { _ in }
         }
 }

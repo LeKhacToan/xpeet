@@ -25,6 +25,8 @@ protocol SoundTriggerDetector: AnyObject {
     func requestAuthorization()
     /// One event per analysis window while iterated. Cancelling stops listening.
     /// The stream finishing on its own means listening failed (R12).
+    /// Read one stream at a time: a new stream starts listening only after the previous one has torn down
+    /// (specs/engine-clip-toggle R9).
     func events() -> AsyncStream<SoundTriggerEvent>
     /// Drop audio without stopping the engine, e.g. while a sound plays (R8).
     func pause()

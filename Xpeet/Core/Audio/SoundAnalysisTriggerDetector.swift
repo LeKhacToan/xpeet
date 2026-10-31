@@ -8,6 +8,9 @@ final class SoundAnalysisTriggerDetector: SoundTriggerDetector {
     private let labels: Set<String>
     private var authorizationContinuations: [UUID: AsyncStream<MicAuthorization>.Continuation] = [:]
     private var pipeline: AnalysisPipeline?
+    /// The latest listening task. A new one waits for it to finish, so an old teardown never deactivates the session
+    /// under a new engine (specs/engine-clip-toggle, off then on quickly).
+    private var listening: Task<Void, Never>?
 
     /// Only `labels` are scored; the decision to fire lives in `EngineSoundViewModel`.
     init(labels: Set<String>) {
@@ -35,13 +38,21 @@ final class SoundAnalysisTriggerDetector: SoundTriggerDetector {
 
     func events() -> AsyncStream<SoundTriggerEvent> {
         AsyncStream(bufferingPolicy: .bufferingNewest(8)) { continuation in
+            let previous = listening
             let task = Task { @MainActor in
+                await previous?.value
+                guard !Task.isCancelled else {
+                    continuation.finish()
+                    return
+                }
                 let pipeline = AnalysisPipeline(labels: self.labels, continuation: continuation)
                 self.pipeline = pipeline
                 defer {
                     pipeline.stop()
-                    AudioSession.deactivate()
-                    if self.pipeline === pipeline { self.pipeline = nil }
+                    if self.pipeline === pipeline {
+                        AudioSession.deactivate()
+                        self.pipeline = nil
+                    }
                     continuation.finish()
                 }
                 do {
@@ -74,6 +85,7 @@ final class SoundAnalysisTriggerDetector: SoundTriggerDetector {
                     }
                 }
             }
+            listening = task
             continuation.onTermination = { _ in task.cancel() }
         }
     }
