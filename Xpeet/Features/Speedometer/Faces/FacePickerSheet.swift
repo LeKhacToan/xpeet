@@ -23,24 +23,20 @@ struct FacePickerSheet: View {
     }
 
     var body: some View {
+        let headerScrolls = Self.headerScrolls(at: dynamicTypeSize)
         VStack(spacing: 0) {
             HStack(alignment: .firstTextBaseline) {
-                VStack(alignment: .leading, spacing: 4) {
-                    Text("Gauge style")
-                        .font(.title3.weight(.bold))
-                        .accessibilityAddTraits(.isHeader)
-                    Text("Choose your instrument cluster appearance")
-                        .font(.subheadline)
-                        .foregroundStyle(.secondary)
-                }
+                if !headerScrolls { titles }
                 Spacer()
                 Button("Done") { dismiss() }
                     .fontWeight(.semibold)
+                    .tint(Color(hex: Self.headerInk(for: selected.theme).done))
             }
             .padding()
 
             ScrollView {
-                VStack(spacing: 24) {
+                VStack(alignment: .leading, spacing: 24) {
+                    if headerScrolls { titles }
                     LazyVGrid(columns: columns, spacing: 16) {
                         ForEach(GaugeFace.allCases) { face in
                             thumbnail(face)
@@ -55,6 +51,30 @@ struct FacePickerSheet: View {
         .presentationDragIndicator(.visible)
         .presentationBackground(.ultraThinMaterial)
         .sensoryFeedback(.selection, trigger: selected)
+    }
+
+    /// The header's ink over the sheet's material: the subtitle is drawn at its opacity.
+    static func headerInk(for theme: Theme) -> (subtitle: Theme.Overlay, done: UInt32) {
+        // The system secondary label and the asset accent colour.
+        let secondaryLabel: UInt32 = theme.colorScheme == .light ? 0x3C3C43 : 0xEBEBF5
+        return (Theme.Overlay(hex: secondaryLabel, opacity: 0.6), 0x9FE3B5)
+    }
+
+    /// Whether the title and subtitle scroll with the grid instead of staying pinned beside "Done".
+    static func headerScrolls(at size: DynamicTypeSize) -> Bool {
+        false
+    }
+
+    private var titles: some View {
+        let subtitle = Self.headerInk(for: selected.theme).subtitle
+        return VStack(alignment: .leading, spacing: 4) {
+            Text("Gauge style")
+                .font(.title3.weight(.bold))
+                .accessibilityAddTraits(.isHeader)
+            Text("Choose your instrument cluster appearance")
+                .font(.subheadline)
+                .foregroundStyle(Color(hex: subtitle.hex).opacity(subtitle.opacity))
+        }
     }
 
     /// A heading, a standard switch and its help line, which is also the switch's hint (R12).
