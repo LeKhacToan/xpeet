@@ -285,13 +285,14 @@ Carried from the intent (proposals accepted by the owner, 2026-10-30; unverified
   - App Intents in the app target, no extension, the value read whenever the app becomes active, no background mode (R17);
   - a CLAUDE.md line (R20).
 
-  **Still open (device checks, settled in the R14 spike before the plan; the intent wanted them before the spec, see Flagged concerns):**
+  **Partly answered (2026-10-31):** `Metadata.appintents` is in the XcodeGen-built `.app` and lists the filter (gate b). The owner chose to build R15–R19 before the device check (plan.md Deviations), so the rest are checked on the device after install.
+
+  **Still open (device checks):**
   - Does a free-team build list Xpeet under Add Filter?
   - Do Driving and Sleep list it?
   - Is `perform()` ever delivered while Xpeet is not running, and does that launch the process in the background?
   - What does `current` return or throw with no active filter?
   - How long does reading `current` take when the app becomes active? Can it hang (R17)?
-  - Is `Metadata.appintents` in the XcodeGen-built `.app`?
   - Does the filter show up as a Shortcuts action, and can it be hidden there without also leaving Focus settings (R19)?
 - *Out of scope list?* **Answered (owner, 2026-10-30):** see Out of scope.
 - *Measurable targets?* **Still open (to be measured on a device):**

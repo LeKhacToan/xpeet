@@ -76,6 +76,12 @@ Each step: `xcodegen generate` when files are added, then `scripts/verify.sh` wi
 - **Help line uses `.primary` (R12).** `.secondary` measured 3.0:1 over Retro's light sheet, below 4.5:1, so the help line falls back to `.primary` as R12 allows. It stays apart from the switch label by its smaller footnote size.
 - **`runFollowingSwitch()` starts nothing once cancelled.** A change that arrives as the owner is cancelled doesn't start a short-lived `run()` (review nit).
 - **`SoundTriggerDetector.events()` documents one reader at a time.** The serialized teardown assumes it (review nit).
+- **Part B built without device gate (a) (owner decision, 2026-10-31).** Gate (b) passed on the spike: the `.app`'s `Metadata.appintents/extract.actionsdata` lists the filter with system protocol `com.apple.link.systemProtocol.FocusConfiguration`. The owner asked for the real filter instead of merging the spike (#18), so gate (a) and the device questions move to the device check after install. If iOS does not list the filter, nothing breaks: no Focus can turn it on, `current` throws, and that means no override.
+- **`current` read timeout.** The spike didn't measure the read, so `AppIntentsFocusFilterProvider.currentReadTimeout` (2 s) is added now, as R17 allows. After it, there is no override. The race uses unstructured tasks, because a task group would wait for a read that never returns.
+- **A `perform()` beats a slower `current` read.** If a `perform()` arrives while a stream's first read is still pending, the read's result is dropped as older.
+- **Production provider as the init default.** `SpeedometerViewModel(focusFilter:)` defaults to `AppIntentsFocusFilterProvider()`, like the other production defaults. `nil` means no Focus filter: the test helper passes it unless a test gives a `FakeFocusFilterProvider`, and so do the previews. Without a provider, nothing waits for a first value. Before the first `run()`, the override is "none", so the switch alone sets `isEnabled` at launch. Each `run()` then starts with it unknown (R17).
+- **The relay lives beside the intent.** `FocusFilterRelay` is in `EngineSoundsFocusFilter.swift`, so `perform()` touches only main-actor memory (R17).
+- **Mic prompt hold.** `EngineSoundViewModel.holdMicPrompt()` / `releaseMicPrompt()`. The hold is set when an override goes from on to off. It is released at the start of each `SpeedometerViewModel.run()`, after engine sound is gated on the unknown override, and when the user turns the switch on (R16). A release with no hold asks nothing, so runs without a provider behave as before.
 
 ## Checks
 - **Simulator, iPhone SE (3rd gen), iOS 17.5 (R1, R12).** Checked on 2026-10-31 with a throwaway patch that opens the sheet at launch, scrolls it and rotates the scene. The patch was reverted before commit.
@@ -98,7 +104,14 @@ Each step: `xcodegen generate` when files are added, then `scripts/verify.sh` wi
   - R8: a 10-minute screen-recorded session with the switch off, showing no orange dot.
   - R9 and R10: rapid toggles; listening resumes, and the cooldown holds.
   - Accessibility Inspector's own contrast audit and a VoiceOver pass (R12).
-- **Part B.** The R14 spike is installed on the owner's iPhone (`spike/focus-filter`) and waits for the gate (a) check. R15–R19 are not in this PR.
+- **Part B.** Built in `feat/focus-filter` after the owner's decision (Deviations). The spike stays on `spike/focus-filter` (#18, closed unmerged).
+- **Simulator, Focus override (R18), 2026-10-31.** On iPhone SE, a throwaway patch forced `engineSoundsOffByFocus` and opened the sheet scrolled to Sound. It was reverted. On Retro and Digital HUD, the switch shows off and dimmed, and the line reads "Off while a Focus is on. Your choice applies again when it ends." On Retro it measures 15.3:1.
+- **Still pending (device run, owner), Part B:**
+  - gate (a): Settings › Focus › (a custom Focus) › Focus Filters › Add Filter lists Xpeet;
+  - whether Driving and Sleep list it;
+  - a Focus with "Turn off engine sounds" on: the orange dot goes and the sheet shows the switch off and disabled with the Focus line. When it ends, listening resumes with no mic prompt;
+  - with Xpeet closed: switch the Focus on, open Xpeet, and nothing listens. While closed, the location arrow and the mic dot stay off;
+  - whether the filter shows as a Shortcuts action (R19).
 
 ## Risks
 - **Teardown race.** On a fast off→on, the old `AudioSession.deactivate()` could run after the new `activate()` and silently stop the new engine. Step 1 serializes them. The device check covers rapid toggles.
@@ -124,6 +137,10 @@ Each step: `xcodegen generate` when files are added, then `scripts/verify.sh` wi
 | R11 | `SpeedometerViewModelTests.testChipOrderWithEngineSoundsOnAndOff` |
 | R12 | `GaugeFaceTests.testSoundSectionStrings`; manual: largest size and contrast (simulator, see Checks); Accessibility Inspector and VoiceOver on the device (pending) |
 | R13 | `GaugeFaceTests.testAccessibilityStrings` |
-| R14 | spike results table in this plan (gates a and b) |
-| R15–R19 | Part B tests and device checks, or Dropped after R14 |
-| R20 | review of the older-spec notes; CLAUDE.md and evals only if Part B ships |
+| R14 | gate (b): `Metadata.appintents` lists the filter (Deviations). Gate (a): device, pending (owner decision to build first) |
+| R15 | build: `EngineSoundsFocusFilter` compiles in the app target and is in the metadata; manual: Settings shows the strings (device, pending) |
+| R16 | `SpeedometerViewModelTests.testFocusOverrideStopsListeningAndLeavesTheStoredSwitch`, `testFocusOverrideHidesTheMicChip`, `testSwitchOffStaysOffWhenTheFocusEnds`, `testFocusEndingDoesNotAskForTheMicUntilTheNextRun`, `testTurningTheSwitchOnAsksForAHeldMicPrompt`; `EngineSoundViewModelTests.testHeldMicPromptWaitsForRelease`, `testReleaseWithoutHoldAsksNothing` |
+| R17 | `FocusFilterOverrideTests` (value, thrown read, timed-out read); `SpeedometerViewModelTests.testNothingListensUntilTheRunsFirstFocusValue`, `testNoMicPromptUntilTheRunsFirstFocusValue`, `testEachRunWaitsForTheFocusValueAgain`; manual: device, app open and closed (pending) |
+| R18 | `GaugeFaceTests.testFocusOverrideHint`; `engineSoundsOffByFocus` in the R16 tests; preview "Picker, off by a Focus"; manual: device (pending) |
+| R19 | review: no `project.yml` change, and `Core/Focus/` holds no App Intents type but the filter |
+| R20 | review of the older-spec notes; CLAUDE.md `Core/Focus/` line; evals re-run |

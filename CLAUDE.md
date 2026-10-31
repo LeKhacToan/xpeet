@@ -31,6 +31,7 @@ Single-screen speedometer with a map mode: no tabs, no navigation; networking on
 - `Xpeet/Core/Map/` the only code that imports MapKit or uses `URLSession` (specs/osm-map):
   - `TileSource` (OSM tile URL, User-Agent), `TileFetcher` + `URLSessionTileFetcher` (own `TileCache`) + `FakeTileFetcher` (`#if DEBUG`);
   - `OSMTileOverlay`, `TileRenderer` + `TileGrid`, `TileImages` (memory, load queue, recolouring) + `TilePalette` (light style), `CameraMath`, and `MapCanvas` (`UIViewRepresentable` around `MKMapView`) + `MapMarkers`.
+- `Xpeet/Core/Focus/` the only code that imports AppIntents (specs/engine-clip-toggle R15-R17): `FocusFilterProvider` + pure `FocusFilterOverride`, `EngineSoundsFocusFilter` (the one `SetFocusFilterIntent`) + in-memory `FocusFilterRelay`, `AppIntentsFocusFilterProvider` (production), `FakeFocusFilterProvider` (`#if DEBUG`).
 - `Xpeet/Core/Recording/` drive recording (specs/speed-accuracy): `DriveEvent` in every build; `DriveRecorder` is `#if DEBUG` and off unless launched with `-XpeetRecordDrives YES`.
 - `Xpeet/Features/<Name>/` one folder per feature: `<Name>View.swift` + `<Name>ViewModel.swift`.
   - The ViewModel is `@Observable @MainActor`. Dependencies (provider, `UserDefaults`, `Locale`, clock) are injected through `init` with production defaults.
