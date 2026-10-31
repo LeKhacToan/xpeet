@@ -126,6 +126,8 @@ Changes to other specs (each gets a note in the implementation commit, as trip-s
   - (a) Xpeet is listed under Settings › Focus › (a custom Focus) › Focus Filters › Add Filter;
   - (b) the built `.app` contains `Metadata.appintents`.
 
+  **Amended** (owner, 2026-10-31): R15–R19 were built before gate (a), at the owner's request. Gate (b) passed. Gate (a) runs on the device after install, and if it fails, R15–R19 are dropped by amendment (plan.md Deviations).
+
   The spike also records the other device checks in Open questions. They are answers, not gates. Among them: whether Driving and Sleep list the filter (the intent's example is a custom "Passenger" Focus), and how long reading `current` takes (R17). If (a) or (b) fails, R15–R19 and R20's Focus line are dropped by a spec amendment, and R1–R13 ship alone. The owner may instead move R15–R19 to a follow-up amendment now (Flagged concerns). *(manual: device; build: inspect the bundle)*
 
 - **R15** **The filter.** One `SetFocusFilterIntent` type in the app target (not in a framework [R: WWDC22 10032]):

@@ -39,7 +39,8 @@ final class DriveReplayTests: XCTestCase {
             engineSound: EngineSoundViewModel(detector: FakeSoundTriggerDetector(), player: FakeSoundPlayer(), now: { clock.now }),
             makeRecorder: { spy },
             routeStore: RouteStore(folder: FileManager.default.temporaryDirectory.appending(path: "Routes-\(UUID().uuidString)")),
-            tileFetcher: FakeTileFetcher()
+            tileFetcher: FakeTileFetcher(),
+            focusFilter: nil
         )
         let task = Task { await viewModel.run() }
         await waitUntil { provider.speedSubscriberCount > 0 && motion.subscriberCount > 0 }
@@ -91,7 +92,8 @@ final class DriveReplayTests: XCTestCase {
             engineSound: EngineSoundViewModel(detector: FakeSoundTriggerDetector(), player: FakeSoundPlayer(), now: { clock.now }),
             makeRecorder: { nil },
             routeStore: RouteStore(folder: FileManager.default.temporaryDirectory.appending(path: "Routes-\(UUID().uuidString)")),
-            tileFetcher: FakeTileFetcher()
+            tileFetcher: FakeTileFetcher(),
+            focusFilter: nil
         )
         viewModel.handle(authorization: .authorized)
         for second in 0..<60 {

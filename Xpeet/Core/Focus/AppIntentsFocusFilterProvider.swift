@@ -6,49 +6,70 @@ import AppIntents
 final class AppIntentsFocusFilterProvider: FocusFilterProvider {
     /// A read of `current` that takes longer counts as no override. How long it takes is undocumented, and the R14
     /// spike didn't measure it.
-    static let currentReadTimeout: Duration = .seconds(2)
+    nonisolated static let currentReadTimeout: Duration = .seconds(2)
 
-    nonisolated init() {}
+    private let read: @Sendable @MainActor () async throws -> Bool
+    private let timeout: Duration
+    private let relay: FocusFilterRelay?
+
+    /// `read`, `timeout` and `relay` are for tests; `relay` nil means the shared one.
+    nonisolated init(
+        read: @escaping @Sendable @MainActor () async throws -> Bool = { try await EngineSoundsFocusFilter.current.turnOff },
+        timeout: Duration = currentReadTimeout,
+        relay: FocusFilterRelay? = nil
+    ) {
+        self.read = read
+        self.timeout = timeout
+        self.relay = relay
+    }
 
     func updates() -> AsyncStream<Bool> {
         let (stream, continuation) = AsyncStream.makeStream(of: Bool.self, bufferingPolicy: .bufferingNewest(1))
-        let relay = FocusFilterRelay.shared
+        let relay = relay ?? .shared
         let delivery = Delivery()
         let id = relay.add { turnOff in
             delivery.performed = true
             continuation.yield(turnOff)
         }
-        let read = Task { @MainActor in
-            let override = await Self.readCurrent()
+        let first = Task { @MainActor in
+            let override = await readCurrent()
             // A `perform()` that arrived meanwhile is newer than this read.
             if !delivery.performed { continuation.yield(override) }
         }
         continuation.onTermination = { _ in
-            read.cancel()
+            first.cancel()
             Task { @MainActor in relay.remove(id) }
         }
         return stream
     }
 
-    /// The filter's value now, or no override if the read throws or takes longer than `currentReadTimeout`.
-    private static func readCurrent() async -> Bool {
-        let timeout = currentReadTimeout
-        let read: Result<Bool, Error>? = await withCheckedContinuation { done in
-            let once = ResumeOnce(done)
-            Task { @MainActor in
-                do {
-                    once.resume(.success(try await EngineSoundsFocusFilter.current.turnOff))
-                } catch {
-                    once.resume(.failure(error))
-                }
+    /// The filter's value now, or no override if the read throws, takes longer than `timeout`, or is cancelled.
+    private func readCurrent() async -> Bool {
+        let once = ResumeOnce()
+        let read = read, timeout = timeout
+        let result: Result<Bool, Error>? = await withTaskCancellationHandler {
+            await withCheckedContinuation { done in
+                once.continuation = done
+                // Not a task group: a group would wait for a read that never returns. The loser is cancelled; a
+                // hung read stops only if AppIntents honours cancellation.
+                once.tasks = [
+                    Task { @MainActor in
+                        do {
+                            once.resume(.success(try await read()))
+                        } catch {
+                            once.resume(.failure(error))
+                        }
+                    },
+                    Task { @MainActor in
+                        try? await Task.sleep(for: timeout)
+                        once.resume(nil)
+                    },
+                ]
             }
-            // Not a task group: a group would wait for a read that never returns.
-            Task { @MainActor in
-                try? await Task.sleep(for: timeout)
-                once.resume(nil)
-            }
+        } onCancel: {
+            Task { @MainActor in once.resume(nil) }
         }
-        return FocusFilterOverride.from(read)
+        return FocusFilterOverride.from(result)
     }
 }
 
@@ -57,17 +78,16 @@ private final class Delivery {
     var performed = false
 }
 
-/// Resumes its continuation with the first value only.
+/// Resumes its continuation with the first value only, then cancels the racing tasks.
 @MainActor
 private final class ResumeOnce {
-    private var continuation: CheckedContinuation<Result<Bool, Error>?, Never>?
-
-    init(_ continuation: CheckedContinuation<Result<Bool, Error>?, Never>) {
-        self.continuation = continuation
-    }
+    var continuation: CheckedContinuation<Result<Bool, Error>?, Never>?
+    var tasks: [Task<Void, Never>] = []
 
     func resume(_ read: Result<Bool, Error>?) {
-        continuation?.resume(returning: read)
-        continuation = nil
+        guard let continuation else { return }
+        self.continuation = nil
+        continuation.resume(returning: read)
+        tasks.forEach { $0.cancel() }
     }
 }

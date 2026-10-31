@@ -102,7 +102,8 @@ enum DriveReplay {
             estimatorConfiguration: configuration,
             makeRecorder: { nil },
             routeStore: RouteStore(folder: FileManager.default.temporaryDirectory.appending(path: "Routes-\(UUID().uuidString)")),
-            tileFetcher: FakeTileFetcher()
+            tileFetcher: FakeTileFetcher(),
+            focusFilter: nil
         )
         viewModel.handle(authorization: .authorized)
         return viewModel
