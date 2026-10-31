@@ -84,6 +84,8 @@ Every other requirement in both specs stays in force. They are cited below as "s
   | "Open Settings" label | 4.5:1 |
   | Scale labels | 4.5:1 |
 
+  **Amended** (bug fix, 2026-10-31): the picker sheet's subtitle and "Done" reach 4.5:1 on the sheet's material over every face. They use the face's `secondaryText` and `accent`, because the system secondary label and the asset accent fade on Retro's light sheet. The material is system-drawn, so its colour per face is measured from simulator screenshots (`GaugeFaceTests.test_headerText_reachesContrast_onEveryFace`).
+
   *(unit: a pure WCAG contrast function run over every face's hex palette)*
 
 ### Choosing a face
@@ -132,7 +134,7 @@ Every other requirement in both specs stays in force. They are cited below as "s
 - **R17** Dynamic Type follows speedometer R22 and gauge R14 on every face:
   - The unit pill is capped at `accessibility2`.
   - Scale labels scale with the dial size, not Dynamic Type, so they never collide.
-  - The picker sheet's names and title follow Dynamic Type up to accessibility sizes. The grid drops to one column when needed. **Amended** by `specs/engine-clip-toggle/spec.md` R12: the "Sound" heading, switch label and help line follow Dynamic Type the same way, wrapping and never truncated.
+  - The picker sheet's names and title follow Dynamic Type up to accessibility sizes. The grid drops to one column when needed. **Amended** (bug fix, 2026-10-31): at accessibility sizes the title and subtitle scroll with the grid, with only "Done" pinned, so they wrap instead of truncating at medium height (`GaugeFaceTests.test_headerScrollsWithGrid_atAccessibilitySizes`). **Amended** by `specs/engine-clip-toggle/spec.md` R12: the "Sound" heading, switch label and help line follow Dynamic Type the same way, wrapping and never truncated.
 
   *(manual: largest size, both orientations)*
 
