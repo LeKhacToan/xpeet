@@ -134,7 +134,7 @@ Every other requirement in both specs stays in force. They are cited below as "s
 - **R17** Dynamic Type follows speedometer R22 and gauge R14 on every face:
   - The unit pill is capped at `accessibility2`.
   - Scale labels scale with the dial size, not Dynamic Type, so they never collide.
-  - The picker sheet's names and title follow Dynamic Type up to accessibility sizes. The grid drops to one column when needed. **Amended** (bug fix, 2026-10-31): at accessibility sizes the title and subtitle scroll with the grid, with only "Done" pinned, so they wrap instead of truncating at medium height (`GaugeFaceTests.test_headerScrollsWithGrid_atAccessibilitySizes`). **Amended** by `specs/engine-clip-toggle/spec.md` R12: the "Sound" heading, switch label and help line follow Dynamic Type the same way, wrapping and never truncated.
+  - The picker sheet's names and title follow Dynamic Type up to accessibility sizes. The grid drops to one column when needed. **Amended** (bug fix, 2026-10-31): at accessibility sizes the title and subtitle scroll with the grid, with only "Done" pinned, so they wrap instead of truncating at medium height. `GaugeFaceTests.test_headerScrollsWithGrid_atAccessibilitySizes` guards that choice; the wrapping itself is the manual check below (plan.md Checks). **Amended** by `specs/engine-clip-toggle/spec.md` R12: the "Sound" heading, switch label and help line follow Dynamic Type the same way, wrapping and never truncated.
 
   *(manual: largest size, both orientations)*
 

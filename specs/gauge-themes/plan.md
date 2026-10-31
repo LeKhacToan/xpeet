@@ -81,7 +81,7 @@ These are a starting point. Tune them until the R8 test passes.
 | R5 | manual: Retro preview under system light and dark; `GaugeFaceTests.testRetroIsLightOthersDark` |
 | R6 | review; previews (chip and button in each face) |
 | R7 | review |
-| R8 | `GaugeFaceTests.testContrastMeetsMinimumsForEveryFace` |
+| R8 | `GaugeFaceTests.testContrastMeetsMinimumsForEveryFace`, `test_headerText_reachesContrast_onEveryFace` (sheet header, 2026-10-31) |
 | R9, R10 | manual: button, sheet, detents, Done |
 | R11 | `SpeedometerViewModelTests.testSelectFaceUpdatesFace`; manual: haptic, no animation |
 | R12 | `SpeedometerViewModelTests.testChangingFaceKeepsSpeedUnitStateAndLabel`, `testChangingFaceDoesNotResetFilter` |
@@ -89,6 +89,15 @@ These are a starting point. Tune them until the R8 test passes.
 | R14 | manual: "199" landscape preview per face |
 | R15 | manual: Freeway Drive in Xcode with Reduce Motion on and off (`simctl location` delivers no speed, so it cannot test the Live state) |
 | R16 | `GaugeFaceTests.testAccessibilityStrings`; manual: Accessibility Inspector |
-| R17 | manual: largest Dynamic Type, both orientations |
+| R17 | manual: largest Dynamic Type, both orientations (sheet header re-checked 2026-10-31, see Checks); `test_headerScrollsWithGrid_atAccessibilitySizes` guards the layout choice only |
+
+## Checks
+- **Picker sheet header fix (2026-10-31), iPhone SE (3rd gen) simulator, iOS 17.5.** A throwaway patch opened the sheet at launch and rotated the scene, and was reverted before commit. Content size was set with `simctl ui content_size`.
+  - **Before.** At the largest accessibility size, medium height, the pinned header truncated to "Gauge…" and "Choose…". On Retro, the subtitle measured 3.05:1 and "Done" about 1.0:1.
+  - **After, largest accessibility size.**
+    - Retro, portrait, medium height: only "Done" stays pinned. "Gauge style" and the subtitle sit at the top of the scroll view and wrap over several lines, with no ellipsis.
+    - Digital HUD, landscape: the title is on one line and the subtitle wraps to two, with no ellipsis.
+  - **After, default size.** Retro and Digital HUD keep the same layout. The subtitle and "Done" take the face's `secondaryText` and `accent`. On Retro, the measured screenshot gives 5.85:1 for the subtitle and 6.80:1 for "Done". The test's model of the material gives 5.74:1 and 6.79:1.
+  - **Not checked.** Landscape left, and the Accessibility Inspector. The sheet's ink follows `selected.theme`, and so does the screen's `preferredColorScheme`, so picking a face with the sheet open changes both together.
 
 Run `scripts/verify.sh` for every step.
